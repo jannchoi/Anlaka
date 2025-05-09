@@ -28,6 +28,8 @@ struct LoginModel {
     var isLoginEnabled: Bool {
         isEmailValid && isPasswordValid
     }
+    var onNavigate: ((LoginRoute) -> Void)?
+    var onLoginSuccess: (() -> Void)?
 }
 
 enum LoginIntent {
@@ -64,7 +66,7 @@ final class LoginContainer: NSObject, ObservableObject {
             Task { await emailLogin() }
 
         case .signUpButtontTapped:
-            model.goToSignUpView = true
+            model.onNavigate?(.signUp)
 
         case .handleAppleLogin(let result):
             Task { await handleAppleLogin(result) }
@@ -119,6 +121,7 @@ final class LoginContainer: NSObject, ObservableObject {
         let deviceToken = UserDefaultsManager.shared.getString(forKey: .deviceToken)
         guard let deviceToken = deviceToken, let oauthToken = oauthToken else {return}
         let target = KakaoLoginRequestEntity(oauthToken: oauthToken, deviceToken: deviceToken)
+        print("✅✅✅kakaoTarget:", target)
         do {
             let response = try await repository.kakaoLogin(kakaoLoginEntity: target)
             saveUserData(response)
@@ -127,7 +130,9 @@ final class LoginContainer: NSObject, ObservableObject {
                 model.errorMessage = error.errorDescription
             } else {
                 model.errorMessage = "알 수 없는 에러: \(error.localizedDescription)"
+                
             }
+            print(model.errorMessage)
         }
         
     }
@@ -199,6 +204,7 @@ final class LoginContainer: NSObject, ObservableObject {
                 deviceToken: deviceToken
             )
             let response = try await repository.emailLogin(emailLoginEntity: entity)
+            print(response)
             saveUserData(response)
         } catch {
             model.errorMessage = "Login failed: \(error.localizedDescription)"
@@ -209,5 +215,7 @@ final class LoginContainer: NSObject, ObservableObject {
         UserDefaultsManager.shared.setObject(targetData, forKey: .profileData)
         model.loginCompleted = true
         model.isLoading = false
+        model.onLoginSuccess?()
+        print(targetData)
     }
 }

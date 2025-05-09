@@ -27,6 +27,12 @@ final class NetworkManager {
             throw NetworkError.from(code: httpResponse.statusCode, router: target)
         }
 
+        if let rawJSON = String(data: data, encoding: .utf8) {
+            print("📦 Raw Response:\n\(rawJSON)")
+        } else {
+            print("⚠️ Raw 데이터 UTF-8 디코딩 실패")
+        }
+        
         // ✅ JSON 디코딩
         do {
             let decoded = try Self.makeDecoder().decode(T.self, from: data)
