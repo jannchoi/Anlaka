@@ -6,3 +6,21 @@
 //
 
 import Foundation
+// Response DTO
+struct RefreshTokenResponseDTO: Decodable {
+    let accessToken: String
+    let refreshToken: String
+}
+
+// Entity
+struct RefreshTokenEntity {
+    let accessToken: String
+    let refreshToken: String
+}
+
+// Mapper
+extension RefreshTokenResponseDTO {
+    func toEntity() -> RefreshTokenEntity {
+        return RefreshTokenEntity(accessToken: accessToken, refreshToken: refreshToken)
+    }
+}
