@@ -17,7 +17,6 @@ struct SignUpView: View {
         _container = StateObject(wrappedValue: di.makeSignUpContainer())
     }
     var body: some View {
-        NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
                     Group {
@@ -85,6 +84,7 @@ struct SignUpView: View {
                     .disabled(!container.model.isSignUpButtonEnabled)
                     .padding(.top, 24)
                 }
+                .dismissKeyboardToolbar()
                 .padding(20)
             }
             .navigationTitle("회원가입")
@@ -99,7 +99,10 @@ struct SignUpView: View {
                     onComplete()
                 }
             }
-        }
+            .onAppear {
+                print("signupView 🥶🥶🥶")
+            }
+        
     }
 
     struct Message: Identifiable {
