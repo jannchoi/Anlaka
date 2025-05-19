@@ -8,6 +8,7 @@
 import SwiftUI
 
 struct CategoryDetailView: View {
+    @AppStorage(TextResource.Global.isLoggedIn.text) private var isLoggedIn: Bool = true
     let categoryType: CategoryType
     
     var body: some View {

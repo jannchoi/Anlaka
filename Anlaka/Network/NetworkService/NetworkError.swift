@@ -6,7 +6,7 @@
 //
 
 import Foundation
-enum NetworkError: LocalizedError {
+enum NetworkError: LocalizedError, Equatable {
     // 공통 에러
     case disconnected
     case invalidURL
