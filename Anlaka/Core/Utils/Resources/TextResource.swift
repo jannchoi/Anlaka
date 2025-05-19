@@ -46,9 +46,9 @@ enum DefaultValues {
         var value: Double {
             switch self {
             case .longitude:
-                return 37.576175
+                return 127.045432300312 //126.977733
             case .latitude:
-                return 126.977733
+                return 37.6522582058481//37.576175
             case .maxDistanse:
                 return 0.0 //
             }
