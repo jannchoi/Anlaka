@@ -13,6 +13,9 @@ final class NetworkManager {
 
     func callRequest<T: Decodable>(target: NetworkRequestConvertible, model: T.Type) async throws -> T {
         try await NetworkMonitor.shared.checkConnection()
+        
+        try await prepareAuthorizationIfNeeded(for: target)
+        
         let request = try target.asURLRequest()
 
         let (data, response) = try await URLSession.shared.data(for: request)
@@ -51,5 +54,34 @@ final class NetworkManager {
         decoder.dateDecodingStrategy = .iso8601
         return decoder
     }
+    
+    private func prepareAuthorizationIfNeeded(for target: NetworkRequestConvertible) async throws {
+        guard let authorizedTarget = target as? AuthorizedTarget, authorizedTarget.requiresAuthorization else {
+            return
+        }
+
+        let now = Int(Date().timeIntervalSince1970)
+
+        let accessExp = UserDefaultsManager.shared.getInt(forKey: .expAccess)
+        if now < accessExp {
+            // accessToken 유효 → 아무 작업 없음
+            return
+        }
+
+        // accessToken 만료 → refreshToken 확인
+        let refreshExp = UserDefaultsManager.shared.getInt(forKey: .expRefresh)
+        if now >= refreshExp {
+            throw NetworkError.expiredRefreshToken
+        }
+
+        // ✅ refreshToken 유효하므로 accessToken 재발급 시도
+//        let refreshToken = UserDefaultsManager.shared.getString(forKey: .refreshToken) ?? ""
+        let refreshRequest = AuthRouter.getRefreshToken
+
+        let response = try await callRequest(target: refreshRequest, model: RefreshTokenResponseDTO.self)
+        UserDefaultsManager.shared.set(response.accessToken, forKey: .accessToken)
+        UserDefaultsManager.shared.set(response.refreshToken, forKey: .refreshToken)
+    }
+
 
 }
