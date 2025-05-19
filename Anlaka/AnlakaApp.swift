@@ -15,7 +15,7 @@ struct AnlakaApp: App {
     @StateObject private var di = DIContainer(networkRepository: NetworkRepositoryImp())
     
     init() {
-        KakaoSDK.initSDK(appKey: "NATIVE_APP_KEY")
+        KakaoSDK.initSDK(appKey: Environment.kakaoKey)
     }
     
     var body: some Scene {
