@@ -24,6 +24,7 @@ final class NetworkManager {
 
         // ✅ 상태 코드 검사
         guard 200..<300 ~= httpResponse.statusCode else {
+            print(httpResponse.statusCode)
             throw NetworkError.from(code: httpResponse.statusCode, router: target)
         }
 
