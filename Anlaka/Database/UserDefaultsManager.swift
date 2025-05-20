@@ -7,6 +7,8 @@
 
 import Foundation
 enum UserDefaultsKey: String {
+    case accessToken
+    case refreshToken
     case profileData
     case deviceToken
     case appleIdToken
