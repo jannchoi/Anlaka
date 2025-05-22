@@ -7,11 +7,25 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		CE5F4D8A2DDF4CF90066C970 /* KakaoMapsSDK-SPM in Frameworks */ = {isa = PBXBuildFile; productRef = CE5F4D892DDF4CF90066C970 /* KakaoMapsSDK-SPM */; };
 		CE6C853C2DD71F22009E9343 /* KakaoSDKAuth in Frameworks */ = {isa = PBXBuildFile; productRef = CE6C853B2DD71F22009E9343 /* KakaoSDKAuth */; };
 		CE6C853E2DD71F22009E9343 /* KakaoSDKCommon in Frameworks */ = {isa = PBXBuildFile; productRef = CE6C853D2DD71F22009E9343 /* KakaoSDKCommon */; };
 		CE6C85402DD71F22009E9343 /* KakaoSDKUser in Frameworks */ = {isa = PBXBuildFile; productRef = CE6C853F2DD71F22009E9343 /* KakaoSDKUser */; };
 		CEE183352DCF69D800A33B15 /* .gitignore in Resources */ = {isa = PBXBuildFile; fileRef = CEE183342DCF69D800A33B15 /* .gitignore */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		CE84A0E42DDF1E5A004D0A70 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		CE63B7972DD72DEE006ED30B /* Anlaka.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Anlaka.entitlements; sourceTree = SOURCE_ROOT; };
@@ -48,6 +62,7 @@
 				CE6C853E2DD71F22009E9343 /* KakaoSDKCommon in Frameworks */,
 				CE6C853C2DD71F22009E9343 /* KakaoSDKAuth in Frameworks */,
 				CE6C85402DD71F22009E9343 /* KakaoSDKUser in Frameworks */,
+				CE5F4D8A2DDF4CF90066C970 /* KakaoMapsSDK-SPM in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -82,6 +97,7 @@
 				CEE1831F2DCF698300A33B15 /* Sources */,
 				CEE183202DCF698300A33B15 /* Frameworks */,
 				CEE183212DCF698300A33B15 /* Resources */,
+				CE84A0E42DDF1E5A004D0A70 /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
@@ -95,6 +111,7 @@
 				CE6C853B2DD71F22009E9343 /* KakaoSDKAuth */,
 				CE6C853D2DD71F22009E9343 /* KakaoSDKCommon */,
 				CE6C853F2DD71F22009E9343 /* KakaoSDKUser */,
+				CE5F4D892DDF4CF90066C970 /* KakaoMapsSDK-SPM */,
 			);
 			productName = Anlaka;
 			productReference = CEE183232DCF698300A33B15 /* Anlaka.app */;
@@ -127,6 +144,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				CE6C853A2DD71F22009E9343 /* XCRemoteSwiftPackageReference "kakao-ios-sdk" */,
+				CE5F4D882DDF4CF90066C970 /* XCRemoteSwiftPackageReference "KakaoMapsSDK-SPM" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = CEE183242DCF698300A33B15 /* Products */;
@@ -294,6 +312,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Anlaka/Info.plist;
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "주변 부동산 매물을 검색하기 위해 위치 정보가 필요합니다";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -329,6 +348,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Anlaka/Info.plist;
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "주변 부동산 매물을 검색하기 위해 위치 정보가 필요합니다";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -375,6 +395,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		CE5F4D882DDF4CF90066C970 /* XCRemoteSwiftPackageReference "KakaoMapsSDK-SPM" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/kakao-mapsSDK/KakaoMapsSDK-SPM";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.12.5;
+			};
+		};
 		CE6C853A2DD71F22009E9343 /* XCRemoteSwiftPackageReference "kakao-ios-sdk" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/kakao/kakao-ios-sdk";
@@ -386,6 +414,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		CE5F4D892DDF4CF90066C970 /* KakaoMapsSDK-SPM */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = CE5F4D882DDF4CF90066C970 /* XCRemoteSwiftPackageReference "KakaoMapsSDK-SPM" */;
+			productName = "KakaoMapsSDK-SPM";
+		};
 		CE6C853B2DD71F22009E9343 /* KakaoSDKAuth */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = CE6C853A2DD71F22009E9343 /* XCRemoteSwiftPackageReference "kakao-ios-sdk" */;

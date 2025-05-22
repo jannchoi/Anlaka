@@ -95,7 +95,7 @@ struct HomeView: View {
                     // This is handled by the sheet, not navigation
                     EmptyView()
                 case .search:
-                    SearchMapView()
+                    SearchMapView(di: di)
                         .onAppear {
                             container.resetNavigation()
                         }
@@ -258,8 +258,8 @@ struct TodayEstateView: View {
 // 2. 카테고리 부동산 뷰
 struct CategoryEstateView: View {
     let categories = ["OneRoom", "Officetel", "Apartment", "Villa", "Storefront"]
-    let titles = ["원룸", "오피스텔", "아파트", "빌라", "상가"]
-    let onCategoryTapped: (String) -> Void
+    let titles = CategoryType.allCases
+    let onCategoryTapped: (CategoryType) -> Void
     
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -277,12 +277,12 @@ struct CategoryEstateView: View {
                                 .frame(width: 40, height: 40)
                         }
                         
-                        Text(titles[index])
+                        Text(titles[index].rawValue)
                             .font(.caption)
                             .foregroundColor(.primary)
                     }
                     .onTapGesture {
-                        onCategoryTapped(categories[index])
+                        onCategoryTapped(titles[index])
                     }
                 }
             }
