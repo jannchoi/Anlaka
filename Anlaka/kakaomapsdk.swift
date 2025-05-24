@@ -2874,7 +2874,7 @@
 ///// 이동, 또는 회전을 하는 애니메이션이 가능하다. 이동 애니메이션중에 다른 애니메이션 동작을 할 경우 기존 이동 애니메이션이 멈춘다. 회전 애니메이션 중에 다른 회전 애니메이션을 할 경우 기존 애니메이션이 멈춘다.
 /////
 ///// Poi는 사용자가 직접 생성할 수 없으며, PoiOptions class를 이용하여 Layer에 추가하면 해당 Object를 얻을 수 있다.
-//@objc open class Poi : NSObject, KakaoMapsSDK.Label {
+//@objc open class Poi : NSObject, KakaoMapsSDK.Labe l{
 //
 //    /// Poi를 보여준다.
 //    public func show()
