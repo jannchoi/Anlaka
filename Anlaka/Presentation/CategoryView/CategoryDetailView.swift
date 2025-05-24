@@ -8,9 +8,9 @@
 import SwiftUI
 
 struct CategoryDetailView: View {
-    let categoryType: String
+    let categoryType: CategoryType
     
     var body: some View {
-        Text("Category Detail View: \(categoryType)")
+        Text("Category Detail View: \(categoryType.rawValue)")
     }
 }
