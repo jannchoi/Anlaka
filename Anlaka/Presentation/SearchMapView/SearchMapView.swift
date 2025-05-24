@@ -12,7 +12,8 @@ struct SearchMapView: View {
     let di: DIContainer
     @StateObject private var container: SearchMapContainer
     @State var draw: Bool = false
-    @State private var isMapReady: Bool = false  // 추가: 지도 준비 상태 관리
+    @State private var isMapReady: Bool = false
+    @State private var isSearchBarEditing: Bool = false // 검색 바 편집 상태 추가
     
     init(di: DIContainer) {
         self.di = di
@@ -21,18 +22,21 @@ struct SearchMapView: View {
     
     var body: some View {
         ZStack {
-            // Kakao Map - 조건부 렌더링 추가
             if isMapReady {
-                KakaoMapView(draw: $draw,
-                             centerCoordinate: CLLocationCoordinate2D(latitude: 37.5665, longitude: 126.9780),
-                             onCenterChanged: { newCenter in
-                    print("📍 지도 중심 좌표 변경됨:", newCenter)
-                },
-                             onRadiusChanged: { radius in
-                    print("📏 중심~모서리 거리:", radius, "meters")
-                })
+                KakaoMapView(
+                    draw: $draw,
+                    centerCoordinate: container.model.centerCoordinate,
+                    isInteractive: !isSearchBarEditing, // 검색 중이면 지도 상호작용 비활성화
+                    pinInfoList: container.model.pinInfoList, // 핀 정보 전달
+                    onCenterChanged: { newCenter in
+                        container.handle(.updateCenterCoordinate(newCenter))
+                    },
+                    onMapReady: { maxDistance in
+                        // 지도가 준비되고 maxDistance가 계산되면 호출
+                        container.handle(.mapDidStopMoving(center: container.model.centerCoordinate, maxDistance: maxDistance))
+                    }
+                )
             } else {
-                // 지도 로딩 중 placeholder
                 Color.gray.opacity(0.1)
                     .ignoresSafeArea(.all)
             }
@@ -43,12 +47,26 @@ struct SearchMapView: View {
                     searchText: $container.model.addressQuery,
                     onSubmitted: { text in
                         container.handle(.searchBarSubmitted(text))
+                    },
+                    onEditingChanged: { isEditing in
+                        isSearchBarEditing = isEditing // 편집 상태 업데이트
                     }
                 )
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
                 
                 Spacer()
+            }
+            
+            if isSearchBarEditing {
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        // 오버레이를 터치하면 키보드 닫기
+                        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                        isSearchBarEditing = false
+                    }
+                    .ignoresSafeArea(.all)
             }
             
             // Loading Indicator
@@ -70,7 +88,6 @@ struct SearchMapView: View {
                         if container.model.isLocationPermissionGranted {
                             if let currentLocation = container.model.currentLocation {
                                 container.handle(.updateCenterCoordinate(currentLocation))
-                                container.handle(.mapDidStopMoving(center: currentLocation, maxDistance: container.model.maxDistance))
                             }
                         } else {
                             container.handle(.requestLocationPermission)
@@ -101,24 +118,17 @@ struct SearchMapView: View {
                 .padding(.top, 80)
                 .padding(.leading, 16)
             }
-        }.navigationBarHidden(true)
+        }
+        .navigationBarHidden(true)
         .onAppear {
             print("SearchMapView appeared")
-            // 단계별 초기화
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                self.isMapReady = true
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                    self.draw = true
-                    // 지도가 완전히 준비된 후 권한 요청
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        container.handle(.requestLocationPermission)
-                    }
-                }
-            }
+            isMapReady = true
+            draw = true
+            container.handle(.requestLocationPermission)
         }
         .onDisappear {
-            self.draw = false
-            self.isMapReady = false
+            draw = false
+            isMapReady = false
             print("SearchMapView disappeared")
         }
         .alert("오류", isPresented: .constant(container.model.errorMessage != nil), actions: {
@@ -158,16 +168,19 @@ struct EstateCountView: View {
 struct SearchBarView: View {
     @Binding var searchText: String
     let onSubmitted: (String) -> Void
+    let onEditingChanged: (Bool) -> Void // 편집 상태 변경 클로저 추가
     let placeholder: String
     
     @State private var isEditing = false
     
     init(searchText: Binding<String>,
          placeholder: String = "주소를 검색하세요",
-         onSubmitted: @escaping (String) -> Void) {
+         onSubmitted: @escaping (String) -> Void,
+         onEditingChanged: @escaping (Bool) -> Void) {
         self._searchText = searchText
         self.placeholder = placeholder
         self.onSubmitted = onSubmitted
+        self.onEditingChanged = onEditingChanged
     }
     
     var body: some View {
@@ -177,16 +190,16 @@ struct SearchBarView: View {
                     .foregroundColor(.gray)
                     .font(.system(size: 16))
                 
-                TextField(placeholder, text: $searchText)
-                    .textFieldStyle(PlainTextFieldStyle())
-                    .onTapGesture {
-                        isEditing = true
-                    }
-                    .onSubmit {
-                        onSubmitted(searchText)
-                        hideKeyboard()
-                        isEditing = false
-                    }
+                TextField(placeholder, text: $searchText) { isEditing in
+                    self.isEditing = isEditing
+                    onEditingChanged(isEditing) // 편집 상태 전달
+                } onCommit: {
+                    onSubmitted(searchText)
+                    hideKeyboard()
+                    self.isEditing = false
+                    onEditingChanged(false)
+                }
+                .textFieldStyle(PlainTextFieldStyle())
                 
                 if !searchText.isEmpty {
                     Button(action: {
@@ -206,6 +219,7 @@ struct SearchBarView: View {
             if isEditing {
                 Button("취소") {
                     isEditing = false
+                    onEditingChanged(false)
                     searchText = ""
                     hideKeyboard()
                 }
