@@ -8,6 +8,16 @@
 import Foundation
 
 enum TextResource {
+    enum Global {
+        case isLoggedIn
+        
+        var text: String {
+            switch self {
+            case .isLoggedIn:
+                return "isLoggedIn"
+            }
+        }
+    }
     
     enum Validation {
         case emailValid
@@ -37,6 +47,7 @@ enum TextResource {
 }
 
 enum DefaultValues {
+
     
     enum Geolocation {
         case longitude
