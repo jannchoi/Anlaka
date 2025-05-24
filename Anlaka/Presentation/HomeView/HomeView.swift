@@ -12,6 +12,7 @@ struct HomeView: View {
     let di: DIContainer
     @StateObject private var container: HomeContainer
     @State private var path = NavigationPath()
+    @AppStorage(TextResource.Global.isLoggedIn.text) private var isLoggedIn: Bool = true
     @State private var searchText = ""
     
     init(di: DIContainer) {
@@ -95,7 +96,7 @@ struct HomeView: View {
                     // This is handled by the sheet, not navigation
                     EmptyView()
                 case .search:
-                    SearchMapView()
+                    SearchMapView(di: di)
                         .onAppear {
                             container.resetNavigation()
                         }
@@ -258,8 +259,8 @@ struct TodayEstateView: View {
 // 2. 카테고리 부동산 뷰
 struct CategoryEstateView: View {
     let categories = ["OneRoom", "Officetel", "Apartment", "Villa", "Storefront"]
-    let titles = ["원룸", "오피스텔", "아파트", "빌라", "상가"]
-    let onCategoryTapped: (String) -> Void
+    let titles = CategoryType.allCases
+    let onCategoryTapped: (CategoryType) -> Void
     
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -277,12 +278,12 @@ struct CategoryEstateView: View {
                                 .frame(width: 40, height: 40)
                         }
                         
-                        Text(titles[index])
+                        Text(titles[index].rawValue)
                             .font(.caption)
                             .foregroundColor(.primary)
                     }
                     .onTapGesture {
-                        onCategoryTapped(categories[index])
+                        onCategoryTapped(titles[index])
                     }
                 }
             }
@@ -537,6 +538,7 @@ struct TopicEstateView: View {
 
 // HomeView 확장 - 각 컨테이너 렌더링 메서드
 extension HomeView {
+    
     @ViewBuilder
     func renderTodayEstate() -> some View {
         switch container.model.todayEstate {
@@ -553,6 +555,13 @@ extension HomeView {
             Text("에러: \(message)")
                 .foregroundColor(.red)
                 .frame(height: 400)
+        case .requiresLogin:
+            Text("세션이 만료되어 로그아웃되었습니다.")
+                .foregroundColor(.red)
+                .frame(height: 400)
+                .task {
+                    isLoggedIn = false
+                }
         }
     }
     
@@ -570,6 +579,13 @@ extension HomeView {
             Text("에러: \(message)")
                 .foregroundColor(.red)
                 .frame(height: 200)
+        case .requiresLogin:
+            Text("세션이 만료되어 로그아웃되었습니다.")
+                .foregroundColor(.red)
+                .frame(height: 400)
+                .task {
+                    isLoggedIn = false
+                }
         }
     }
     
@@ -592,6 +608,14 @@ extension HomeView {
             Text("에러: \(message)")
                 .foregroundColor(.red)
                 .frame(height: 200)
+        case .requiresLogin:
+            Text("세션이 만료되어 로그아웃되었습니다.")
+                .foregroundColor(.red)
+                .frame(height: 400)
+                .task {
+                    isLoggedIn = false
+                }
+            
         }
     }
     @ViewBuilder

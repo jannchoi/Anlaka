@@ -22,7 +22,7 @@ struct HomeModel {
 enum HomeIntent {
     case initialRequest
     case goToDetail(estateId: String)
-    case goToCategory(categoryType: String)
+    case goToCategory(categoryType: CategoryType)
     case goToEstatesAll(type: EstateListType)
     case goToTopicWeb(url: URL)
     case goToSearch
@@ -81,8 +81,12 @@ final class HomeContainer: ObservableObject {
                 model.errorMessage = (firstError as? NetworkError)?.errorDescription ?? firstError.localizedDescription
             }
         } catch {
-            let message = (error as? NetworkError)?.errorDescription ?? error.localizedDescription
-            model.todayEstate = .failure(message)
+            if let netError = error as? NetworkError, netError == .expiredRefreshToken {
+                model.todayEstate = .requiresLogin // 🔥 로그인 필요 상태로 업데이트
+            } else {
+                let message = (error as? NetworkError)?.errorDescription ?? error.localizedDescription
+                model.todayEstate = .failure(message)
+            }
         }
     }
     
@@ -98,8 +102,12 @@ final class HomeContainer: ObservableObject {
                 model.errorMessage = (firstError as? NetworkError)?.errorDescription ?? firstError.localizedDescription
             }
         } catch {
-            let message = (error as? NetworkError)?.errorDescription ?? error.localizedDescription
-            model.hotEstate = .failure(message)
+            if let netError = error as? NetworkError, netError == .expiredRefreshToken {
+                model.hotEstate = .requiresLogin // 🔥 로그인 필요 상태로 업데이트
+            } else {
+                let message = (error as? NetworkError)?.errorDescription ?? error.localizedDescription
+                model.hotEstate = .failure(message)
+            }
         }
     }
     
@@ -111,8 +119,12 @@ final class HomeContainer: ObservableObject {
             }
             model.topicEstate = .success(response)
         } catch {
-            let message = (error as? NetworkError)?.errorDescription ?? error.localizedDescription
-            model.topicEstate = .failure(message)
+            if let netError = error as? NetworkError, netError == .expiredRefreshToken {
+                model.topicEstate = .requiresLogin // 🔥 로그인 필요 상태로 업데이트
+            } else {
+                let message = (error as? NetworkError)?.errorDescription ?? error.localizedDescription
+                model.topicEstate = .failure(message)
+            }
         }
     }
 }
