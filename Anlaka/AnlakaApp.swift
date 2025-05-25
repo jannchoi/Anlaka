@@ -14,6 +14,8 @@ import KakaoMapsSDK
 struct AnlakaApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var di = DIContainer(networkRepository: NetworkRepositoryImp())
+    @AppStorage(TextResource.Global.isLoggedIn.text) private var isLoggedIn: Bool = false
+    
     
     init() {
         KakaoSDK.initSDK(appKey: Environment.kakaoNativeKey)
@@ -22,11 +24,17 @@ struct AnlakaApp: App {
     
     var body: some Scene {
         WindowGroup {
-            LoginView(di: di)
-                .onOpenURL(perform: { url in
-                                if (AuthApi.isKakaoTalkLoginUrl(url)) {
-                                    AuthController.handleOpenUrl(url: url)
-                                }
+            Group {
+                if isLoggedIn {
+                    HomeView(di: di)
+                } else {
+                    LoginView(di: di)
+                }
+            }
+            .onOpenURL(perform: { url in
+                if (AuthApi.isKakaoTalkLoginUrl(url)) {
+                    AuthController.handleOpenUrl(url: url)
+                }
             })
         }
     }
