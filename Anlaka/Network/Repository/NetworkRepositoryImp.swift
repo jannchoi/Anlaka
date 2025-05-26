@@ -154,7 +154,7 @@ final class NetworkRepositoryImp: NetworkRepository {
             let response = try await NetworkManager.shared.callRequest(target: UserRouter.signUp(target) , model: SignUpResponseDTO.self)
             let entity = response.toEntity()
             let profile = ProfileInfo(userid: entity.userId, email: entity.email, nick: entity.nick, profileImage: nil, phoneNum: phoneNum, introduction: intro)
-            UserDefaultsManager.shared.set(profile, forKey: .profileData)
+            UserDefaultsManager.shared.setObject(profile, forKey: .profileData)
             return response.toEntity()
         }  catch {
             throw error
@@ -180,7 +180,7 @@ final class NetworkRepositoryImp: NetworkRepository {
             
             if UserDefaultsManager.shared.getObject(forKey: .profileData, as: ProfileInfo.self) == nil {
                 let profile = ProfileInfo(userid: entity.userId, email: entity.email, nick: entity.nick, profileImage: nil, phoneNum: nil, introduction: nil)
-                UserDefaultsManager.shared.set(profile, forKey: .profileData)
+                UserDefaultsManager.shared.setObject(profile, forKey: .profileData)
             }
             UserDefaultsManager.shared.set(entity.accessToken, forKey: .accessToken)
             UserDefaultsManager.shared.set(entity.refreshToken, forKey: .refreshToken)
@@ -199,7 +199,7 @@ final class NetworkRepositoryImp: NetworkRepository {
             let entity = response.toEntity()
             if UserDefaultsManager.shared.getObject(forKey: .profileData, as: ProfileInfo.self) == nil {
                 let profile = ProfileInfo(userid: entity.userId, email: entity.email, nick: entity.nick, profileImage: nil, phoneNum: nil, introduction: nil)
-                UserDefaultsManager.shared.set(profile, forKey: .profileData)
+                UserDefaultsManager.shared.setObject(profile, forKey: .profileData)
             }
             UserDefaultsManager.shared.set(entity.accessToken, forKey: .accessToken)
             UserDefaultsManager.shared.set(entity.refreshToken, forKey: .refreshToken)
