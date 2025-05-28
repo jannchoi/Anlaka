@@ -10,29 +10,26 @@ import CoreLocation
 import Foundation
 
 struct SearchMapModel {
-    var errorMessage: String? = nil
-    var addressQuery: String = ""
     var currentLocation: CLLocationCoordinate2D?
     var centerCoordinate: CLLocationCoordinate2D = CLLocationCoordinate2D(
         latitude: DefaultValues.Geolocation.latitude.value,
         longitude: DefaultValues.Geolocation.longitude.value
     )
     var maxDistance: Double = DefaultValues.Geolocation.maxDistanse.value
-    var estates: [EstateSummaryEntity] = []
-    var pinInfoList: [PinInfo] = [] // Added to store pin info
+    var pinInfoList: [PinInfo] = []
     var isLocationPermissionGranted: Bool = false
     var isLoading: Bool = false
     var shouldDrawMap: Bool = false
+    var addressQuery: String = ""
+    var errorMessage: String?
     var backToLogin: Bool = false
 }
+
 enum SearchMapIntent {
     case loadDefaultLocation
-    case queryIsAddress(query: String)
     case requestLocationPermission
-    case updateCurrentLocation(CLLocationCoordinate2D)
-    case updateCenterCoordinate(CLLocationCoordinate2D)
     case updateMaxDistance(Double)
-    case mapDidStopMoving(center: CLLocationCoordinate2D, maxDistance: Double)
+    case mapDidStopMoving(CLLocationCoordinate2D, Double)
     case searchBarSubmitted(String)
     case startMapEngine
 }
@@ -49,7 +46,6 @@ final class SearchMapContainer: NSObject, ObservableObject {
         self.repository = repository
         super.init()
         setupLocationManager()
-        model.maxDistance = DefaultValues.Geolocation.maxDistanse.value
     }
     
     func handle(_ intent: SearchMapIntent) {
@@ -57,34 +53,19 @@ final class SearchMapContainer: NSObject, ObservableObject {
         case .loadDefaultLocation:
             let defaultLon = DefaultValues.Geolocation.longitude.value
             let defaultLat = DefaultValues.Geolocation.latitude.value
-            let defaultMaxD = DefaultValues.Geolocation.maxDistanse.value
             model.centerCoordinate = CLLocationCoordinate2D(latitude: defaultLat, longitude: defaultLon)
-            model.maxDistance = defaultMaxD
             model.shouldDrawMap = true
-            debounceGeoEstates(lon: defaultLon, lat: defaultLat, maxD: defaultMaxD)
-            
-        case .queryIsAddress(let query):
-            model.addressQuery = query
-            Task {
-                await getGeoFromAddressQuery(query)
-            }
             
         case .requestLocationPermission:
             requestLocationPermission()
             
-        case .updateCurrentLocation(let location):
-            model.currentLocation = location
-            
-        case .updateCenterCoordinate(let coordinate):
-            model.centerCoordinate = coordinate
-            
         case .updateMaxDistance(let distance):
-            model.maxDistance = distance > 0 ? distance : DefaultValues.Geolocation.maxDistanse.value
+            model.maxDistance = distance
             
         case .mapDidStopMoving(let center, let maxDistance):
             model.centerCoordinate = center
-            model.maxDistance = maxDistance > 0 ? maxDistance : DefaultValues.Geolocation.maxDistanse.value
-            debounceGeoEstates(lon: center.longitude, lat: center.latitude, maxD: model.maxDistance)
+            model.maxDistance = maxDistance
+            debounceGeoEstates(lon: center.longitude, lat: center.latitude, maxD: maxDistance)
             
         case .searchBarSubmitted(let text):
             model.addressQuery = text
@@ -100,22 +81,19 @@ final class SearchMapContainer: NSObject, ObservableObject {
     }
     
     private func debounceGeoEstates(lon: Double, lat: Double, maxD: Double) {
-        guard lon.isFinite, lat.isFinite, maxD > 0 else {
-            print("Invalid coordinates or maxD, skipping getGeoEstates: lon=\(lon), lat=\(lat), maxD=\(maxD)")
-            return
-        }
+        guard lon.isFinite, lat.isFinite, maxD > 0 else { return }
+        
         geoEstatesDebounceTimer?.invalidate()
-        geoEstatesDebounceTimer = Timer.scheduledTimer(withTimeInterval: 0.7, repeats: false) { _ in
+        geoEstatesDebounceTimer = Timer.scheduledTimer(withTimeInterval: 0.7, repeats: false) { [weak self] _ in
+            guard let self = self else { return }
+            
             Task { @MainActor in
                 let coordinate = CLLocationCoordinate2D(latitude: lat, longitude: lon)
                 if self.lastGeoEstatesCoordinate == nil ||
-                   abs(self.lastGeoEstatesCoordinate!.latitude - lat) > 0.0001 ||
-                   abs(self.lastGeoEstatesCoordinate!.longitude - lon) > 0.0001 {
-                    print("getGeoEstates 호출: lon=\(lon), lat=\(lat), maxD=\(maxD)")
+                    abs(self.lastGeoEstatesCoordinate!.latitude - lat) > 0.0001 ||
+                    abs(self.lastGeoEstatesCoordinate!.longitude - lon) > 0.0001 {
                     await self.getGeoEstates(lon: lon, lat: lat, maxD: maxD)
                     self.lastGeoEstatesCoordinate = coordinate
-                } else {
-                    print("중복 좌표로 getGeoEstates 호출 스킵: lon=\(lon), lat=\(lat)")
                 }
             }
         }
@@ -145,7 +123,7 @@ final class SearchMapContainer: NSObject, ObservableObject {
     private func getGeoFromAddressQuery(_ query: String) async {
         guard !query.isEmpty else { return }
         model.isLoading = true
-        print("query🐿️🐿️🐿️🐿️🐿️🐿️", query)
+        
         do {
             let response = try await repository.getGeofromAddressQuery(query)
             let coordinate = CLLocationCoordinate2D(
@@ -157,67 +135,58 @@ final class SearchMapContainer: NSObject, ObservableObject {
             model.errorMessage = nil
             await getGeoEstates(lon: response.longitude, lat: response.latitude, maxD: model.maxDistance)
         } catch {
-            model.pinInfoList = []
-            if let netError = error as? NetworkError, netError == .expiredRefreshToken {
-                model.backToLogin = true // 🔥 로그인 필요 상태로 업데이트
-            } else {
-                let message = (error as? NetworkError)?.errorDescription ?? error.localizedDescription
-                model.errorMessage = message
-            }
+            handleError(error)
         }
+        
         model.isLoading = false
     }
     
-    private func getGeoEstates(category: CategoryType? = nil, lon: Double, lat: Double, maxD: Double) async {
-        print("getGeoEstates 호출: lon=\(lon), lat=\(lat), maxD=\(maxD)")
+    private func getGeoEstates(lon: Double, lat: Double, maxD: Double) async {
         model.isLoading = true
+        
         do {
-            let response = try await repository.getGeoEstate(category: category, lon: lon, lat: lat, maxD: maxD)
-            model.estates = response.data
-            model.pinInfoList = response.toPinInfoList()
-            model.errorMessage = nil
-            print("받아온 매물 데이터: \(response.data.count)개, 핀 데이터: \(model.pinInfoList.count)개")
+            let estates = try await repository.getGeoEstate(category: nil, lon: lon, lat: lat, maxD: maxD)
+            model.pinInfoList = Array(estates.toPinInfoList().prefix(10))
         } catch {
-            model.errorMessage = "getGeoEstates 에러: \(error.localizedDescription)"
-            model.pinInfoList = []
-            print("getGeoEstates 에러: \(error.localizedDescription)")
+            handleError(error)
         }
+        
         model.isLoading = false
+    }
+    
+    private func handleError(_ error: Error) {
+        model.pinInfoList = []
+        if let netError = error as? NetworkError, netError == .expiredRefreshToken {
+            model.backToLogin = true
+        } else {
+            model.errorMessage = (error as? NetworkError)?.errorDescription ?? error.localizedDescription
+        }
     }
 }
 
 extension SearchMapContainer: CLLocationManagerDelegate {
-    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        guard let location = locations.last else { return }
-        let coordinate = location.coordinate
-        if lastGeoEstatesCoordinate == nil ||
-           abs(lastGeoEstatesCoordinate!.latitude - coordinate.latitude) > 0.0001 ||
-           abs(lastGeoEstatesCoordinate!.longitude - coordinate.longitude) > 0.0001 {
-            handle(.updateCurrentLocation(coordinate))
-            handle(.updateCenterCoordinate(coordinate))
-            handle(.startMapEngine)
-            debounceGeoEstates(lon: coordinate.longitude, lat: coordinate.latitude, maxD: model.maxDistance)
-        }
-    }
-    
-    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        model.errorMessage = "위치 정보를 가져올 수 없습니다: \(error.localizedDescription)"
-        handle(.loadDefaultLocation)
-    }
-    
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         switch manager.authorizationStatus {
         case .authorizedWhenInUse, .authorizedAlways:
             model.isLocationPermissionGranted = true
-            manager.requestLocation()
+            locationManager.requestLocation()
         case .denied, .restricted:
             model.isLocationPermissionGranted = false
             handle(.loadDefaultLocation)
-        case .notDetermined:
+        default:
             break
-        @unknown default:
-            model.isLocationPermissionGranted = false
-            handle(.loadDefaultLocation)
         }
+    }
+    
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        guard let location = locations.first else { return }
+        model.currentLocation = location.coordinate
+        model.centerCoordinate = location.coordinate
+        model.shouldDrawMap = true
+    }
+    
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        print("Location manager error: \(error.localizedDescription)")
+        handle(.loadDefaultLocation)
     }
 }

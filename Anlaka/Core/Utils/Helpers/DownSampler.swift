@@ -40,9 +40,9 @@ class ImageDownsampler {
         let pixelSize = CGSize(width: pointSize.width * scale, height: pointSize.height * scale)
         
         // 데이터 크기 및 시작 부분 로깅
-        print("📥 받은 데이터 크기: \(imageData.count) bytes")
+        //print("📥 받은 데이터 크기: \(imageData.count) bytes")
         let firstBytes = imageData.prefix(4).map({ String(format: "%02x", $0) }).joined()
-        print("📝 데이터 시작 바이트: \(firstBytes)")
+        //print("📝 데이터 시작 바이트: \(firstBytes)")
         
         guard let imageSource = CGImageSourceCreateWithData(imageData as CFData, nil) else {
             print("❌ 데이터로부터 이미지 소스 생성 실패")
@@ -57,37 +57,53 @@ class ImageDownsampler {
     
     /// 이미지 소스로부터 비동기 다운샘플링 수행
     private static func downsampleImageSource(_ imageSource: CGImageSource, to pixelSize: CGSize, scale: CGFloat) async -> UIImage? {
-        // 이미지 타입 확인
-        if let imageType = CGImageSourceGetType(imageSource) {
-            print("🖼 이미지 타입: \(imageType)")
-        }
-        
-        // 이미지 프로퍼티 확인
-        if let properties = CGImageSourceCopyPropertiesAtIndex(imageSource, 0, nil) as? [CFString: Any] {
-            print("📊 이미지 프로퍼티: \(properties)")
-        }
-        
         let options: [CFString: Any] = [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
             kCGImageSourceCreateThumbnailWithTransform: true,
             kCGImageSourceShouldCacheImmediately: true,
             kCGImageSourceThumbnailMaxPixelSize: max(pixelSize.width, pixelSize.height)
         ]
-        
-        // 백그라운드 큐에서 다운샘플링 수행
+
         return await withCheckedContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
-                guard let downsampledImage = CGImageSourceCreateThumbnailAtIndex(imageSource, 0, options as CFDictionary) else {
+                guard let cgImage = CGImageSourceCreateThumbnailAtIndex(imageSource, 0, options as CFDictionary) else {
                     print("❌ 썸네일 생성 실패")
                     continuation.resume(returning: nil)
                     return
                 }
-                
-                let result = UIImage(cgImage: downsampledImage, scale: scale, orientation: .up)
+
+                let width = Int(pixelSize.width)
+                let height = Int(pixelSize.height)
+
+                guard let context = CGContext(
+                    data: nil,
+                    width: width,
+                    height: height,
+                    bitsPerComponent: 8,
+                    bytesPerRow: 0,
+                    space: CGColorSpaceCreateDeviceRGB(),
+                    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+                ) else {
+                    print("❌ CGContext 생성 실패")
+                    continuation.resume(returning: nil)
+                    return
+                }
+
+                context.interpolationQuality = .high
+                context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+
+                guard let finalImage = context.makeImage() else {
+                    print("❌ CGContext에서 최종 이미지 생성 실패")
+                    continuation.resume(returning: nil)
+                    return
+                }
+
+                let result = UIImage(cgImage: finalImage, scale: scale, orientation: .up)
                 continuation.resume(returning: result)
             }
         }
     }
+
     
     /// 메모리 효율적인 이미지 비동기 리사이징 (큰 이미지용)
     /// - Parameters:
@@ -158,7 +174,7 @@ class ImageDownsampler {
             return nil
         }
         
-        print("🌐 이미지 다운로드 시작: \(url)")
+        //print("🌐 이미지 다운로드 시작: \(url)")
         
         var request = URLRequest(url: url)
         request.addValue(Environment.apiKey, forHTTPHeaderField: "SeSACKey")
@@ -170,8 +186,8 @@ class ImageDownsampler {
             let (data, response) = try await URLSession.shared.data(for: request)
             
             if let httpResponse = response as? HTTPURLResponse {
-                print("📡 서버 응답 코드: \(httpResponse.statusCode)")
-                print("📝 응답 헤더: \(httpResponse.allHeaderFields)")
+                //print("📡 서버 응답 코드: \(httpResponse.statusCode)")
+                //print("📝 응답 헤더: \(httpResponse.allHeaderFields)")
                 
                 guard (200...299).contains(httpResponse.statusCode) else {
                     print("❌ HTTP 에러: \(httpResponse.statusCode)")
@@ -179,13 +195,13 @@ class ImageDownsampler {
                 }
             }
             
-            print("📥 데이터 수신 완료: \(data.count) bytes")
+            //print("📥 데이터 수신 완료: \(data.count) bytes")
             
             let downsampledImage = await downsampleImage(from: data, to: pointSize, scale: scale)
             if downsampledImage == nil {
                 print("❌ 다운샘플링 실패")
             } else {
-                print("✅ 다운샘플링 성공")
+                //print("✅ 다운샘플링 성공")
             }
             return downsampledImage
             
