@@ -9,6 +9,7 @@ import SwiftUI
 import AuthenticationServices
 
 struct LoginView: View {
+
     let di: DIContainer
     @StateObject private var container: LoginContainer
     @State private var path = NavigationPath()
@@ -17,7 +18,7 @@ struct LoginView: View {
         _container = StateObject(wrappedValue: di.makeLoginContainer())
     }
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             VStack {
                 Spacer().frame(height: 80)
 
@@ -33,6 +34,7 @@ struct LoginView: View {
                         set: { container.handle(.emailChanged($0)) }
                     ))
                     .textFieldStyle(RoundedBorderTextFieldStyle())
+
 
                     Text(container.model.emailValidationMessage)
                         .font(.caption)
@@ -62,10 +64,11 @@ struct LoginView: View {
                         }
                     }
                     .disabled(!container.model.isLoginEnabled)
-                    .padding()
+                    .frame(height: 50)
                     .background(Color.blue)
                     .foregroundColor(.white)
                     .cornerRadius(8)
+                    
                     if container.model.isLoading {
                         ProgressView()
                     }
@@ -80,17 +83,22 @@ struct LoginView: View {
                             request.requestedScopes = [.email, .fullName]
                         } onCompletion: { result in
                             container.handle(.handleAppleLogin(result))
-                        }.blendMode(.overlay)
+                        }
+                        .frame(height: 50)
+                        .frame(maxWidth: .infinity)
+                        .cornerRadius(8)
+                        .blendMode(.overlay)
                     }
                     Button {
                         container.handle(.handleKakaoLogin)
                     } label: {
-                        HStack {
-                            Image(systemName: "message.fill")
-                                .padding()
-                            Text("카카오톡으로 시작하기")
-                        }
+                        Image("kakao_login_button")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(height: 50)
+                            .frame(maxWidth: .infinity)
                     }
+                    .cornerRadius(8)
                     
 
                     Button("Create an account") {
@@ -108,16 +116,13 @@ struct LoginView: View {
 
                 Spacer()
             }
+            .dismissKeyboardToolbar()
             .onChange(of: container.model.loginCompleted) { completed in
                 if completed {
                     path.append(LoginRoute.home)
                 }
             }
-            .onChange(of: container.model.goToSignUpView) { go in
-                if go {
-                    path.append(LoginRoute.signUp)
-                }
-            }
+
             .navigationDestination(for: LoginRoute.self) { route in
                 switch route {
                 case .home:
@@ -130,6 +135,20 @@ struct LoginView: View {
                             path.removeLast()
                         }
                     )
+                }
+            }
+        }
+        .onAppear {
+            container.model.onNavigate = { route in
+                path.append(route)
+            }
+            
+            container.model.onLoginSuccess = {
+                if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                   let window = windowScene.windows.first {
+                    // 루트 뷰를 HomeView로 교체
+                    window.rootViewController = UIHostingController(rootView: HomeView())
+                    window.makeKeyAndVisible()
                 }
             }
         }
