@@ -11,6 +11,8 @@ import CoreLocation
 struct SearchMapView: View {
     let di: DIContainer
     @StateObject private var container: SearchMapContainer
+    @State private var forceUpdate = false
+    @State private var previousPinCount = 0
     
     @AppStorage(TextResource.Global.isLoggedIn.text) private var isLoggedIn: Bool = true
     @State private var showSearchAddress = false
@@ -25,6 +27,7 @@ struct SearchMapView: View {
                 draw: .constant(container.model.shouldDrawMap),
                 centerCoordinate: container.model.centerCoordinate,
                 pinInfoList: container.model.pinInfoList,
+                forceUpdate: forceUpdate,
                 onMapReady: { maxDistance in
                     container.handle(.updateMaxDistance(maxDistance))
                 },
@@ -40,6 +43,18 @@ struct SearchMapView: View {
                     container.handle(.poiGroupSelected(estateIds))
                 }
             )
+            .onChange(of: container.model.pinInfoList) { newList in
+                // 필터 업데이트로 인한 변경인 경우에만 forceUpdate 실행
+                if container.isFilterUpdate && newList.count != previousPinCount {
+                    print("필터업데이트")
+                    forceUpdate = true
+                    previousPinCount = newList.count
+                    // 다음 프레임에서 forceUpdate를 다시 false로 설정
+                    DispatchQueue.main.async {
+                        forceUpdate = false
+                    }
+                }
+            }
             
             VStack {
                 SearchBar(searchBarTapped: $showSearchAddress, placeholder: container.model.searchedData?.title)
