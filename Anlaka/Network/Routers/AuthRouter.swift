@@ -8,6 +8,7 @@
 import Foundation
 enum AuthRouter {
     case getRefreshToken(refToken: String)
+    case log
     
     var baseURL: URL { URL(string: BaseURL.baseV1)!}
 
@@ -15,6 +16,8 @@ enum AuthRouter {
         switch self {
         case .getRefreshToken:
             return "/auth/refresh"
+        case .log:
+            return "/log"
         }
     }
 
@@ -29,6 +32,8 @@ enum AuthRouter {
                 "SeSACKey": Environment.apiKey,
                 "RefreshToken": refToken
             ]
+        case .log:
+            return ["SeSACKey": Environment.apiKey]
         }
     }
 
