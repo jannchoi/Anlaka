@@ -6,7 +6,7 @@
 //
 
 import Foundation
-enum NetworkError: LocalizedError {
+enum NetworkError: LocalizedError, Equatable {
     // 공통 에러
     case disconnected
     case invalidURL
@@ -24,6 +24,7 @@ enum NetworkError: LocalizedError {
     case conflict(message: String?)        // 409
     case authError(message: String?)       // Auth 전용
     case unknown(code: Int, message: String?)
+    case expiredRefreshToken
     
     var errorDescription: String? {
         switch self {
@@ -52,6 +53,8 @@ enum NetworkError: LocalizedError {
              .authError(let message),
              .unknown(_, let message):
             return message
+        case .expiredRefreshToken:
+            return "토큰이 만료되어 재로그인이 필요합니다."
         }
     }
     
