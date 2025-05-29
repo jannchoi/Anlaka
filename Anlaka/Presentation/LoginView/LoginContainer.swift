@@ -29,7 +29,6 @@ struct LoginModel {
         isEmailValid && isPasswordValid
     }
     var onNavigate: ((LoginRoute) -> Void)?
-    var onLoginSuccess: (() -> Void)?
 }
 
 enum LoginIntent {
@@ -123,8 +122,9 @@ final class LoginContainer: NSObject, ObservableObject {
         let target = KakaoLoginRequestEntity(oauthToken: oauthToken, deviceToken: deviceToken)
         print("✅✅✅kakaoTarget:", target)
         do {
-            let response = try await repository.kakaoLogin(kakaoLoginEntity: target)
-            saveUserData(response)
+            try await repository.kakaoLogin(kakaoLoginEntity: target)
+            model.loginCompleted = true
+            model.isLoading = false
         } catch {
             if let error = error as? NetworkError {
                 model.errorMessage = error.errorDescription
@@ -169,8 +169,9 @@ final class LoginContainer: NSObject, ObservableObject {
         guard let idToken = idToken, let deviceToken = deviceToken else {return}
         let target = AppleLoginRequestEntity(idToken: idToken, deviceToken: deviceToken, nick: nickname)
         do {
-            let response = try await repository.appleLogin(appleLoginEntity: target)
-            saveUserData(response)
+            try await repository.appleLogin(appleLoginEntity: target)
+            model.loginCompleted = true
+            model.isLoading = false
         } catch {
             if let error = error as? NetworkError {
                 model.errorMessage = error.errorDescription
@@ -201,20 +202,12 @@ final class LoginContainer: NSObject, ObservableObject {
                 password: model.password,
                 deviceToken: deviceToken
             )
-            let response = try await repository.emailLogin(emailLoginEntity: entity)
-            print(response)
-            saveUserData(response)
+            try await repository.emailLogin(emailLoginEntity: entity)
+            model.loginCompleted = true
+            model.isLoading = false
         } catch {
             model.errorMessage = "Login failed: \(error.localizedDescription)"
         }
     }
-    
-    private func saveUserData(_ targetData: LoginResponseEntity) {
-        UserDefaultsManager.shared.setObject(targetData, forKey: .profileData)
-        UserDefaultsManager.shared.set(targetData.accessToken, forKey: .accessToken)
-        UserDefaultsManager.shared.set(targetData.refreshToken, forKey: .refreshToken)
-        model.loginCompleted = true
-        model.isLoading = false
-        model.onLoginSuccess?()
-    }
+
 }
