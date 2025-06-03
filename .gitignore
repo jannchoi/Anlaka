@@ -70,3 +70,6 @@ APIKey.swift
 # Request
 URLRequest.swift
 
+Info.plist
+SecretKey.swift
+*.xcconfig
