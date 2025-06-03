@@ -29,7 +29,7 @@ enum GeoRouter {
         return "GET"
     }
     var header: [String: String] {
-        let restKey = "KakaoAK" + " " + Environment.kakaoRestKey
+        let restKey = "KakaoAK" + " " + AppConfig.kakaoRestKey
         return ["Authorization": restKey]
     }
     var parameters: [String: Any] {
