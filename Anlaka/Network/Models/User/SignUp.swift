@@ -72,5 +72,5 @@ extension SignUpRequestEntity {
             deviceToken: deviceToken
         )
     }
+   
 }
-
