@@ -23,6 +23,28 @@ struct KakaoMapView: UIViewRepresentable {
         return view
     }
     
+    // func updateUIView(_ uiView: KMViewContainer, context: Context) {
+    //     guard draw else {
+    //         context.coordinator.controller?.pauseEngine()
+    //         context.coordinator.controller?.resetEngine()
+    //         context.coordinator.clearAllPOIs()
+    //         return
+    //     }
+    
+    //     if context.coordinator.controller?.isEnginePrepared == false {
+    //         context.coordinator.controller?.prepareEngine()
+    //     }
+    
+    //     if context.coordinator.controller?.isEngineActive == false {
+    //         context.coordinator.controller?.activateEngine()
+    //     }
+    
+    //     context.coordinator.updateCenterCoordinate(centerCoordinate)
+    //     context.coordinator.updatePOIs(pinInfoList)
+    // }
+    // MARK: - 기존 updateUIView 메서드 수정
+    // KakaoMapView struct 내부의 updateUIView 메서드를 다음과 같이 수정:
+    
     func updateUIView(_ uiView: KMViewContainer, context: Context) {
         guard draw else {
             context.coordinator.controller?.pauseEngine()
@@ -40,8 +62,18 @@ struct KakaoMapView: UIViewRepresentable {
         }
         
         context.coordinator.updateCenterCoordinate(centerCoordinate)
-        context.coordinator.updatePOIs(pinInfoList)
+        
+        // 기존 updatePOIs 대신 효율적인 업데이트 메서드 사용
+        guard let kakaoMap = context.coordinator.controller?.getView("mapview") as? KakaoMap else { return }
+        let maxDistance = context.coordinator.calculateMaxDistance(mapView: kakaoMap)
+        
+        context.coordinator.updatePOIsEfficiently(
+            pinInfoList,
+            currentCenter: centerCoordinate,
+            maxDistance: maxDistance
+        )
     }
+    
     
     func makeCoordinator() -> Coordinator {
         Coordinator(
@@ -51,7 +83,7 @@ struct KakaoMapView: UIViewRepresentable {
             onMapChanged: onMapChanged
         )
     }
-
+    
 }
 
 class Coordinator: NSObject, MapControllerDelegate, KakaoMapEventDelegate {
@@ -70,6 +102,13 @@ class Coordinator: NSObject, MapControllerDelegate, KakaoMapEventDelegate {
     private let layerID = "poi_layer"
     private let defaultStyleID = "default_style"
     private let poiImageSize = CGSize(width: 40, height: 40)
+    
+    // 추가 프로퍼티들
+    private var currentPOIs: [String: Poi] = [:]  // estateId -> POI 매핑
+    private var currentPinInfos: [String: PinInfo] = [:]  // estateId -> PinInfo 매핑
+    private var currentStyleIds: [String: String] = [:]  // estateId -> styleId 매핑
+    private var lastMaxDistance: Double = 0
+    private var lastCenter: CLLocationCoordinate2D?
     
     init(
         centerCoordinate: CLLocationCoordinate2D,
@@ -180,7 +219,7 @@ class Coordinator: NSObject, MapControllerDelegate, KakaoMapEventDelegate {
         }
     }
     
-    private func calculateMaxDistance(mapView: KakaoMap) -> Double {
+    func calculateMaxDistance(mapView: KakaoMap) -> Double {
         let viewSize = mapView.viewRect.size
         let centerPoint = CGPoint(x: viewSize.width / 2, y: viewSize.height / 2)
         let corners = [
@@ -255,10 +294,10 @@ class Coordinator: NSObject, MapControllerDelegate, KakaoMapEventDelegate {
     }
     
     // MARK: - POI Style 생성 메서드 (디버깅 버전)
-@MainActor
+    @MainActor
     private func createPOIStyle(for pinInfo: PinInfo, with image: UIImage, index: Int) -> String {
         let startTime = CFAbsoluteTimeGetCurrent()
-
+        
         guard let kakaoMap = controller?.getView("mapview") as? KakaoMap else {
             print("❌ [Style-\(index)] KakaoMap 가져오기 실패")
             return ""
@@ -266,7 +305,7 @@ class Coordinator: NSObject, MapControllerDelegate, KakaoMapEventDelegate {
         let manager = kakaoMap.getLabelManager()
         
         let styleID = "style_\(pinInfo.estateId)_\(index)_\(Int(Date().timeIntervalSince1970))"
-
+        
         
         // 이미지 크기 검증
         guard image.size.width > 0 && image.size.height > 0 else {
@@ -300,7 +339,7 @@ class Coordinator: NSObject, MapControllerDelegate, KakaoMapEventDelegate {
         } else {
             resizedImage = image
         }
-
+        
         // POI 아이콘 스타일 생성 (앵커 포인트 조정)
         let iconStyle = PoiIconStyle(
             symbol: resizedImage,
@@ -340,7 +379,7 @@ class Coordinator: NSObject, MapControllerDelegate, KakaoMapEventDelegate {
         
         let totalTime = CFAbsoluteTimeGetCurrent() - startTime
         let addStyleTime = afterAddStyle - beforeAddStyle
-
+        
         return styleID
     }
     
@@ -353,14 +392,14 @@ class Coordinator: NSObject, MapControllerDelegate, KakaoMapEventDelegate {
         
         for (index, pinInfo) in pinInfos.enumerated() {
             let imageStartTime = CFAbsoluteTimeGetCurrent()
-           
+            
             
             let finalImage: UIImage
             
             if let imagePath = pinInfo.image {
-
+                
                 if let cachedImage = ImageCache.shared.image(forKey: imagePath) {
-
+                    
                     finalImage = cachedImage
                 } else if let downloadedImage = await ImageDownsampler.downloadAndDownsample(
                     imagePath: imagePath,
@@ -369,26 +408,26 @@ class Coordinator: NSObject, MapControllerDelegate, KakaoMapEventDelegate {
                     ImageCache.shared.setImage(downloadedImage, forKey: imagePath)
                     finalImage = downloadedImage
                 } else {
-
+                    
                     finalImage = await MainActor.run {
                         return UIImage(systemName: "mappin") ?? UIImage()
                     }
                 }
             } else {
-
+                
                 finalImage = await MainActor.run {
                     return UIImage(systemName: "mappin") ?? UIImage()
                 }
             }
             
             let imageTime = CFAbsoluteTimeGetCurrent() - imageStartTime
-
+            
             
             poiDataArray.append((pinInfo: pinInfo, image: finalImage, index: index))
         }
         
         let imageLoadTime = CFAbsoluteTimeGetCurrent() - imageLoadStartTime
-
+        
         
         return poiDataArray
     }
@@ -397,14 +436,14 @@ class Coordinator: NSObject, MapControllerDelegate, KakaoMapEventDelegate {
     @MainActor
     private func createPoiOptions(from poiDataArray: [(pinInfo: PinInfo, image: UIImage, index: Int)]) -> [(poiData: (pinInfo: PinInfo, image: UIImage, index: Int), styleID: String, poiOption: PoiOptions)] {
         let optionStartTime = CFAbsoluteTimeGetCurrent()
-
+        
         
         var poiOptionsArray: [(poiData: (pinInfo: PinInfo, image: UIImage, index: Int), styleID: String, poiOption: PoiOptions)] = []
-
+        
         var styleInfos: [(poiData: (pinInfo: PinInfo, image: UIImage, index: Int), styleID: String)] = []
         
         for poiData in poiDataArray {
-
+            
             // 이미지 유효성 검증
             guard poiData.image.size.width > 0 && poiData.image.size.height > 0 else {
                 print("❌ [Step 2-1-\(poiData.index)] 유효하지 않은 이미지 크기 - 건너뜀")
@@ -424,17 +463,17 @@ class Coordinator: NSObject, MapControllerDelegate, KakaoMapEventDelegate {
             }
             
             styleInfos.append((poiData: poiData, styleID: styleID))
-
+            
         }
-
+        
         // 2단계: 스타일 적용 대기 시간
         let waitTime: UInt64 = 50_000_000 // 0.05초 나노초
-
+        
         // 동기적 대기 (Task.sleep 대신)
         Thread.sleep(forTimeInterval: 0.05)
         
         // 3단계: POI 옵션 생성
-
+        
         for styleInfo in styleInfos {
             let poiData = styleInfo.poiData
             let styleID = styleInfo.styleID
@@ -451,11 +490,11 @@ class Coordinator: NSObject, MapControllerDelegate, KakaoMapEventDelegate {
             }
             
             poiOptionsArray.append((poiData: poiData, styleID: styleID, poiOption: poiOption))
-
+            
         }
         
         let optionTime = CFAbsoluteTimeGetCurrent() - optionStartTime
-
+        
         
         return poiOptionsArray
     }
@@ -464,7 +503,7 @@ class Coordinator: NSObject, MapControllerDelegate, KakaoMapEventDelegate {
     @MainActor
     private func showPOIs(_ poiOptionsArray: [(poiData: (pinInfo: PinInfo, image: UIImage, index: Int), styleID: String, poiOption: PoiOptions)], layer: LabelLayer) {
         let showStartTime = CFAbsoluteTimeGetCurrent()
-
+        
         var successCount = 0
         var failCount = 0
         var createdPOIs: [Poi] = []
@@ -473,83 +512,277 @@ class Coordinator: NSObject, MapControllerDelegate, KakaoMapEventDelegate {
             let singleShowStartTime = CFAbsoluteTimeGetCurrent()
             let poiData = poiOptionData.poiData
             let poiOption = poiOptionData.poiOption
-
+            
             // POI 추가
             let beforeAddPoi = CFAbsoluteTimeGetCurrent()
             let poi = layer.addPoi(
                 option: poiOption,
                 at: MapPoint(longitude: poiData.pinInfo.longitude, latitude: poiData.pinInfo.latitude),
                 callback: { result in
-                   
+                    
                 }
             )
             let afterAddPoi = CFAbsoluteTimeGetCurrent()
             
             if let poi = poi {
-
+                
                 poi.show()
-
+                
                 createdPOIs.append(poi)
                 
                 let singleShowTime = CFAbsoluteTimeGetCurrent() - singleShowStartTime
                 let addPoiTime = afterAddPoi - beforeAddPoi
-
+                
                 successCount += 1
             } else {
-
+                
                 failCount += 1
             }
         }
         
         let showTime = CFAbsoluteTimeGetCurrent() - showStartTime
-
+        
     }
     
     // MARK: - 메인 POI 업데이트 메서드 (순서 보장)
-    func updatePOIs(_ pinInfos: [PinInfo]) {
-        let overallStartTime = CFAbsoluteTimeGetCurrent()
-
-        guard let kakaoMap = controller?.getView("mapview") as? KakaoMap else {
-            print("❌ KakaoMap 가져오기 실패")
-            return
-        }
-        let manager = kakaoMap.getLabelManager()
-        guard let layer = manager.getLabelLayer(layerID: layerID) else {
-            print("❌ 레이어 가져오기 실패 - layerID: \(layerID)")
-            return
-        }
-        
-        // 기존 POI들 제거
-        print("🧹 기존 POI 제거 중...")
-        layer.clearAllItems()
-        
-        Task {
-            // Step 1: 이미지 생성 (비동기)
-            let poiDataArray = await createUIImages(from: pinInfos)
-            
-            // Step 2 & 3: 메인 스레드에서 순차 실행
-            await MainActor.run {
-                // Step 2: POI 옵션 생성 (메인 스레드)
-                let poiOptionsArray = createPoiOptions(from: poiDataArray)
-                
-                // Step 3: POI 표시 (메인 스레드)
-                showPOIs(poiOptionsArray, layer: layer)
-                
-                let totalTime = CFAbsoluteTimeGetCurrent() - overallStartTime
-                print("🎉 updatePOIs 완료! - 전체 시간: \(String(format: "%.3f", totalTime * 1000))ms")
-                
-                // 최종 확인: 실제로 표시된 POI 개수
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                    let allPois = layer.getAllPois()
-                    print("🔍 최종 확인 - 레이어의 실제 POI 개수: \(allPois?.count ?? 0)")
-                }
-            }
-        }
-    }
+    // func updatePOIs(_ pinInfos: [PinInfo]) {
+    //     let overallStartTime = CFAbsoluteTimeGetCurrent()
+    
+    //     guard let kakaoMap = controller?.getView("mapview") as? KakaoMap else {
+    //         print("❌ KakaoMap 가져오기 실패")
+    //         return
+    //     }
+    //     let manager = kakaoMap.getLabelManager()
+    //     guard let layer = manager.getLabelLayer(layerID: layerID) else {
+    //         print("❌ 레이어 가져오기 실패 - layerID: \(layerID)")
+    //         return
+    //     }
+    
+    //     // 기존 POI들 제거
+    //     print("🧹 기존 POI 제거 중...")
+    //     layer.clearAllItems()
+    
+    //     Task {
+    //         // Step 1: 이미지 생성 (비동기)
+    //         let poiDataArray = await createUIImages(from: pinInfos)
+    
+    //         // Step 2 & 3: 메인 스레드에서 순차 실행
+    //         await MainActor.run {
+    //             // Step 2: POI 옵션 생성 (메인 스레드)
+    //             let poiOptionsArray = createPoiOptions(from: poiDataArray)
+    
+    //             // Step 3: POI 표시 (메인 스레드)
+    //             showPOIs(poiOptionsArray, layer: layer)
+    
+    //             let totalTime = CFAbsoluteTimeGetCurrent() - overallStartTime
+    //             print("🎉 updatePOIs 완료! - 전체 시간: \(String(format: "%.3f", totalTime * 1000))ms")
+    
+    //             // 최종 확인: 실제로 표시된 POI 개수
+    //             DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+    //                 let allPois = layer.getAllPois()
+    //                 print("🔍 최종 확인 - 레이어의 실제 POI 개수: \(allPois?.count ?? 0)")
+    //             }
+    //         }
+    //     }
+    // }
     
     func clearAllPOIs() {
         guard let kakaoMap = controller?.getView("mapview") as? KakaoMap,
               let layer = kakaoMap.getLabelManager().getLodLabelLayer(layerID: layerID) else { return }
         layer.clearAllItems()
     }
+    
 }
+
+// MARK: - POI 차분 구조체
+private struct POIDiff {
+    let toAdd: [PinInfo]
+    let toRemove: [String]  // estateId들
+    let toUpdate: [PinInfo]
+    
+    var hasChanges: Bool {
+        return !toAdd.isEmpty || !toRemove.isEmpty || !toUpdate.isEmpty
+    }
+}
+
+// MARK: - 차분 계산 메서드 추가
+extension Coordinator {
+    
+    /// 새로운 PinInfo 배열과 기존 데이터를 비교하여 차분을 계산
+    private func calculatePOIDiff(newPinInfos: [PinInfo]) -> POIDiff {
+        let newPinInfoDict = Dictionary(uniqueKeysWithValues: newPinInfos.map { ($0.estateId, $0) })
+        
+        var toAdd: [PinInfo] = []
+        var toRemove: [String] = []
+        var toUpdate: [PinInfo] = []
+        
+        // 새로 추가될 POI들 찾기
+        for (estateId, newPinInfo) in newPinInfoDict {
+            if currentPinInfos[estateId] == nil {
+                toAdd.append(newPinInfo)
+            } else if let currentPinInfo = currentPinInfos[estateId],
+                      !arePinInfosEqual(currentPinInfo, newPinInfo) {
+                toUpdate.append(newPinInfo)
+            }
+        }
+        
+        // 제거될 POI들 찾기
+        for estateId in currentPinInfos.keys {
+            if newPinInfoDict[estateId] == nil {
+                toRemove.append(estateId)
+            }
+        }
+        
+        return POIDiff(toAdd: toAdd, toRemove: toRemove, toUpdate: toUpdate)
+    }
+    
+    /// PinInfo 객체들이 동일한지 비교
+    private func arePinInfosEqual(_ lhs: PinInfo, _ rhs: PinInfo) -> Bool {
+        return lhs.estateId == rhs.estateId &&
+        lhs.title == rhs.title &&
+        lhs.longitude == rhs.longitude &&
+        lhs.latitude == rhs.latitude &&
+        lhs.image == rhs.image
+    }
+    
+    /// 현재 뷰포트가 이전과 비교해서 업데이트가 필요한지 확인
+    private func shouldUpdatePOIs(newCenter: CLLocationCoordinate2D, newMaxDistance: Double) -> Bool {
+        guard let lastCenter = lastCenter else { return true }
+        
+        // 중심점이 크게 이동했거나, 더 넓은 범위를 커버하게 된 경우
+        let centerDistance = CLLocation(latitude: lastCenter.latitude, longitude: lastCenter.longitude)
+            .distance(from: CLLocation(latitude: newCenter.latitude, longitude: newCenter.longitude))
+        
+        let significantMove = centerDistance > (lastMaxDistance * 0.3) // 이전 범위의 30% 이상 이동
+        let zoomedOut = newMaxDistance > lastMaxDistance * 1.1 // 10% 이상 확대된 경우
+        
+        return significantMove || zoomedOut
+    }
+}
+
+// MARK: - 효율적인 POI 업데이트 메서드 (기존 updatePOIs 대체)
+extension Coordinator {
+    
+    func updatePOIsEfficiently(_ pinInfos: [PinInfo], currentCenter: CLLocationCoordinate2D, maxDistance: Double) {
+        let diff = calculatePOIDiff(newPinInfos: pinInfos)
+        
+        // 변경사항이 없으면 업데이트하지 않음
+        if !diff.hasChanges {
+            print("🔄 POI 업데이트 불필요 - 변경사항 없음")
+            return
+        }
+        
+        let overallStartTime = CFAbsoluteTimeGetCurrent()
+        
+        guard let kakaoMap = controller?.getView("mapview") as? KakaoMap else {
+            print("❌ KakaoMap 가져오기 실패")
+            return
+        }
+        
+        let manager = kakaoMap.getLabelManager()
+        guard let layer = manager.getLabelLayer(layerID: layerID) else {
+            print("❌ 레이어 가져오기 실패")
+            return
+        }
+        
+        print("📊 POI 차분 분석 - 추가: \(diff.toAdd.count), 제거: \(diff.toRemove.count), 업데이트: \(diff.toUpdate.count)")
+        print("♻️ 유지되는 POI: \(currentPOIs.count - diff.toRemove.count - diff.toUpdate.count)개")
+        
+        // 1. 제거 작업만 수행
+        removePOIs(diff.toRemove, from: layer)
+        
+        // 2. 업데이트 대상도 제거 (변경된 정보로 새로 생성하기 위해)
+        let updateEstateIds = diff.toUpdate.map { $0.estateId }
+        removePOIs(updateEstateIds, from: layer)
+        
+        // 3. 새로 추가할 POI들만 생성 (추가 + 업데이트)
+        let poisToCreate = diff.toAdd + diff.toUpdate
+        
+        if !poisToCreate.isEmpty {
+            Task {
+                let poiDataArray = await createUIImages(from: poisToCreate)
+                
+                await MainActor.run {
+                    let poiOptionsArray = createPoiOptions(from: poiDataArray)
+                    addPOIs(poiOptionsArray, to: layer)
+                    
+                    // 상태 업데이트
+                    updateCurrentState(with: pinInfos, center: currentCenter, maxDistance: maxDistance)
+                    
+                    let totalTime = CFAbsoluteTimeGetCurrent() - overallStartTime
+                    print("🎉 차분 업데이트 완료! - 전체 시간: \(String(format: "%.3f", totalTime * 1000))ms")
+                    print("📍 현재 총 POI 개수: \(currentPOIs.count)개")
+                }
+            }
+        } else {
+            // 추가할 POI가 없는 경우에도 상태 업데이트
+            updateCurrentState(with: pinInfos, center: currentCenter, maxDistance: maxDistance)
+        }
+    }
+    
+    /// POI들을 제거하는 메서드
+    private func removePOIs(_ estateIds: [String], from layer: LabelLayer) {
+        var removedCount = 0
+        
+        for estateId in estateIds {
+            if let poi = currentPOIs[estateId] {
+                poi.hide()
+                layer.removePoi(poiID: poi.itemID)
+                currentPOIs.removeValue(forKey: estateId)
+                currentPinInfos.removeValue(forKey: estateId)
+                currentStyleIds.removeValue(forKey: estateId)
+                removedCount += 1
+            }
+        }
+        
+        if removedCount > 0 {
+            print("🗑️ POI \(removedCount)개 제거 완료")
+        }
+    }
+    
+    /// POI들을 추가하는 메서드
+    private func addPOIs(_ poiOptionsArray: [(poiData: (pinInfo: PinInfo, image: UIImage, index: Int), styleID: String, poiOption: PoiOptions)], to layer: LabelLayer) {
+        var addedCount = 0
+        
+        for poiOptionData in poiOptionsArray {
+            let poiData = poiOptionData.poiData
+            let poiOption = poiOptionData.poiOption
+            let styleID = poiOptionData.styleID
+            
+            let poi = layer.addPoi(
+                option: poiOption,
+                at: MapPoint(longitude: poiData.pinInfo.longitude, latitude: poiData.pinInfo.latitude),
+                callback: { result in
+                    // 콜백 처리
+                }
+            )
+            
+            if let poi = poi {
+                poi.show()
+                
+                // 상태 저장
+                currentPOIs[poiData.pinInfo.estateId] = poi
+                currentPinInfos[poiData.pinInfo.estateId] = poiData.pinInfo
+                currentStyleIds[poiData.pinInfo.estateId] = styleID
+                
+                addedCount += 1
+            }
+        }
+        
+        if addedCount > 0 {
+            print("✅ POI \(addedCount)개 추가 완료")
+        }
+    }
+    
+    /// 현재 상태를 업데이트하는 메서드
+    private func updateCurrentState(with pinInfos: [PinInfo], center: CLLocationCoordinate2D, maxDistance: Double) {
+        lastCenter = center
+        lastMaxDistance = maxDistance
+        
+        // 현재 PinInfo 상태도 업데이트 (제거된 것들은 이미 위에서 제거됨)
+        for pinInfo in pinInfos {
+            currentPinInfos[pinInfo.estateId] = pinInfo
+        }
+    }
+}
+
