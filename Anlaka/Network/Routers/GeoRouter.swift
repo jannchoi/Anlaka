@@ -9,11 +9,17 @@ import Foundation
 
 enum GeoRouter {
     case getAddress(lon: Double, lat: Double)
+    case getGeolocation(query: String)
     
     var baseURL: URL {URL(string: BaseURL.geoBaseURL)!}
     
     var path: String {
-        return ""
+        switch self {
+        case .getAddress:
+            return "/geo/coord2address.json"
+        case .getGeolocation(let query):
+            return "/search/address.json"
+        }
     }
     
     var method: String {
@@ -27,13 +33,15 @@ enum GeoRouter {
         switch self {
         case .getAddress(let lon, let lat):
             return ["x": lon, "y": lat]
+        case .getGeolocation(let query):
+            return ["query": query]
         }
     }
     
     func asURLRequest() throws -> URLRequest {
         var url = baseURL.appendingPathComponent(path)
         switch self {
-        case .getAddress(let lon, let lat):
+        case .getAddress, .getGeolocation:
             var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
             let queryItems = parameters.map{URLQueryItem(name: $0.key, value: "\($0.value)")}
             components?.queryItems = queryItems
