@@ -13,20 +13,23 @@ enum UserRouter {
     case kakaoLogin(KakaoLoginRequestDTO)
     case appleLogin(AppleLoginRequestDTO)
     
-    var baseURL: URL { URL(string: BaseURL.baseV1)!}
+    var baseURL: URL {
+        
+        let urlStr = BaseURL.baseV1 + "/users"
+        return URL(string: urlStr)!}
 
     var path: String {
         switch self {
         case .emailValidation:
-            return "/users/validation/email"
+            return "/validation/email"
         case .signUp:
-            return "/users/join"
+            return "/join"
         case .emailLogin:
-            return "/users/login"
+            return "/login"
         case .kakaoLogin:
-            return "/users/login/kakao"
+            return "/login/kakao"
         case .appleLogin:
-            return "/users/login/apple"
+            return "/login/apple"
         }
     }
 
