@@ -53,11 +53,15 @@ final class NetworkRepositoryImp: NetworkRepository {
                 target: EstateRouter.detailEstate(estateId: estateId),
                 model: DetailEstateResponseDTO.self
             )
-            return response.toEntity()
+            guard let entity = response.toEntity() else {
+                throw CustomError.nilResponse
+            }
+            return entity
         } catch {
             throw error
         }
     }
+
     
     func postLikeEstate(_ estateId: String, _ targetLikeEstate: LikeEstateEntity) async throws -> LikeEstateEntity {
         let target = targetLikeEstate.toDTO()
@@ -217,3 +221,4 @@ final class NetworkRepositoryImp: NetworkRepository {
         }
     }
 }
+
