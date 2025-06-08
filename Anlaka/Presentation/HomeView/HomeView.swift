@@ -48,18 +48,18 @@ struct HomeView: View {
                         SectionTitleView(title: "카테고리", hasViewAll: false)
                             .padding(.top, 16) // 상단 섹션 아래 간격 추가
                         CategoryEstateView(onCategoryTapped: { category in
-                            path.append(HomeRoute.category)
+                            container.handle(.goToCategory(categoryType: category))
                         })
                         
                         // 최신 매물
                         SectionTitleView(title: "최신 매물", hasViewAll: true) {
-                            path.append(HomeRoute.latestAll)
+                            container.handle(.goToEstatesAll(type: .latest))
                         }
                         renderLatestEstate()
                         
                         // 인기 매물
                         SectionTitleView(title: "인기 매물", hasViewAll: true) {
-                            path.append(HomeRoute.hotAll)
+                            container.handle(.goToEstatesAll(type: .hot))
                         }
                         renderHotEstate()
                         
@@ -76,14 +76,39 @@ struct HomeView: View {
             .navigationBarHidden(true) // 네비게이션 바 완전히 숨김
             .navigationDestination(for: HomeRoute.self) { route in
                 switch route {
-                case .detail:
-                    Text("상세 화면")
-                case .category:
-                    Text("카테고리 화면")
-                case .latestAll:
-                    Text("최신 매물 전체보기")
-                case .hotAll:
-                    Text("인기 매물 전체보기")
+                case .detail(let estateId):
+                    EstateDetailView(estateId: estateId)
+                        .onAppear {
+                            container.resetNavigation()
+                        }
+                case .category(let categoryType):
+                    CategoryDetailView(categoryType: categoryType)
+                        .onAppear {
+                            container.resetNavigation()
+                        }
+                case .estatesAll(let type):
+                    EstatesAllView(listType: type)
+                        .onAppear {
+                            container.resetNavigation()
+                        }
+                case .topicWeb:
+                    // This is handled by the sheet, not navigation
+                    EmptyView()
+                case .search:
+                    SearchMapView()
+                        .onAppear {
+                            container.resetNavigation()
+                        }
+                }
+            }
+            .onChange(of: container.model.navigationDestination) { destination in
+                if let destination = destination {
+                    path.append(destination)
+                }
+            }
+            .sheet(isPresented: $container.model.showSafariSheet) {
+                if let url = container.model.safariURL {
+                    SafariWebView(url: url)
                 }
             }
         }
@@ -100,6 +125,7 @@ struct HomeView: View {
             
             TextField("검색어를 입력해주세요", text: $searchText)
                 .font(.system(size: 14))
+                .disabled(true) // 입력은 불가능
             
             if !searchText.isEmpty {
                 Button(action: {
@@ -113,14 +139,13 @@ struct HomeView: View {
         .padding(8)
         .background(Color.white.opacity(0.9))
         .cornerRadius(10)
+        .contentShape(Rectangle()) // 전체 영역을 탭 가능하게 설정
+        .onTapGesture {
+            container.handle(.goToSearch)
+        }
     }
     
-    
-    @ViewBuilder
-    private func renderLatestEstate() -> some View {
-        let mockData : [mockLatestData] = .init(repeating: mockLatestData(), count: 5)
-        LatestView(entity: mockData)
-    }
+
 }
 
 // 1. 오늘의 부동산 뷰
@@ -299,6 +324,7 @@ struct SectionTitleView: View {
 // 4. 최신 매물 뷰
 struct LatestView: View {
     let entity: [mockLatestData]
+    let onTap: (String) -> Void
     
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -358,6 +384,10 @@ struct LatestView: View {
                     .frame(width: 200)
                     .background(Color.white)
                     .cornerRadius(12)
+                    .onTapGesture {
+                         // 실제 데이터 있을 때 estateId넣기
+                         onTap("estate_\(index)")
+                     }
                 }
             }
             .padding(.horizontal)
@@ -367,84 +397,109 @@ struct LatestView: View {
 }
 
 // 5. 인기 매물 뷰
+struct HotEstateItemView: View {
+    let item: HotEstateWithAddress
+    let onTap: (String) -> Void
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            // 썸네일 이미지
+            CustomAsyncImage(imagePath: item.summary.thumbnail)
+                .frame(width: 200, height: 140)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+            
+            // 정보 섹션
+            itemInfoSection
+        }
+        .frame(width: 200)
+        .background(Color.white)
+        .cornerRadius(12)
+        .onTapGesture {
+            onTap(item.summary.estateId)
+        }
+    }
+    
+    private var itemInfoSection: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(item.summary.title)
+                .font(.headline)
+                .fontWeight(.medium)
+                .lineLimit(1)
+            
+            priceInfoView
+            addressAndAreaView
+            likesView
+        }
+    }
+    
+    private var priceInfoView: some View {
+        HStack {
+            Text("월세")
+                .font(.caption)
+                .foregroundColor(.secondary)
+            
+            Text("\(FormatManager.formatCurrency(item.summary.deposit))/\(FormatManager.formatCurrency(item.summary.monthlyRent))")
+                .font(.subheadline)
+                .fontWeight(.bold)
+        }
+    }
+    
+    private var addressAndAreaView: some View {
+        HStack {
+            Text(item.address)
+                .font(.caption)
+                .foregroundColor(.secondary)
+            
+            Spacer()
+            
+            Text("\(FormatManager.formatArea(item.summary.area))")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+    }
+    
+    private var likesView: some View {
+        HStack {
+            Image(systemName: "heart.fill")
+                .foregroundColor(.red)
+                .font(.caption)
+            
+            Text("\(item.summary.likeCount)")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+    }
+}
+
 struct HotEstateView: View {
     let entity: [HotEstateWithAddress]
+    let onTap: (String) -> Void
     
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 16) {
-                ForEach(0..<entity.count, id: \.self) { index in
-                    VStack(alignment: .leading, spacing: 8) {
-                        // 썸네일 이미지
-                        CustomAsyncImage(imagePath: entity[index].summary.thumbnail)
-                        .frame(width: 200, height: 140)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                        
-                        // 정보
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(entity[index].summary.title)
-                                .font(.headline)
-                                .fontWeight(.medium)
-                                .lineLimit(1)
-                            
-                            HStack {
-                                Text("월세")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                                
-                                Text("\(FormatManager.formatCurrency(entity[index].summary.deposit))/\(FormatManager.formatCurrency(entity[index].summary.monthlyRent))")
-                                    .font(.subheadline)
-                                    .fontWeight(.bold)
-                            }
-                            
-                            HStack {
-                                Text(entity[index].address)
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                                
-                                Spacer()
-                                
-
-                                Text("\(FormatManager.formatArea(entity[index].summary.area))")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                            
-                            HStack {
-                                Image(systemName: "heart.fill")
-                                    .foregroundColor(.red)
-                                    .font(.caption)
-                                
-                                Text("\(entity[index].summary.likeCount)")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                        }
-                    }
-                    .frame(width: 200)
-                    .background(Color.white)
-                    .cornerRadius(12)
+                ForEach(entity.indices, id: \.self) { index in
+                    HotEstateItemView(item: entity[index], onTap: onTap)
                 }
             }
             .padding(.horizontal)
         }
     }
-
 }
-
 // 6. 토픽 부동산 뷰
 struct TopicEstateView: View {
     let entity: TopicEstateEntity
+    let onTap: (URL?) -> Void
     
     var body: some View {
         VStack(spacing: 12) {
             ForEach(0..<entity.items.count, id: \.self) { index in
                 Button(action: {
-                    // 링크 존재 시 웹뷰로, 아니면 상세 화면으로 이동
-                    if entity.items[index].link != nil {
-                        // 웹 브리징 처리 (현재는 구현 생략)
+                    if let linkString = entity.items[index].link, let url = URL(string: linkString) {
+                        onTap(url)
                     } else {
-                        // 상세 화면으로 이동 (NavigationLink로 이동)
+                        // If no link, pass nil
+                        onTap(nil)
                     }
                 }) {
                     topicCell(for: index)
@@ -490,8 +545,10 @@ extension HomeView {
                 .frame(height: 400)
         case .success(let data):
             TodayEstateView(entity: data, onTap: {
-                            path.append(HomeRoute.detail)
-                        })
+                if let firstItem = data.first {
+                    container.handle(.goToDetail(estateId: firstItem.summary.estateId))
+                }
+            })
         case .failure(let message):
             Text("에러: \(message)")
                 .foregroundColor(.red)
@@ -506,7 +563,9 @@ extension HomeView {
             ProgressView("Hot 매물 로딩 중…")
                 .frame(height: 200)
         case .success(let data):
-            HotEstateView(entity: data)
+            HotEstateView(entity: data, onTap: { estateId in
+                container.handle(.goToDetail(estateId: estateId))
+            })
         case .failure(let message):
             Text("에러: \(message)")
                 .foregroundColor(.red)
@@ -521,16 +580,28 @@ extension HomeView {
             ProgressView("Topic 로딩 중…")
                 .frame(height: 200)
         case .success(let data):
-            TopicEstateView(entity: data)
+            TopicEstateView(entity: data, onTap: { url in
+                if let url = url {
+                    container.handle(.goToTopicWeb(url: url))
+                } else {
+                    // If no URL, we can navigate to a detail view or do nothing
+                    // For now, we'll just not navigate anywhere
+                }
+            })
         case .failure(let message):
             Text("에러: \(message)")
                 .foregroundColor(.red)
                 .frame(height: 200)
         }
     }
+    @ViewBuilder
+    private func renderLatestEstate() -> some View {
+        let mockData : [mockLatestData] = .init(repeating: mockLatestData(), count: 5)
+        LatestView(entity: mockData, onTap: { estateId in
+            container.handle(.goToDetail(estateId: estateId))
+        })
+    }
 }
-
-
 // Mock 데이터 구조 정의 (실제로는 별도 파일로 분리되어 있을 것입니다)
 struct mockLatestData {
     struct Summary {
