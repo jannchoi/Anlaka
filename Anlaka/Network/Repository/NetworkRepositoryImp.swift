@@ -124,10 +124,10 @@ final class NetworkRepositoryImp: NetworkRepository {
     }
     
     
-    func fetchRefreshToken(refToken: String) async throws -> RefreshTokenEntity {
+    func fetchRefreshToken() async throws -> RefreshTokenEntity {
         do {
             let response = try await NetworkManager.shared.callRequest(
-                target: AuthRouter.getRefreshToken(refToken: refToken),
+                target: AuthRouter.getRefreshToken,
                 model: RefreshTokenResponseDTO.self
             )
             return response.toEntity()
