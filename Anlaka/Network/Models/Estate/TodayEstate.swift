@@ -12,11 +12,26 @@ struct TodayEstateResponseDTO: Decodable {
 }
 
 struct TodayEstateEntity {
-    let data: [EstateSummaryEntity]
+    let data: [TodaySummaryEntity]
 }
 
 extension TodayEstateResponseDTO {
     func toEntity() -> TodayEstateEntity {
-        .init(data: data.map { $0.toEntity() })
+        .init(data: data.map { $0.toTodayEntity() })
     }
+}
+
+
+struct TodaySummaryEntity {
+    let estateId: String
+    let category: String
+    let title: String
+    let introduction: String
+    let thumbnails: [String]
+    let geolocation: GeolocationEntity
+
+}
+struct TodayEstateWithAddress {
+    let summary: TodaySummaryEntity
+    let address: String // roadRegion3
 }
