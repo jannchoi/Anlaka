@@ -17,7 +17,7 @@ struct GeoEstateEntity {
 
 extension GeoEstateResponseDTO {
     func toEntity() -> GeoEstateEntity {
-        .init(data: data.map { $0.toEntity() })
+        .init(data: data.compactMap { $0.toEntity() })
     }
 }
 extension GeoEstateEntity {

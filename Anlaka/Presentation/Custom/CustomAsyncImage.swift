@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct CustomAsyncImage: View {
-    let imagePath: String  // 예: "/data/estates/xxx.png"
+    let imagePath: String?  // 예: "/data/estates/xxx.png"
     
     @State private var uiImage: UIImage?
     @State private var isLoading = true
@@ -26,6 +26,10 @@ struct CustomAsyncImage: View {
             } else {
                 Rectangle()
                     .fill(Color.gray.opacity(0.3))
+                    .overlay(
+                        Text("이미지")
+                            .foregroundColor(.gray)
+                    )
             }
         }
         .onAppear {
@@ -34,13 +38,17 @@ struct CustomAsyncImage: View {
     }
     
     private func loadImage() {
+        guard let imagePath = imagePath else {
+            self.uiImage = nil
+            return
+        }
         guard let url = URL(string: FormatManager.formatImageURL(imagePath)) else {
             isLoading = false
             return
         }
         
         var request = URLRequest(url: url)
-        request.addValue(Environment.apiKey, forHTTPHeaderField: "SeSACKey")
+        request.addValue(AppConfig.apiKey, forHTTPHeaderField: "SeSACKey")
         guard let accessToken = UserDefaultsManager.shared.getString(forKey: .accessToken) else {return}
         request.addValue(accessToken, forHTTPHeaderField: "Authorization")
         
