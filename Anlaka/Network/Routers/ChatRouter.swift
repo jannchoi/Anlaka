@@ -62,33 +62,20 @@ enum ChatRouter: AuthorizedTarget {
         
         switch self {
         case .uploadFiles(let roomId, let dto):
-            // 파일 데이터 추가 (files는 파일 경로 문자열 배열)
-            for (index, filePath) in dto.files.enumerated() {
-                // 파일 데이터 읽기 시도
-                do {
-                    let fileURL: URL
-                    if filePath.hasPrefix("/") || filePath.hasPrefix("file://") {
-                        // 절대 경로 또는 file URL
-                        fileURL = filePath.hasPrefix("file://") ? URL(string: filePath)! : URL(fileURLWithPath: filePath)
-                    } else {
-                        // 상대 경로라고 가정
-                        fileURL = URL(fileURLWithPath: filePath)
-                    }
-                    
-                    let fileData = try Data(contentsOf: fileURL)
-                    let fileName = fileURL.lastPathComponent
-                    let mimeType = getMimeType(for: fileName)
-                    
-                    body.append("--\(boundary)\r\n")
-                    body.append("Content-Disposition: form-data; name=\"files\"; filename=\"\(fileName)\"\r\n")
-                    body.append("Content-Type: \(mimeType)\r\n\r\n")
-                    body.append(fileData)
-                    body.append("\r\n")
-                } catch {
-                    print("Failed to read file at path: \(filePath), error: \(error)")
-                    // 파일을 읽을 수 없는 경우 건너뛰기
+            // 파일 데이터 추가
+            for (index, file) in dto.files.enumerated() {
+                // 파일 확장자 검증
+                guard file.isValidExtension else {
+                    print("Invalid file extension: \(file.fileExtension)")
                     continue
                 }
+                
+                // 파일 데이터 추가
+                body.append("--\(boundary)\r\n")
+                body.append("Content-Disposition: form-data; name=\"files\"; filename=\"\(file.fileName)\"\r\n")
+                body.append("Content-Type: \(file.mimeType)\r\n\r\n")
+                body.append(file.data)
+                body.append("\r\n")
             }
             
             // room_id 파라미터 추가
