@@ -29,7 +29,7 @@ final class NetworkManager {
         }
 
         if let rawJSON = String(data: data, encoding: .utf8) {
-            //print("📦 Raw Response:\n\(rawJSON)")
+            print("📦 Raw Response:\n\(rawJSON)")
         } else {
             print("⚠️ Raw 데이터 UTF-8 디코딩 실패")
         }
