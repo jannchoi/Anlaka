@@ -41,7 +41,7 @@ struct OptionEntity {
 extension OptionDTO {
     func toEntity() -> OptionEntity {
         return OptionEntity(
-            description: description ?? "알 수 없음",
+            description: description ?? "",
             refrigerator: refrigerator ?? false,
             washer: washer ?? false,
             airConditioner: airConditioner ?? false,
