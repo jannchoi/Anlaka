@@ -55,7 +55,7 @@ enum EstateRouter: AuthorizedTarget {
     var header: [String: String] {
         guard let accessToken = UserDefaultsManager.shared.getString(forKey: .accessToken) else {return [:]}
         return [
-            "SeSACKey": Environment.apiKey,
+            "SeSACKey": AppConfig.apiKey,
             "Content-Type": "application/json",
             "Authorization" : accessToken
         ]

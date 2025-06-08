@@ -1,5 +1,5 @@
 //
-//  Environment.swift
+//  AppConfig.swift
 //  Anlaka
 //
 //  Created by 최정안 on 5/16/25.
@@ -7,7 +7,7 @@
 
 import Foundation
 
-public enum Environment {
+public enum AppConfig {
     enum Keys {
         enum Plist {
             static let kakaoNativeKey = "KAKAO_NATIVE_KEY"
