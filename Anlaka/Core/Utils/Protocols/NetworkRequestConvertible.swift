@@ -12,4 +12,6 @@ protocol NetworkRequestConvertible {
 }
 extension UserRouter: NetworkRequestConvertible {}
 extension AuthRouter: NetworkRequestConvertible {}
+extension EstateRouter: NetworkRequestConvertible {}
+extension GeoRouter: NetworkRequestConvertible {}
 

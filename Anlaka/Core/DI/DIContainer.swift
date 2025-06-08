@@ -20,4 +20,7 @@ final class DIContainer: ObservableObject {
     func makeSignUpContainer() -> SignUpContainer {
         SignUpContainer(repository: networkRepository)
     }
+    func makeHomeContainer() -> HomeContainer {
+        HomeContainer(repository: networkRepository)
+    }
 }
