@@ -68,3 +68,4 @@ GoogleService-Info.plist
 SecretKey.swift
 SecretKey.swift
 *.xcconfig
+.cursor/
