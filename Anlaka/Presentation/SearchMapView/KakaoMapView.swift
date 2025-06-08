@@ -106,8 +106,7 @@ struct KakaoMapView: UIViewRepresentable {
             
             // 지도 뷰에 이벤트 리스너 등록
             if let mapView = view as? KakaoMap {
-                print("🗺️ 지도 이벤트 리스너 등록")
-                // 카메라 이동 완료 이벤트 등록 (KakaoMap SDK 방식에 따라 조정 필요)
+                print("🗺️ 지도 이벤트 델리게이트 등록")
                 mapView.eventDelegate = self
             }
         }
@@ -163,9 +162,30 @@ struct KakaoMapView: UIViewRepresentable {
             return 156543.03 * cos(latitudeRadians) / pow(2.0, Double(zoomLevel))
         }
         
-        // ✅ 사용자가 지도를 움직이고 손을 뗐을 때 호출됨
+        // MARK: - KakaoMapEventDelegate
+        
+        /// 지도 이동이 멈췄을 때 호출 (실제 KakaoMap SDK 메서드)
+        func cameraDidStopped(kakaoMap: KakaoMap, by: MoveBy) {
+            print("🗺️ cameraDidStopped 호출됨")
+            let viewSize = kakaoMap.viewRect.size
+            let centerPoint = CGPoint(x: viewSize.width / 2, y: viewSize.height / 2)
+            let cameraPosition = kakaoMap.getPosition(centerPoint)
+            let centerCoord = cameraPosition.wgsCoord
+            let center = CLLocationCoordinate2D(latitude: centerCoord.latitude,
+                                                longitude: centerCoord.longitude)
+            
+            let maxDistance = calculateMaxDistanceFromCenter(mapView: kakaoMap, center: center)
+            print("📍 지도 중심 좌표 변경됨:", center)
+            print("📏 중심~모서리 거리:", Int(maxDistance), "m")
+            
+            // 클로저 호출
+            onCenterChanged(center)
+            onRadiusChanged(maxDistance)
+        }
+        
+        // 기존 cameraMoveEnded 메서드는 제거하거나 참고용으로 남겨둠
         func cameraMoveEnded(_ mapView: KakaoMap, cameraPosition: CameraPosition) {
-            print("🗺️ cameraMoveEnded 호출됨")
+            print("🗺️ cameraMoveEnded 호출됨 (사용되지 않음)")
             let centerCoord = cameraPosition.targetPoint.wgsCoord
             let center = CLLocationCoordinate2D(latitude: centerCoord.latitude,
                                                 longitude: centerCoord.longitude)
