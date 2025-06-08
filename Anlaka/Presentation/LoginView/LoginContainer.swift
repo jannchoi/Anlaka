@@ -154,8 +154,6 @@ final class LoginContainer: NSObject, ObservableObject {
 
                 let fullName = appleIDCredential.fullName
                 let name = (fullName?.familyName ?? "") + (fullName?.givenName ?? "")
-                let email = appleIDCredential.email
-                let userId = appleIDCredential.user
 
                 UserDefaultsManager.shared.set(tokenString, forKey: .appleIdToken)
                 await callAppleLogin(name)
@@ -213,9 +211,10 @@ final class LoginContainer: NSObject, ObservableObject {
     
     private func saveUserData(_ targetData: LoginResponseEntity) {
         UserDefaultsManager.shared.setObject(targetData, forKey: .profileData)
+        UserDefaultsManager.shared.set(targetData.accessToken, forKey: .accessToken)
+        UserDefaultsManager.shared.set(targetData.refreshToken, forKey: .refreshToken)
         model.loginCompleted = true
         model.isLoading = false
         model.onLoginSuccess?()
-        print(targetData)
     }
 }
