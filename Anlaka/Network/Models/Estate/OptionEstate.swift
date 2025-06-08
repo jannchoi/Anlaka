@@ -6,16 +6,17 @@
 //
 
 import Foundation
+
 struct OptionDTO: Decodable {
-    let description: String
-    let refrigerator: Bool
-    let washer: Bool
-    let airConditioner: Bool
-    let closet: Bool
-    let shoeRack: Bool
-    let microwave: Bool
-    let sink: Bool
-    let tv: Bool
+    let description: String?
+    let refrigerator: Bool?
+    let washer: Bool?
+    let airConditioner: Bool?
+    let closet: Bool?
+    let shoeRack: Bool?
+    let microwave: Bool?
+    let sink: Bool?
+    let tv: Bool?
 
     enum CodingKeys: String, CodingKey {
         case description, refrigerator, washer
@@ -39,16 +40,16 @@ struct OptionEntity {
 
 extension OptionDTO {
     func toEntity() -> OptionEntity {
-        .init(
-            description: description,
-            refrigerator: refrigerator,
-            washer: washer,
-            airConditioner: airConditioner,
-            closet: closet,
-            shoeRack: shoeRack,
-            microwave: microwave,
-            sink: sink,
-            tv: tv
+        return OptionEntity(
+            description: description ?? "알 수 없음",
+            refrigerator: refrigerator ?? false,
+            washer: washer ?? false,
+            airConditioner: airConditioner ?? false,
+            closet: closet ?? false,
+            shoeRack: shoeRack ?? false,
+            microwave: microwave ?? false,
+            sink: sink ?? false,
+            tv: tv ?? false
         )
     }
 }

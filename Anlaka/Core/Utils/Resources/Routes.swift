@@ -13,7 +13,6 @@ enum LoginRoute: Hashable {
 }
 
 enum HomeRoute: Hashable {
-    case detail(estateId: String)
     case category(categoryType: CategoryType)
     case estatesAll(type: EstateListType)
     case topicWeb(url: URL)
