@@ -32,13 +32,13 @@ struct SearchMapView: View {
                 get: { container.model.selectedEstate },
                 set: { container.model.selectedEstate = $0 }
             )) { estate in
-                EstateDetailView(estate: estate)
+                LazyView(content: EstateDetailView(di: di,estate: estate))
             }
             .fullScreenCover(item: Binding(
                 get: { container.model.selectedEstateId },
                 set: { container.model.selectedEstateId = $0 }
             )) { identifiableString in
-                EstateDetailView(estateId: identifiableString.id)
+                LazyView(content: EstateDetailView(di: di,estateId: identifiableString.id))
             }
             .animation(.easeInOut(duration: 0.3), value: container.model.selectedFilterIndex)
             .animation(.easeInOut(duration: 0.3), value: container.model.showEstateScroll)
