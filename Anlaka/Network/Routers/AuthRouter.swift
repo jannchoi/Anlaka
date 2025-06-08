@@ -6,12 +6,20 @@
 //
 
 import Foundation
-enum AuthRouter {
-    case getRefreshToken(refToken: String)
+enum AuthRouter: AuthorizedTarget {
+    case getRefreshToken
     case log
     
     var baseURL: URL { URL(string: BaseURL.baseV1)!}
-
+    
+    var requiresAuthorization: Bool {
+        switch self {
+        case .getRefreshToken:
+            return false
+        case .log:
+            return false
+        }
+    }
     var path: String {
         switch self {
         case .getRefreshToken:
@@ -27,10 +35,13 @@ enum AuthRouter {
 
     var header: [String: String] {
         switch self {
-        case .getRefreshToken(let refToken):
+        case .getRefreshToken:
+            guard let accessToken = UserDefaultsManager.shared.getString(forKey: .accessToken), let refreshToken = UserDefaultsManager.shared.getString(forKey: .refreshToken) else {return [:]}
             return [
                 "SeSACKey": Environment.apiKey,
-                "RefreshToken": refToken
+                "RefreshToken": refreshToken,
+                "Authorization" : accessToken,
+                "Content-Type": "application/json"
             ]
         case .log:
             return ["SeSACKey": Environment.apiKey]

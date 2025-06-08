@@ -127,7 +127,7 @@ final class SignUpContainer: ObservableObject {
     private func emailValidation() async {
         let target = EmailValidationRequestEntity(email: model.email)
         do {
-            let _ = try await repository.validateEmail(targeteEmail: target)
+            try await repository.validateEmail(targeteEmail: target)
             model.isEmailValidServer = true
         } catch {
             model.isEmailValidServer = false
@@ -148,14 +148,11 @@ final class SignUpContainer: ObservableObject {
 
         do {
             let response = try await repository.signUp(signUpEntity: target)
-            saveUserData(response)
+            model.goToLoginView = true
+            model.isLoading = false
         } catch {
             model.errorMessage = (error as? NetworkError)?.errorDescription ?? "알 수 없는 에러: \(error.localizedDescription)"
         }
     }
 
-    private func saveUserData(_ targetData: SignUpResponseEntity) {
-        model.goToLoginView = true
-        model.isLoading = false
-    }
 }
