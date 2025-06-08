@@ -62,7 +62,8 @@ enum PresentationMapper {
     }
     /// Double을 "숫자㎡" 형태로 포맷 (예: 84.32 -> "84.32㎡")
     static func formatArea(_ value: Double?) -> String {
-        guard let value = value else { return "알 수 없음" }
+        guard var value = value else { return "알 수 없음" }
+        value *=  0.3025
         return "\(trimmedNumber(value))㎡"
     }
     
