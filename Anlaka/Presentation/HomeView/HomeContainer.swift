@@ -22,7 +22,7 @@ struct HomeModel {
 enum HomeIntent {
     case initialRequest
     case goToDetail(estateId: String)
-    case goToCategory(categoryType: String)
+    case goToCategory(categoryType: CategoryType)
     case goToEstatesAll(type: EstateListType)
     case goToTopicWeb(url: URL)
     case goToSearch
