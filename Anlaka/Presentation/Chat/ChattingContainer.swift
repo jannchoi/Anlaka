@@ -164,24 +164,24 @@ final class ChattingContainer: ObservableObject {
         model.sendingMessageId = tempMessageId
         
         // 임시 메시지 생성
-        let tempMessage = ChatEntity(
-            chatId: tempMessageId,
-            roomId: model.roomId,
-            content: text,
-            createdAt: PresentationMapper.formatDateToISO8601(Date()),
-            updatedAt: PresentationMapper.formatDateToISO8601(Date()),
-            sender: UserInfoEntity(
-                userId: "current_user", // 실제 사용자 ID로 대체 필요
-                nick: "나",
-                introduction: "",
-                profileImage: ""
-            ),
-            files: []
-        )
-        
-        // 임시 메시지 추가 및 그룹화 업데이트
-        model.tempMessage = tempMessage
-        model.updateMessagesGroupedByDate()
+        if let userInfo = UserDefaultsManager.shared.getObject(forKey: .profileData, as: MyProfileInfoEntity.self) {
+            let tempMessage = ChatEntity(
+                chatId: "temp_\(UUID().uuidString)",
+                roomId: model.roomId,
+                content: text,
+                createdAt: PresentationMapper.formatDateToISO8601(Date()),
+                updatedAt: PresentationMapper.formatDateToISO8601(Date()),
+                sender: UserInfoEntity(
+                    userId: userInfo.userid,
+                    nick: userInfo.nick,
+                    introduction: userInfo.introduction ?? "",
+                    profileImage: userInfo.profileImage ?? ""
+                ),
+                files: []
+            )
+            model.tempMessage = tempMessage
+            model.updateMessagesGroupedByDate()
+        }
         
         print("📝 메시지 전송 시작 - 텍스트: \(text), 파일 수: \(files.count)")
         
@@ -206,27 +206,23 @@ final class ChattingContainer: ObservableObject {
             // 2. 파일 업로드
             var uploadedFiles: [String] = []
             if !chatFiles.isEmpty {
-                print("📝 파일 업로드 시작")
                 let chatFile = try await repository.uploadFiles(roomId: model.roomId, files: chatFiles)
                 uploadedFiles = chatFile.files
-                print("✅ 파일 업로드 성공 - 업로드된 파일 URL: \(uploadedFiles)")
             }
             
             // 3. 메시지 전송
-            print("📝 메시지 전송 요청")
             let chatRequest = ChatRequestEntity(
                 content: text,
                 files: uploadedFiles
             )
             
-            // Socket.IO를 통한 메시지 전송
+            // Socket.IO emit을 사용하여 메시지 전송
             let messageData: [String: Any] = [
                 "content": text,
                 "files": uploadedFiles,
                 "roomId": model.roomId
             ]
             
-            // Socket.IO emit을 사용하여 메시지 전송
             socket?.emit("chat", with: [messageData]) { [weak self] in
                 // 메시지 전송 완료 후 처리
                 Task {
@@ -238,7 +234,6 @@ final class ChattingContainer: ObservableObject {
                         )
                         
                         if let message = message {
-                            print("✅ 메시지 전송 성공:", message)
                             // DB 저장 및 UI 업데이트
                             if !(self?.model.messages.contains(where: { $0.chatId == message.chatId }) ?? false) {
                                 try await self?.databaseRepository.saveMessage(message)
@@ -246,7 +241,6 @@ final class ChattingContainer: ObservableObject {
                                 self?.model.updateMessagesGroupedByDate()  // 그룹화 업데이트
                             }
                         } else {
-                            print("❌ 메시지 전송 실패: 응답이 없음")
                             self?.model.error = "메시지 전송에 실패했습니다."
                         }
                         
