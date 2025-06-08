@@ -16,7 +16,7 @@ struct KakaoMapView: UIViewRepresentable {
     var pinInfoList: [PinInfo]
     var onMapReady: ((Double) -> Void)?
     var onMapChanged: ((CLLocationCoordinate2D, Double) -> Void)?
-        var onClusterTap: ((ClusterInfo) -> Void)?
+    var onClusterTap: ((ClusterInfo) -> Void)?
     var onPOITap: ((String) -> Void)?  // estate_id 전달
     var onPOIGroupTap: (([String]) -> Void)?  // 클러스터 매물들의 estate_id 배열
     
