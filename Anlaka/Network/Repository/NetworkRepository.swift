@@ -27,4 +27,11 @@ protocol NetworkRepository {
     func getRoad3FromGeo(_ geo: GeolocationEntity) async throws -> RoadRegion3Entity
     func getGeofromAddressQuery(_ query: String, page: Int) async throws -> KakaoGeolocationEntity
     func getGeoFromKeywordQuery(_ query: String, page: Int) async throws -> KakaoGeoKeywordEntity
+
+    func getChatRooms() async throws -> ChatRoomListEntity
+    func getChatRoom(opponentId: String) async throws -> ChatRoomEntity
+    func sendMessage(roomId: String, target: ChatRequestEntity) async throws -> ChatEntity
+    func uploadFiles(roomId: String, files: [String]) async throws -> ChatFileEntity
+    func getChatList(roomId: String, from: String?) async throws -> ChatListEntity
+    func getMyProfileInfo() async throws -> MyProfileInfoEntity
 }
