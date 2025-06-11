@@ -2,7 +2,7 @@
 
 
 struct ChatRoomRequestDTO: Codable {
-    let opponentId: String
+    let opponent_id: String
 
 }
 
@@ -12,7 +12,15 @@ struct ChatRoomResponseDTO: Codable {
     let updatedAt: String
     let participants: [UserInfoResponseDTO]
     let lastChat: ChatResponseDTO?
-    
+
+    enum CodingKeys: String, CodingKey {
+        case roomId = "room_id"
+        case createdAt
+        case updatedAt
+        case participants
+        case lastChat
+    }
+
     func toEntity() -> ChatRoomEntity {
         return ChatRoomEntity(
             roomId: roomId,
@@ -23,6 +31,7 @@ struct ChatRoomResponseDTO: Codable {
         )
     }
 }
+
 
 struct ChatRoomEntity {
     let roomId: String
