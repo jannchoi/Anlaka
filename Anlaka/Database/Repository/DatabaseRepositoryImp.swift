@@ -174,7 +174,12 @@ final class DatabaseRepositoryImp: DatabaseRepository {
                 }
                 
                 try realm.write {
-                    realm.add(realmMessages, update: .modified)
+                    // 중복 체크 후 저장
+                    for realmMessage in realmMessages {
+                        if realm.object(ofType: ChatRealmModel.self, forPrimaryKey: realmMessage.chatId) == nil {
+                            realm.add(realmMessage, update: .modified)
+                        }
+                    }
                 }
                 continuation.resume()
             } catch {
@@ -187,6 +192,13 @@ final class DatabaseRepositoryImp: DatabaseRepository {
         try await withCheckedThrowingContinuation { continuation in
             do {
                 let realm = try Realm(configuration: configuration)
+                
+                // 중복 체크
+                if realm.object(ofType: ChatRealmModel.self, forPrimaryKey: message.chatId) != nil {
+                    continuation.resume()
+                    return
+                }
+                
                 let realmMessage = ChatRealmModel(
                     chatId: message.chatId,
                     content: message.content,
