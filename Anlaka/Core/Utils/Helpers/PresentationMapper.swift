@@ -126,8 +126,35 @@ enum PresentationMapper {
         let formatter = DateFormatter()
         formatter.dateFormat = "a h:mm"
         formatter.locale = Locale(identifier: "ko_KR")
-        formatter.timeZone = TimeZone.current
+        formatter.timeZone = TimeZone(identifier: "Asia/Seoul") // 한국 시간대로 변경
         
         return formatter.string(from: date)
+    }
+    
+    /// ISO8601 형식의 String을 Date로 변환 (한국 시간)
+    static func formatISO8601ToDate(_ dateString: String?) -> Date {
+        guard let dateString = dateString else { return Date() }
+        
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        formatter.timeZone = TimeZone(abbreviation: "UTC")  // UTC 기준으로 파싱
+        
+        if let date = formatter.date(from: dateString) {
+            // UTC 시간을 한국 시간으로 변환
+            return date.addingTimeInterval(TimeInterval(TimeZone(identifier: "Asia/Seoul")?.secondsFromGMT() ?? 0))
+        }
+        
+        // 대체 형식 시도 (예: 2024-05-06 05:13:54.357 +0000)
+        let alternativeFormatter = DateFormatter()
+        alternativeFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS Z"
+        alternativeFormatter.locale = Locale(identifier: "en_US_POSIX")
+        alternativeFormatter.timeZone = TimeZone(abbreviation: "UTC")
+        
+        if let date = alternativeFormatter.date(from: dateString) {
+            // UTC 시간을 한국 시간으로 변환
+            return date.addingTimeInterval(TimeInterval(TimeZone(identifier: "Asia/Seoul")?.secondsFromGMT() ?? 0))
+        }
+        
+        return Date()
     }
 }
