@@ -146,7 +146,7 @@ final class SearchMapContainer: NSObject, ObservableObject {
         
         do {
             let estates = try await repository.getGeoEstate(category: nil, lon: lon, lat: lat, maxD: maxD)
-            model.pinInfoList = Array(estates.toPinInfoList().prefix(10))
+            model.pinInfoList = estates.toPinInfoList()
         } catch {
             handleError(error)
         }
