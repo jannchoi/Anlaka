@@ -8,6 +8,16 @@
 import Foundation
 
 final class NetworkRepositoryImp: NetworkRepository {
+    func getRoad3FromGeo(_ geo: GeolocationEntity) async throws -> RoadRegion3Entity {
+        let (x,y) = (geo.longitude, geo.latitude)
+        do {
+            let response = try await NetworkManager.shared.callRequest(target: GeoRouter.getAddress(lon: x, lat: y), model: AddressResponseDTO.self)
+            return response.toRoadRegion3Entity()
+        } catch {
+            throw error
+        }
+    }
+    
     func getAddressFromGeo(_ geo: GeolocationEntity) async throws -> AddressResponseEntity {
         let (x,y) = (geo.longitude, geo.latitude)
         do {
@@ -96,7 +106,7 @@ final class NetworkRepositoryImp: NetworkRepository {
         do {
             let response = try await NetworkManager.shared.callRequest(
                 target: EstateRouter.topicEstate,
-                model: TopicEstateResponseDTO.self
+                model: TopicEstateDTO.self
             )
             return response.toEntity()
         } catch {
