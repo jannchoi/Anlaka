@@ -10,9 +10,10 @@ import Foundation
 @MainActor
 final class DIContainer: ObservableObject {
     let networkRepository: NetworkRepository
-    
-    init(networkRepository: NetworkRepository) {
+    private let databaseRepository: DatabaseRepository
+    init(networkRepository: NetworkRepository, databaseRepository: DatabaseRepository) {
         self.networkRepository = networkRepository
+        self.databaseRepository = databaseRepository
     }
     func makeLoginContainer() -> LoginContainer {
         LoginContainer(repository: networkRepository)
@@ -30,9 +31,12 @@ final class DIContainer: ObservableObject {
         SearchAddressContainer(repository: networkRepository)
     }
     func makeMyPageContainer() -> MyPageContainer {
-        MyPageContainer(repository: networkRepository)
+        MyPageContainer(repository: networkRepository, databaseRepository: databaseRepository)
+    }
+    func makeChattingContainer(opponent_id: String) -> ChattingContainer {
+        ChattingContainer(repository: networkRepository, databaseRepository: databaseRepository, opponent_id: opponent_id)
     }
     func makeChattingContainer(roomId: String) -> ChattingContainer {
-        ChattingContainer(repository: networkRepository, roomId: roomId)
+        ChattingContainer(repository: networkRepository, databaseRepository: databaseRepository, roomId: roomId)
     }
 }
