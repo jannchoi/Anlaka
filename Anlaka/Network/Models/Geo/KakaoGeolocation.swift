@@ -165,7 +165,7 @@ extension KakaoGeolocationDocumentEntity {
         }
 
         let title = addressDetail?.addressName ?? "Unknown Address"
-        let subtitle = roadAddress?.addressName ?? "Unknown Road Address"
+        let subtitle = roadAddress?.addressName ?? ""
 
         return SearchListData(
             title: title,
