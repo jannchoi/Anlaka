@@ -89,7 +89,7 @@ extension EstateSummaryDTO {
             estateId: estateId,
             category: category,
             title: title,
-            thumbnails: thumbnails,
+            thumbnail: thumbnails.first ?? "",
             deposit: deposit,
             monthlyRent: monthlyRent,
             geolocation: geolocation.toEntity(),
@@ -102,7 +102,7 @@ extension EstateSummaryDTO {
         return SimilarSummaryEntity(
             estateId: estateId,
             category: category,
-            thumbnails: thumbnails,
+            thumbnail: thumbnails.first ?? "",
             deposit: deposit,
             monthlyRent: monthlyRent,
             area: area,
@@ -117,7 +117,7 @@ extension EstateSummaryDTO {
             category: category,
             title: title,
             introduction: introduction,
-            thumbnails: thumbnails,
+            thumbnail: thumbnails.first ?? "",
             geolocation: geolocation.toEntity()
         )
     }
