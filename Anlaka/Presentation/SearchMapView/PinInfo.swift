@@ -6,15 +6,11 @@
 //
 
 import Foundation
-struct PinInfo {
+
+struct PinInfo: Equatable {
     let estateId : String
     let image : String?
     let longitude: Double
     let latitude: Double
     let title: String
-}
-extension PinInfo {
-    func isEqual(to other: PinInfo) -> Bool {
-        return self.estateId == other.estateId
-    }
 }
