@@ -304,7 +304,7 @@ private struct MessageText: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
             .background(isMine ? Color.OliveMist : Color.gray.opacity(0.2))
-            .foregroundColor(isMine ? .white : .black)
+            .foregroundColor(isMine ? .white : Color.MainTextColor)
             .cornerRadius(12)
     }
 }
