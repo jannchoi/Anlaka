@@ -13,7 +13,6 @@ import CoreLocation
 struct KakaoMapView: UIViewRepresentable {
     @Binding var draw: Bool
     var centerCoordinate: CLLocationCoordinate2D
-    var isInteractive: Bool
     var pinInfoList: [PinInfo]
     var onMapReady: ((Double) -> Void)?
     var onMapChanged: ((CLLocationCoordinate2D, Double) -> Void)?
@@ -62,7 +61,6 @@ struct KakaoMapView: UIViewRepresentable {
     func makeCoordinator() -> Coordinator {
         Coordinator(
             centerCoordinate: centerCoordinate,
-            isInteractive: isInteractive,
             onMapReady: onMapReady,
             onMapChanged: onMapChanged,
             onClusterTap: onClusterTap,
