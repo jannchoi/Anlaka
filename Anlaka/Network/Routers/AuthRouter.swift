@@ -38,13 +38,13 @@ enum AuthRouter: AuthorizedTarget {
         case .getRefreshToken:
             guard let accessToken = UserDefaultsManager.shared.getString(forKey: .accessToken), let refreshToken = UserDefaultsManager.shared.getString(forKey: .refreshToken) else {return [:]}
             return [
-                "SeSACKey": Environment.apiKey,
+                "SeSACKey": AppConfig.apiKey,
                 "RefreshToken": refreshToken,
                 "Authorization" : accessToken,
                 "Content-Type": "application/json"
             ]
         case .log:
-            return ["SeSACKey": Environment.apiKey]
+            return ["SeSACKey": AppConfig.apiKey]
         }
     }
 

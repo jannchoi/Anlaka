@@ -18,8 +18,9 @@ struct GeolocationEntity {
 }
 
 extension GeolocationDTO {
-    func toEntity() -> GeolocationEntity {
-        GeolocationEntity(longitude: longitude ?? 0.0, latitude: latitude ?? 0.0)
+    func toEntity() -> GeolocationEntity? {
+        guard let longitude = longitude, let latitude = latitude else {return nil}
+        return GeolocationEntity(longitude: longitude, latitude: latitude )
     }
 }
 
