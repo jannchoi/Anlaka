@@ -33,6 +33,7 @@ class Coordinator: NSObject, MapControllerDelegate, KakaoMapEventDelegate {
     private var currentStyleIds: [String: String] = [:]  // estateId -> styleId 매핑
     private var lastMaxDistance: Double = 0
     private var lastCenter: CLLocationCoordinate2D?
+    private var metersPerPt: Double = 0
     
     
     // 클러스터링 관련 프로퍼티 추가 (기존 Coordinator 클래스에 추가)
@@ -46,6 +47,7 @@ class Coordinator: NSObject, MapControllerDelegate, KakaoMapEventDelegate {
         6: 640000, 7: 320000, 8: 160000, 9: 80000, 10: 40000,
         11: 20000, 12: 10000, 13: 5000, 14: 2500
     ]
+    
     
     init(
         centerCoordinate: CLLocationCoordinate2D,
@@ -89,12 +91,14 @@ class Coordinator: NSObject, MapControllerDelegate, KakaoMapEventDelegate {
     func addViewSucceeded(_ viewName: String, viewInfoName: String) {
         guard let mapView = controller?.getView("mapview") as? KakaoMap else { return }
         mapView.viewRect = container!.bounds
+        mapView.setScaleBarPosition(origin: GuiAlignment(vAlign: .bottom, hAlign: .right), position: CGPoint(x: 10.0, y: 10.0))
+        mapView.showScaleBar()
         mapView.eventDelegate = self
         setupPOILayer(mapView)
         
         let cameraUpdate = CameraUpdate.make(
             target: MapPoint(longitude: longitude, latitude: latitude),
-            zoomLevel: 15,
+            zoomLevel: 14,
             rotation: 0,
             tilt: 0,
             mapView: mapView
@@ -143,23 +147,23 @@ class Coordinator: NSObject, MapControllerDelegate, KakaoMapEventDelegate {
         
         // 현재 줌 레벨과 좌표 정보 출력
         let currentZoomLevel = kakaoMap.zoomLevel
-        print("\n📏 현재 줌 레벨: \(currentZoomLevel)")
+        //print("\n📏 현재 줌 레벨: \(currentZoomLevel)")
         
         // 뷰의 좌상단과 우상단 좌표 계산
         let topLeftPoint = kakaoMap.getPosition(CGPoint(x: 0, y: 0))
         let topRightPoint = kakaoMap.getPosition(CGPoint(x: kakaoMap.viewRect.width, y: 0))
         
-        print("📍 좌상단 좌표: lat: \(topLeftPoint.wgsCoord.latitude), lon: \(topLeftPoint.wgsCoord.longitude)")
-        print("📍 우상단 좌표: lat: \(topRightPoint.wgsCoord.latitude), lon: \(topRightPoint.wgsCoord.longitude)")
+        // print("📍 좌상단 좌표: lat: \(topLeftPoint.wgsCoord.latitude), lon: \(topLeftPoint.wgsCoord.longitude)")
+        // print("📍 우상단 좌표: lat: \(topRightPoint.wgsCoord.latitude), lon: \(topRightPoint.wgsCoord.longitude)")
         
         // 좌상단과 우상단 사이의 실제 거리 계산 (미터)
         let topLeftLocation = CLLocation(latitude: topLeftPoint.wgsCoord.latitude, longitude: topLeftPoint.wgsCoord.longitude)
         let topRightLocation = CLLocation(latitude: topRightPoint.wgsCoord.latitude, longitude: topRightPoint.wgsCoord.longitude)
         let distanceInMeters = topLeftLocation.distance(from: topRightLocation)
-        
-        print("📏 화면 가로 실제 거리: \(String(format: "%.2f", distanceInMeters))m")
-        print("📱 화면 가로 픽셀: \(kakaoMap.viewRect.width)pt")
-        print("🔍 1픽셀당 실제 거리: \(String(format: "%.2f", distanceInMeters/Double(kakaoMap.viewRect.width)))m")
+        metersPerPt = distanceInMeters / Double(kakaoMap.viewRect.width)
+        // print("📏 화면 가로 실제 거리: \(String(format: "%.2f", distanceInMeters))m")
+        // print("📱 화면 가로 픽셀: \(kakaoMap.viewRect.width)pt")
+        // print("🔍 1픽셀당 실제 거리: \(String(format: "%.2f", distanceInMeters/Double(kakaoMap.viewRect.width)))m")
         
         // 이전 타이머가 있다면 취소
         debounceTimer?.invalidate()
@@ -263,7 +267,7 @@ class Coordinator: NSObject, MapControllerDelegate, KakaoMapEventDelegate {
         let startTime = CFAbsoluteTimeGetCurrent()
         
         guard let kakaoMap = controller?.getView("mapview") as? KakaoMap else {
-            print("❌ [Style-\(index)] KakaoMap 가져오기 실패")
+            // print("❌ [Style-\(index)] KakaoMap 가져오기 실패")
             return ""
         }
         let manager = kakaoMap.getLabelManager()
@@ -273,13 +277,13 @@ class Coordinator: NSObject, MapControllerDelegate, KakaoMapEventDelegate {
         
         // 이미지 크기 검증
         guard image.size.width > 0 && image.size.height > 0 else {
-            print("❌ [Style-\(index)] 이미지 크기가 0 - 스타일 생성 실패")
+            // print("❌ [Style-\(index)] 이미지 크기가 0 - 스타일 생성 실패")
             return ""
         }
         
         // CGImage 검증
         guard image.cgImage != nil else {
-            print("❌ [Style-\(index)] CGImage가 nil - 스타일 생성 실패")
+            // print("❌ [Style-\(index)] CGImage가 nil - 스타일 생성 실패")
             return ""
         }
         
@@ -325,7 +329,7 @@ class Coordinator: NSObject, MapControllerDelegate, KakaoMapEventDelegate {
         let textStyle = PoiTextStyle(textLineStyles: textLineStyles)
         textStyle.textLayouts = [.bottom]  // 텍스트를 아이콘 아래에 배치
         
-        print("📝 [Style-\(index)] 텍스트 스타일 생성 - 위치: bottom")
+        // print("📝 [Style-\(index)] 텍스트 스타일 생성 - 위치: bottom")
         
         // 레벨별 스타일 생성 (여러 줌 레벨에서 보이도록)
         let perLevelStyles = [
@@ -510,8 +514,10 @@ class Coordinator: NSObject, MapControllerDelegate, KakaoMapEventDelegate {
     
     func clearAllPOIs() {
         guard let kakaoMap = controller?.getView("mapview") as? KakaoMap,
-              let layer = kakaoMap.getLabelManager().getLodLabelLayer(layerID: layerID) else { return }
+              let layer = kakaoMap.getLabelManager().getLabelLayer(layerID: layerID) else { return }
         layer.clearAllItems()
+        currentPOIs.removeAll()
+        clusters.removeAll()
     }
     
 }
@@ -647,7 +653,7 @@ extension Coordinator {
         }
         
         if removedCount > 0 {
-            print("🗑️ POI \(removedCount)개 제거 완료")
+            //print("🗑️ POI \(removedCount)개 제거 완료")
         }
     }
     
@@ -718,10 +724,8 @@ extension Coordinator {
     
     // MARK: - 줌 레벨에 따른 클러스터링 타입 결정
     private func getClusteringType(for zoomLevel: Int) -> ClusteringType {
-        if zoomLevel >= 6 && zoomLevel <= 14 {
-            return .zoomLevel6to14(radius: clusterRadiusByZoomLevel[zoomLevel] ?? 2500)
-        } else if zoomLevel == 15 || zoomLevel == 16 {
-            return .zoomLevel15to16(radius: 1000)
+        if zoomLevel >= 6 && zoomLevel <= 16 {
+            return .zoomLevel6to16
         } else {
             return .zoomLevel17Plus
         }
@@ -730,146 +734,150 @@ extension Coordinator {
     // MARK: - 클러스터링 메인 메서드
     private func performClustering(_ pinInfos: [PinInfo], zoomLevel: Int) -> ([ClusterInfo], CGFloat?) {
         let clusteringType = getClusteringType(for: zoomLevel)
+        guard let kakaoMap = controller?.getView("mapview") as? KakaoMap else { return ([], 0) }
         
         switch clusteringType {
-        case .zoomLevel6to14(let radius):
-            return clusterPinInfosDynamicWeighted(pinInfos, baseGridSize: radius)
-        case .zoomLevel15to16(let radius):
-            return clusterPinInfosDynamicWeighted(pinInfos, baseGridSize: radius)
+        case .zoomLevel6to16:
+            return clusterPinInfosDynamicWeighted_new(pinInfos, kakaoMap: kakaoMap)
         case .zoomLevel17Plus:
-            return (pinInfos.map { pinInfo in
-                ClusterInfo(
-                    estateIds: [pinInfo.estateId],
-                    centerCoordinate: CLLocationCoordinate2D(latitude: pinInfo.latitude, longitude: pinInfo.longitude),
-                    count: 1,
-                    representativeImage: pinInfo.image
-                )
-            }, nil)
+            return clusterPinInfosDynamicWeighted_new(pinInfos, kakaoMap: kakaoMap)
         }
     }
+    func haversineDistance(from: CLLocationCoordinate2D, to: CLLocationCoordinate2D) -> Double {
+        let R = 6371000.0 // 지구 반지름 (미터)
+        let dLat = (to.latitude - from.latitude) * .pi / 180
+        let dLon = (to.longitude - from.longitude) * .pi / 180
+        
+        let lat1 = from.latitude * .pi / 180
+        let lat2 = to.latitude * .pi / 180
+        
+        let a = sin(dLat / 2) * sin(dLat / 2) +
+        cos(lat1) * cos(lat2) * sin(dLon / 2) * sin(dLon / 2)
+        let c = 2 * atan2(sqrt(a), sqrt(1 - a))
+        return R * c
+    }
     
-    // // MARK: - 좌표 기반 클러스터링 알고리즘
-    // private func clusterPinInfos(_ pinInfos: [PinInfo], radius: Double) -> [ClusterInfo] {
-    //     var clusters: [ClusterInfo] = []
-    //     var processedIndices: Set<Int> = []
+    func gridIndexForPin(
+        pin: CLLocationCoordinate2D,
+        origin: CLLocationCoordinate2D,
+        gridWidth: Double,
+        gridHeight: Double
+    ) -> (Int, Int) {
+        // origin을 기준으로 거리 측정
+        let eastPoint = CLLocationCoordinate2D(latitude: origin.latitude, longitude: pin.longitude)
+        let northPoint = CLLocationCoordinate2D(latitude: pin.latitude, longitude: origin.longitude)
+        
+        let dx = haversineDistance(from: origin, to: eastPoint)
+        let dy = haversineDistance(from: origin, to: northPoint)
+        
+        // 방향 보정 (왼쪽/아래인 경우 음수)
+        let signedDx = pin.longitude < origin.longitude ? -dx : dx
+        let signedDy = pin.latitude < origin.latitude ? -dy : dy
+        
+        let gridX = Int(signedDx / gridWidth)
+        let gridY = Int(signedDy / gridHeight)
+        
+        return (gridX, gridY)
+    }
     
-    //     for (i, pinInfo) in pinInfos.enumerated() {
-    //         if processedIndices.contains(i) { continue }
-    
-    //         let centerLocation = CLLocation(latitude: pinInfo.latitude, longitude: pinInfo.longitude)
-    //         var clusterPinInfos: [PinInfo] = [pinInfo]
-    //         var clusterIndices: Set<Int> = [i]
-    
-    //         // 반경 내의 다른 매물들 찾기
-    //         for (j, otherPinInfo) in pinInfos.enumerated() {
-    //             if i != j && !processedIndices.contains(j) {
-    //                 let otherLocation = CLLocation(latitude: otherPinInfo.latitude, longitude: otherPinInfo.longitude)
-    //                 let distance = centerLocation.distance(from: otherLocation)
-    
-    //                 if distance <= radius {
-    //                     clusterPinInfos.append(otherPinInfo)
-    //                     clusterIndices.insert(j)
-    //                 }
-    //             }
-    //         }
-    
-    //         processedIndices.formUnion(clusterIndices)
-    
-    //         // 클러스터 중심점 계산 (평균 좌표)
-    //         let avgLatitude = clusterPinInfos.map { $0.latitude }.reduce(0, +) / Double(clusterPinInfos.count)
-    //         let avgLongitude = clusterPinInfos.map { $0.longitude }.reduce(0, +) / Double(clusterPinInfos.count)
-    
-    //         let cluster = ClusterInfo(
-    //             estateIds: clusterPinInfos.map { $0.estateId },
-    //             centerCoordinate: CLLocationCoordinate2D(latitude: avgLatitude, longitude: avgLongitude),
-    //             count: clusterPinInfos.count,
-    //             representativeImage: clusterPinInfos.first?.image
-    //         )
-    
-    //         clusters.append(cluster)
-    //     }
-    
-    //     return clusters
-    // }
-    func clusterPinInfosDynamicWeighted(
+    private func coordinateForGridCenter(
+        gridX: Int,
+        gridY: Int,
+        origin: CLLocationCoordinate2D,
+        gridWidth: Double,
+        gridHeight: Double
+    ) -> CLLocationCoordinate2D {
+        // 격자의 중심까지 위도/경도를 이동
+        let centerOffsetX = Double(gridX) + 0.5
+        let centerOffsetY = Double(gridY) + 0.5
+
+        let metersPerDegreeLat = 111_000.0
+        let metersPerDegreeLon = 111_000.0 * cos(origin.latitude * .pi / 180)
+
+        let deltaLat = (gridHeight * centerOffsetY) / metersPerDegreeLat
+        let deltaLon = (gridWidth * centerOffsetX) / metersPerDegreeLon
+
+        return CLLocationCoordinate2D(
+            latitude: origin.latitude + deltaLat,
+            longitude: origin.longitude + deltaLon
+        )
+    }
+
+    // MARK: - 좌표 기반 클러스터링 알고리즘
+    func clusterPinInfosDynamicWeighted_new(
         _ pinInfos: [PinInfo],
-        baseGridSize: Double
-    ) -> ([ClusterInfo], CGFloat?) {
+        kakaoMap: KakaoMap
+    ) -> ([ClusterInfo], CGFloat) {
         
         guard !pinInfos.isEmpty else { return ([], 0) }
+        guard let kakaoMap = controller?.getView("mapview") as? KakaoMap else { return ([], 0) }
+        // 1. 화면 모서리 좌표
+        let mapViewSize = kakaoMap.viewRect
+        let topLeft = kakaoMap.getPosition(CGPoint(x: 0, y: 0)).wgsCoord.clLocationCoordinate
+        let bottomRight = kakaoMap.getPosition(CGPoint(x: mapViewSize.width, y: mapViewSize.height)).wgsCoord.clLocationCoordinate
+        let bottomLeft = kakaoMap.getPosition(CGPoint(x: 0, y: mapViewSize.height)).wgsCoord.clLocationCoordinate
+        //let topRight = kakaoMap.getPosition(CGPoint(x: mapViewSize.width, y: 0)).wgsCoord.clLocationCoordinate
         
-        let poiSize = calculatePoiSize(forGridSize: baseGridSize)
+        // 2. 실제 거리 기반 가로/세로 계산
+        let totalWidth = haversineDistance(from: bottomLeft, to: bottomRight)
+        let totalHeight = haversineDistance(from: bottomLeft, to: topLeft)
         
+        let gridWidth = totalWidth / 3
+        let gridHeight = totalHeight / 6
+        
+        // 3. poiSize 계산 (gridWidth 기준)
+        let poiSize = kakaoMap.viewRect.width / 3 * 0.6
+        //let poiSize = calculatePoiSize(forGridSize: gridWidth)
+        
+        // 4. 격자 클러스터링
         var gridClusters: [String: [PinInfo]] = [:]
         
         for pin in pinInfos {
-            // 경도 1도 ≈ 111km (위도 보정 포함)
-            let latGrid = Int(pin.latitude / (baseGridSize / 111_000))
-            let lonGrid = Int(pin.longitude / (baseGridSize / (111_000 * cos(pin.latitude * .pi / 180))))
-            let key = "\(latGrid)_\(lonGrid)"
+            let pinCoord = CLLocationCoordinate2D(latitude: pin.latitude, longitude: pin.longitude)
+            let (gridX, gridY) = gridIndexForPin(pin: pinCoord, origin: bottomLeft, gridWidth: gridWidth, gridHeight: gridHeight)
+            
+            guard gridX >= 0, gridX < 3, gridY >= 0, gridY < 6 else { continue }
+            let key = "\(gridX)_\(gridY)"
             gridClusters[key, default: []].append(pin)
         }
         
+        // 5. ClusterInfo 생성
         var clusterInfos: [ClusterInfo] = []
         
-        for (_, clusterPins) in gridClusters {
+        for (key, clusterPins) in gridClusters {
             let count = clusterPins.count
-            let avgLat = clusterPins.map { $0.latitude }.reduce(0, +) / Double(count)
-            let avgLon = clusterPins.map { $0.longitude }.reduce(0, +) / Double(count)
-            let center = CLLocationCoordinate2D(latitude: avgLat, longitude: avgLon)
-            
-            let clusterInfo = ClusterInfo(
-                estateIds: clusterPins.map { $0.estateId },
-                centerCoordinate: center,
+            let estateIds = clusterPins.map { $0.estateId }
+
+            // key에서 gridX, gridY 추출
+            let parts = key.split(separator: "_")
+            guard parts.count == 2,
+                  let gridX = Int(parts[0]),
+                  let gridY = Int(parts[1]) else { continue }
+
+            let centerCoord = coordinateForGridCenter(
+                gridX: gridX,
+                gridY: gridY,
+                origin: bottomLeft,
+                gridWidth: gridWidth,
+                gridHeight: gridHeight
+            )
+
+            let cluster = ClusterInfo(
+                estateIds: estateIds,
+                centerCoordinate: centerCoord,
                 count: count,
                 representativeImage: clusterPins.first?.image
             )
-            
-            clusterInfos.append(clusterInfo)
+
+            clusterInfos.append(cluster)
         }
         
         return (clusterInfos, poiSize)
     }
-    
-    
-    // MARK: - 줌 레벨별 POI 스타일 생성
-    @MainActor
-    private func createClusterPOIStyle(for cluster: ClusterInfo, zoomLevel: Int, index: Int, poiSize: CGFloat?) -> String {
-        guard let kakaoMap = controller?.getView("mapview") as? KakaoMap else { return "" }
-        let manager = kakaoMap.getLabelManager()
-        
-        let styleID = "cluster_style_\(index)_\(Int(Date().timeIntervalSince1970))"
-        let clusteringType = getClusteringType(for: zoomLevel)
-        
-        let iconStyle: PoiIconStyle
-        
-        switch clusteringType {
-        case .zoomLevel6to14:
-            // 원형 배경 + 숫자 표시 (기존과 동일)
-            let circleImage = createCircleImage(count: cluster.count, poiSize: poiSize)
-            iconStyle = PoiIconStyle(symbol: circleImage, anchorPoint: CGPoint(x: 0.5, y: 0.5))
-            
-        case .zoomLevel15to16:
-            // 대표 이미지 사용 (비동기 로딩)
-            let defaultImage = UIImage(named: "MapBubbleButton") ?? UIImage()
-            iconStyle = PoiIconStyle(symbol: defaultImage, anchorPoint: CGPoint(x: 0.5, y: 1.0))
-            
-        case .zoomLevel17Plus:
-            // 개별 매물 이미지
-            let defaultImage = UIImage(named: "MapBubbleButton") ?? UIImage()
-            iconStyle = PoiIconStyle(symbol: defaultImage, anchorPoint: CGPoint(x: 0.5, y: 1.0))
-        }
-        
-        let perLevelStyle = PerLevelPoiStyle(iconStyle: iconStyle, level: 0)
-        let poiStyle = PoiStyle(styleID: styleID, styles: [perLevelStyle])
-        manager.addPoiStyle(poiStyle)
-        
-        return styleID
-    }
-    
+
     // MARK: - 원형 이미지 생성 (매물 수 표시용)
     private func createCircleImage(count: Int, poiSize: CGFloat?) -> UIImage {
-        let size = CGSize(width: poiSize ?? 60, height: poiSize ?? 60)
+        let size = CGSize(width: poiSize ?? 50, height: poiSize ?? 50)
         
         let renderer = UIGraphicsImageRenderer(size: size)
         
@@ -878,7 +886,7 @@ extension Coordinator {
             let cgContext = context.cgContext
             
             // 원형 배경
-            cgContext.setFillColor(UIColor.systemBlue.cgColor)
+            cgContext.setFillColor(UIColor.oliveMist.cgColor)
             cgContext.fillEllipse(in: rect)
             
             // 테두리
@@ -889,7 +897,7 @@ extension Coordinator {
             // 텍스트
             let text = "\(count)"
             let attributes: [NSAttributedString.Key: Any] = [
-                .font: UIFont.boldSystemFont(ofSize: count > 99 ? 14 : 16),
+                .font: UIFont.boldSystemFont(ofSize: count > 99 ? 10 : 12),
                 .foregroundColor: UIColor.white
             ]
             
@@ -913,7 +921,7 @@ extension Coordinator {
             let badge = PoiBadge(
                 badgeID: "count_badge",
                 image: badgeImage,
-                offset: CGPoint(x: 0.7, y: -0.3),
+                offset: CGPoint(x: 0.1, y: 0.1),
                 zOrder: 1
             )
             poi.addBadge(badge)
@@ -923,7 +931,7 @@ extension Coordinator {
     
     // MARK: - 배지 이미지 생성
     private func createBadgeImage(count: Int) -> UIImage {
-        let size = CGSize(width: 24, height: 24)
+        let size = CGSize(width: 13, height: 13)
         let renderer = UIGraphicsImageRenderer(size: size)
         
         return renderer.image { context in
@@ -931,14 +939,14 @@ extension Coordinator {
             let cgContext = context.cgContext
             
             // 빨간 원형 배경
-            cgContext.setFillColor(UIColor.systemRed.cgColor)
+            cgContext.setFillColor(UIColor.softSage.cgColor)
             cgContext.fillEllipse(in: rect)
             
             // 텍스트
             let text = "\(count)"
             let attributes: [NSAttributedString.Key: Any] = [
-                .font: UIFont.boldSystemFont(ofSize: 12),
-                .foregroundColor: UIColor.white
+                .font: UIFont.systemFont(ofSize: 9),
+                .foregroundColor: UIColor.mainText
             ]
             
             let textSize = text.size(withAttributes: attributes)
@@ -957,48 +965,52 @@ extension Coordinator {
 // MARK: - 클러스터링 기반 POI 업데이트 메서드 (기존 updatePOIsEfficiently 대체)
 extension Coordinator {
     
-    func updatePOIsWithClustering(_ pinInfos: [PinInfo], currentCenter: CLLocationCoordinate2D, maxDistance: Double) {
+    @MainActor func updatePOIsWithClustering(_ pinInfos: [PinInfo], currentCenter: CLLocationCoordinate2D, maxDistance: Double) {
         guard let kakaoMap = controller?.getView("mapview") as? KakaoMap else {
             print("🚫 KakaoMap 객체를 가져올 수 없습니다.")
             return
         }
         
         let currentZoomLevel = Int(kakaoMap.zoomLevel)
-        print("\n📍 현재 줌 레벨: \(currentZoomLevel)")
-        print("🎯 중심 좌표: lat: \(currentCenter.latitude), lon: \(currentCenter.longitude)")
-        print("📏 최대 거리: \(maxDistance)m")
         
-        // 줌 레벨 17 이상 제한
-        if currentZoomLevel > 17 {
-            print("⚠️ 줌 레벨이 17을 초과하여 17로 제한합니다.")
-            let cameraUpdate = CameraUpdate.make(
-                target: MapPoint(longitude: currentCenter.longitude, latitude: currentCenter.latitude),
-                zoomLevel: 17,
-                rotation: 0,
-                tilt: 0,
-                mapView: kakaoMap
-            )
-            kakaoMap.moveCamera(cameraUpdate)
-            return
+//        // 줌 레벨 17 이상 제한
+//        if currentZoomLevel > 17 {
+//            print("⚠️ 줌 레벨이 17을 초과하여 17로 제한합니다.")
+//            let cameraUpdate = CameraUpdate.make(
+//                target: MapPoint(longitude: currentCenter.longitude, latitude: currentCenter.latitude),
+//                zoomLevel: 17,
+//                rotation: 0,
+//                tilt: 0,
+//                mapView: kakaoMap
+//            )
+//            kakaoMap.moveCamera(cameraUpdate)
+//            return
+//        }
+
+        // currentPinInfos 업데이트
+        currentPinInfos.removeAll()
+        for pinInfo in pinInfos {
+            currentPinInfos[pinInfo.estateId] = pinInfo
         }
         
         // 기존 POI 모두 제거
-        print("🗑️ 기존 POI 제거 시작")
+        //print("🗑️ 기존 POI 제거 시작")
         clearAllPOIs()
-        print("✅ 기존 POI 제거 완료")
+        //print("✅ 기존 POI 제거 완료")
         
         // 클러스터링 수행
-        print("\n🔄 클러스터링 시작 - 매물 수: \(pinInfos.count)개")
+        //print("\n🔄 클러스터링 시작 - 매물 수: \(pinInfos.count)개")
         let (clusterInfos, poiSize) = performClustering(pinInfos, zoomLevel: currentZoomLevel)
-        print("✅ 클러스터링 완료 - 클러스터 수: \(clusterInfos.count)개")
+        //print("✅ 클러스터링 완료 - 클러스터 수: \(clusterInfos.count)개")
         
         // zoomLevel에 따라 다른 처리
         Task {
             if currentZoomLevel <= 14 {
-                print("\n🎨 저줌 레벨 POI 생성 시작 (원형 클러스터)")
+                //print("\n🎨 저줌 레벨 POI 생성 시작 (원형 클러스터)")
                 await createClusterPOIsForLowZoom(clusterInfos, poiSize: poiSize)
+                
             } else {
-                print("\n🎨 고줌 레벨 POI 생성 시작 (이미지 기반)")
+                //print("\n🎨 고줌 레벨 POI 생성 시작 (이미지 기반)")
                 await createClusterPOIsForHighZoom(clusterInfos, zoomLevel: currentZoomLevel)
             }
         }
@@ -1012,16 +1024,16 @@ extension Coordinator {
             return
         }
         
-        print("🔄 저줌 레벨 POI 생성 중...")
+        //print("🔄 저줌 레벨 POI 생성 중...")
         clusters.removeAll()
         
         for (index, cluster) in clusterInfos.enumerated() {
-            print("\n📌 클러스터 #\(index) 처리 중")
-            print("- 포함된 매물 수: \(cluster.count)")
-            print("- 중심 좌표: lat: \(cluster.centerCoordinate.latitude), lon: \(cluster.centerCoordinate.longitude)")
+            //print("\n📌 클러스터 #\(index) 처리 중")
+            //print("- 포함된 매물 수: \(cluster.count)")
+            //print("- 중심 좌표: lat: \(cluster.centerCoordinate.latitude), lon: \(cluster.centerCoordinate.longitude)")
             
             let styleID = createCircleStyle(for: cluster, index: index, poiSize: poiSize)
-            print("- 생성된 스타일 ID: \(styleID)")
+            //print("- 생성된 스타일 ID: \(styleID)")
             
             let poiOption = PoiOptions(styleID: styleID)
             poiOption.rank = index
@@ -1040,7 +1052,7 @@ extension Coordinator {
                 poi.userObject = clusterID as NSString
                 poi.show()
                 currentPOIs[clusterID] = poi
-                print("✅ POI 생성 및 표시 완료")
+                //print("✅ POI 생성 및 표시 완료")
             } else {
                 print("❌ POI 생성 실패")
             }
@@ -1059,58 +1071,57 @@ extension Coordinator {
             return
         }
         
-        print("🔄 고줌 레벨 POI 생성 중... (줌 레벨: \(zoomLevel))")
-        clusters.removeAll()
+        //print("🔄 고줌 레벨 POI 생성 중... (줌 레벨: \(zoomLevel))")
         
+        // 상태 초기화
+        clearAllPOIs()
+
         Task {
-            for (index, cluster) in clusterInfos.enumerated() {
-                print("\n📌 클러스터 #\(index) 처리 중")
-                print("- 포함된 매물 수: \(cluster.count)")
-                print("- 중심 좌표: lat: \(cluster.centerCoordinate.latitude), lon: \(cluster.centerCoordinate.longitude)")
-                
-                if let firstPinInfo = cluster.estateIds.first.flatMap({ id in
-                    currentPinInfos[id]
-                }) {
-                    print("- 대표 이미지 처리 시작")
-                    let processedImage = await processEstateImage(for: firstPinInfo)
-                    let styleID = createImageStyle(with: processedImage, for: cluster, index: index)
-                    print("- 생성된 스타일 ID: \(styleID)")
-                    
-                    let poiOption = PoiOptions(styleID: styleID)
-                    poiOption.rank = index
-                    poiOption.clickable = true
-                    
-                    let clusterID = "cluster_\(index)"
-                    clusters[clusterID] = cluster
-                    
-                    let poi = layer.addPoi(
-                        option: poiOption,
-                        at: MapPoint(longitude: cluster.centerCoordinate.longitude, latitude: cluster.centerCoordinate.latitude),
-                        callback: { result in }
-                    )
-                    
-                    if let poi = poi {
-                        poi.userObject = clusterID as NSString
-                        poi.show()
-                        
-                        if zoomLevel == 17 && cluster.count > 1 {
-                            print("- 배지 추가 (매물 수: \(cluster.count))")
-                            addBadgeToPOI(poi, count: cluster.count)
+            // 모든 이미지 처리를 동시에 시작
+            async let processedImages = withTaskGroup(of: (Int, UIImage).self) { group in
+                for (index, cluster) in clusterInfos.enumerated() {
+                    group.addTask {
+                        print(cluster.estateIds.first)
+                        if let firstPinInfo = cluster.estateIds.first.flatMap({ id in
+                            self.currentPinInfos[id]
+                        }) {
+                            let image = await self.processEstateImage(for: firstPinInfo)
+                            return (index, image)
                         }
-                        
-                        currentPOIs[clusterID] = poi
-                        print("✅ POI 생성 및 표시 완료")
-                    } else {
-                        print("❌ POI 생성 실패")
+                        return (index, self.createDefaultEstateImage(size: CGSize(width: 40, height: 40)))
                     }
-                } else {
-                    print("❌ 대표 매물 정보를 찾을 수 없음")
                 }
+                
+                var results: [(Int, UIImage)] = []
+                for await result in group {
+                    results.append(result)
+                }
+                return results.sorted(by: { $0.0 < $1.0 })
             }
             
-            print("\n📊 최종 결과:")
-            print("- 생성된 총 POI 수: \(currentPOIs.count)")
-            print("- 등록된 클러스터 수: \(clusters.count)")
+            // 이미지 처리가 완료된 후 POI 생성
+            let images = await processedImages
+            for (index, image) in images {
+                let cluster = clusterInfos[index]
+                let styleID = createImageStyle(with: image, for: cluster, index: index)
+                
+                let poiOption = PoiOptions(styleID: styleID)
+                poiOption.rank = index
+                poiOption.clickable = true
+                
+                let clusterID = "cluster_\(index)"
+                clusters[clusterID] = cluster
+                
+                if let poi = layer.addPoi(
+                    option: poiOption,
+                    at: MapPoint(longitude: cluster.centerCoordinate.longitude, latitude: cluster.centerCoordinate.latitude)
+                ) {
+                    poi.userObject = clusterID as NSString
+                    addBadgeToPOI(poi, count: clusterInfos.count)
+                    poi.show()
+                    currentPOIs[clusterID] = poi
+                }
+            }
         }
     }
     
@@ -1121,7 +1132,7 @@ extension Coordinator {
         
         let styleID = "circle_style_\(index)_\(Int(Date().timeIntervalSince1970))"
         let circleImage = createCircleImage(count: cluster.count, poiSize: poiSize)
-        let iconStyle = PoiIconStyle(symbol: circleImage, anchorPoint: CGPoint(x: 0.5, y: 0.5))
+        let iconStyle = PoiIconStyle(symbol: circleImage, anchorPoint: CGPoint(x: 0.5, y: 0.0))
         
         let perLevelStyle = PerLevelPoiStyle(iconStyle: iconStyle, level: 0)
         let poiStyle = PoiStyle(styleID: styleID, styles: [perLevelStyle])
@@ -1136,10 +1147,10 @@ extension Coordinator {
         let manager = kakaoMap.getLabelManager()
         
         let styleID = "image_style_\(index)_\(Int(Date().timeIntervalSince1970))"
-        let iconStyle = PoiIconStyle(symbol: image, anchorPoint: CGPoint(x: 0.5, y: 1.0))
-        
-        let perLevelStyle = PerLevelPoiStyle(iconStyle: iconStyle, level: 0)
-        let poiStyle = PoiStyle(styleID: styleID, styles: [perLevelStyle])
+        let iconStyle = PoiIconStyle(symbol: image, anchorPoint: CGPoint(x: 0.5, y: 0.5))
+        let perLevelStyles = [PerLevelPoiStyle(iconStyle: iconStyle, level: 0), PerLevelPoiStyle(iconStyle: iconStyle, level: 1), PerLevelPoiStyle(iconStyle: iconStyle, level: 2)]
+
+        let poiStyle = PoiStyle(styleID: styleID, styles: perLevelStyles)
         manager.addPoiStyle(poiStyle)
         
         return styleID
@@ -1147,13 +1158,13 @@ extension Coordinator {
     
     // 이미지 처리 (zoomLevel 17 이상)
     private func processEstateImage(for pinInfo: PinInfo) async -> UIImage {
-        let size = CGSize(width: 60, height: 60)
+        let size = CGSize(width: 40, height: 40)
         let padding: CGFloat = 4
         let cornerRadius: CGFloat = 12
         let borderWidth: CGFloat = 2
         let borderColor: UIColor = .white
-        
         if let imagePath = pinInfo.image {
+            print("⛑️ imagePath: \(imagePath)")
             if let cachedImage = ImageCache.shared.image(forKey: imagePath) {
                 return applyStyle(to: cachedImage, size: size, padding: padding, cornerRadius: cornerRadius, borderWidth: borderWidth, borderColor: borderColor)
             }
@@ -1196,10 +1207,8 @@ extension Coordinator {
     
     // 기본 이미지 생성 (zoomLevel 17 이상)
     private func createDefaultEstateImage(size: CGSize) -> UIImage {
-        let renderer = UIGraphicsImageRenderer(size: size)
-        return renderer.image { context in
-            // 기본 이미지 그리기
-        }
+        guard let defaultImage =  UIImage(systemName: "mappin") else {return UIImage()}
+        return defaultImage
     }
 }
 
@@ -1215,20 +1224,18 @@ extension Coordinator {
         let clusteringType = getClusteringType(for: currentZoomLevel)
         
         switch clusteringType {
-        case .zoomLevel6to14:
+        case .zoomLevel6to16:
             // 클러스터 탭 이벤트 발생
             onClusterTap?(cluster)
             // 그룹 내 모든 매물이 보이도록 줌 레벨 확장
             expandToShowAllEstates(cluster, kakaoMap: kakaoMap)
             
-        case .zoomLevel15to16:
-            // SearchMapView로 전환하여 해당 범위 매물들 표시
-            onPOIGroupTap?(cluster.estateIds)
-            
         case .zoomLevel17Plus:
-            // DetailView로 개별 매물 상세 정보 표시
-            if let estateId = cluster.estateIds.first {
-                onPOITap?(estateId)
+            // SearchMapView로 전환하여 해당 범위 매물들 표시
+            if cluster.estateIds.count == 1 {
+                onPOITap?(cluster.estateIds.first!)
+            } else {
+                onPOIGroupTap?(cluster.estateIds)
             }
         }
     }
@@ -1242,7 +1249,7 @@ extension Coordinator {
         let areaRect = AreaRect(points: points)
         
         // AreaRect를 기반으로 카메라 업데이트 생성
-        let cameraUpdate = CameraUpdate.make(area: areaRect, levelLimit: 17)  // 최대 줌 레벨을 17로 제한
+        let cameraUpdate = CameraUpdate.make(area: areaRect, levelLimit: 21)  // 최대 줌 레벨을 17로 제한
         
         kakaoMap.moveCamera(cameraUpdate)
         
@@ -1251,34 +1258,73 @@ extension Coordinator {
 }
 extension Coordinator {
     private func calculatePoiSize(forGridSize gridSize: Double) -> CGFloat {
-        guard let kakaoMap = controller?.getView("mapview") as? KakaoMap else { return 0 }
-        // 지구의 둘레 (미터)
-        let EARTH_CIRCUMFERENCE: Double = 40075017
+        // 메인 스레드가 아닌 경우 메인 스레드에서 실행
+        if !Thread.isMainThread {
+            var result: CGFloat = 0
+            DispatchQueue.main.sync {
+                result = calculatePoiSize(forGridSize: gridSize)
+            }
+            return result
+        }
         
-        // 현재 줌 레벨에서 1픽셀 당 미터
-        let metersPerPixel = EARTH_CIRCUMFERENCE / (256 * pow(2.0, Double(kakaoMap.zoomLevel)))
+        guard let kakaoMap = controller?.getView("mapview") as? KakaoMap else { return 40 }
         
-        // gridSize 미터를 pt로 변환
-        let pixels = gridSize / metersPerPixel
+        // 화면 중앙의 좌표와 gridSize 미터만큼 떨어진 좌표의 실제 거리를 계산
+        let centerPoint = kakaoMap.getPosition(CGPoint(x: kakaoMap.viewRect.width / 2, y: kakaoMap.viewRect.height / 2))
+        let rightPoint = kakaoMap.getPosition(CGPoint(x: kakaoMap.viewRect.width, y: kakaoMap.viewRect.height / 2))
         
-        // grid의 80% 크기로 POI 사이즈 제한
-        return CGFloat(pixels * 0.8)
+        let centerLocation = CLLocation(
+            latitude: centerPoint.wgsCoord.latitude,
+            longitude: centerPoint.wgsCoord.longitude
+        )
+        let rightLocation = CLLocation(
+            latitude: rightPoint.wgsCoord.latitude,
+            longitude: rightPoint.wgsCoord.longitude
+        )
+        
+        // 화면 가로의 실제 거리(미터)와 픽셀 수를 이용해 1픽셀당 실제 거리 계산
+        let distanceInMeters = centerLocation.distance(from: rightLocation)
+        let pixelsPerMeter = Double(kakaoMap.viewRect.width / 2) / distanceInMeters
+        
+        // gridSize를 픽셀로 변환
+        let pixels = gridSize * pixelsPerMeter
+        
+        // POI 크기 계산 (최소/최대 제한 적용)
+        let size = CGFloat(pixels * 0.8)
+        let minSize: CGFloat = 20
+        let maxSize: CGFloat = 60
+        print(pixels, size)
+        return min(max(size, minSize), maxSize)
     }
-    // /// 현재 zoomlevel에서 주어진 미터(m)를 화면상의 포인트(pt)로 변환하는 메서드
-    // /// - Parameter meter: 변환할 거리(미터)
-    // /// - Returns: 화면상의 포인트 크기
-    // private func calculatePointSize(meter: Double) -> CGFloat {
-    //     guard let kakaoMap = controller?.getView("mapview") as? KakaoMap else { return 0 }
-    //     // 지구의 둘레 (미터)
-    //     let EARTH_CIRCUMFERENCE: Double = 40075017
     
-    //     // 현재 zoomlevel에서 1픽셀당 미터
-    //     let metersPerPixel = EARTH_CIRCUMFERENCE / (256 * pow(2.0, Double(kakaoMap.zoomLevel)))
-    
-    //     // 주어진 미터를 픽셀로 변환
-    //     let pixels = meter / metersPerPixel
-    
-    //     // 픽셀을 CGFloat(pt)로 변환하여 반환
-    //     return CGFloat(pixels)
-    // }
+}
+
+extension CLLocation {
+    func coordinate(with distanceMeters: Double, bearing: Double) -> CLLocationCoordinate2D {
+        let distanceRadians = distanceMeters / (6371000.0) // 지구 반경(m)
+        let bearingRadians = bearing * .pi / 180 // 각도를 라디안으로 변환
+        
+        let lat1 = self.coordinate.latitude * .pi / 180
+        let lon1 = self.coordinate.longitude * .pi / 180
+        
+        let lat2 = asin(
+            sin(lat1) * cos(distanceRadians) +
+            cos(lat1) * sin(distanceRadians) * cos(bearingRadians)
+        )
+        
+        let lon2 = lon1 + atan2(
+            sin(bearingRadians) * sin(distanceRadians) * cos(lat1),
+            cos(distanceRadians) - sin(lat1) * sin(lat2)
+        )
+        
+        return CLLocationCoordinate2D(
+            latitude: lat2 * 180 / .pi,
+            longitude: lon2 * 180 / .pi
+        )
+    }
+}
+extension GeoCoordinate {
+    var clLocationCoordinate: CLLocationCoordinate2D {
+        return CLLocationCoordinate2D(latitude: self.latitude, longitude: self.longitude)
+    }
 }
