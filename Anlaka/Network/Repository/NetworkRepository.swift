@@ -17,7 +17,7 @@ protocol NetworkRepository {
     
     func getDetailEstate(_ estateId: String) async throws -> DetailEstateEntity
     func postLikeEstate(_ estateId: String, _ targetLikeEstate: LikeEstateEntity) async throws -> LikeEstateEntity
-    func getGeoEstate(category: String?, lon: String?, lat: String?, maxD: String?) async throws -> GeoEstateEntity
+    func getGeoEstate(category: CategoryType?, lon: Double, lat: Double, maxD: Double) async throws -> GeoEstateEntity
     func getTodayEstate() async throws -> TodayEstateEntity
     func getHotEstate() async throws -> HotEstateEntity
     func getSimilarEstate() async throws -> SimilarEstateEntity
@@ -25,4 +25,5 @@ protocol NetworkRepository {
     
     func getAddressFromGeo(_ geo: GeolocationEntity) async throws -> AddressResponseEntity
     func getRoad3FromGeo(_ geo: GeolocationEntity) async throws -> RoadRegion3Entity
+    func getGeofromAddressQuery(_ query: String) async throws -> GeolocationEntity
 }
