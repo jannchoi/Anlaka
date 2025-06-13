@@ -8,6 +8,70 @@
 import Foundation
 
 final class NetworkRepositoryImp: NetworkRepository {
+
+    func getMyProfileInfo() async throws -> MyProfileInfoEntity {
+        do {
+            let response = try await NetworkManager.shared.callRequest(target: UserRouter.getMyProfileInfo, model: MyProfileInfoDTO.self)
+            let entity = response.toEntity()
+            UserDefaultsManager.shared.setObject(entity, forKey: .profileData)
+            return entity
+        } catch {
+            throw error
+        }
+    }
+    func getChatRooms() async throws -> ChatRoomListEntity {
+        //채팅방목록을 가져옴.
+        do {
+            let response = try await NetworkManager.shared.callRequest(target: ChatRouter.getChatRooms, model: ChatRoomListResponseDTO.self)
+            return response.toEntity()
+        } catch {
+            throw error
+        }
+    }
+
+    func getChatRoom(opponent_id: String) async throws -> ChatRoomEntity {
+        //존재하는 ID라면,채팅방 정보를 가져옴. 존재하지 않는 ID라면 새로운 채팅방을 생성함.
+        let target = ChatRoomRequestDTO(opponent_id: opponent_id)
+        do {
+            let response = try await NetworkManager.shared.callRequest(target: ChatRouter.getChatRoom(target), model: ChatRoomResponseDTO.self)
+            return response.toEntity()
+        } catch {
+            throw error
+        }
+    }
+
+    func sendMessage(roomId: String, target: ChatRequestEntity) async throws -> ChatEntity {
+        //해당 채팅방에 메시지를 보냄.
+        let target = target.toDTO()
+        do {
+            let response = try await NetworkManager.shared.callRequest(target: ChatRouter.sendMessage(roomId: roomId, target), model: ChatResponseDTO.self)
+            return response.toEntity()
+        } catch {
+            throw error
+        }
+    }
+
+    func getChatList(roomId: String, from: String?) async throws -> ChatListEntity {
+        //채팅방의 메시지 목록을 가져옴. from이 존재하는 경우 from으로부터 채팅목록을 가져옴. 존재하지 않는 경우 모든 채팅목록을 가져옴.
+        do {
+            let response = try await NetworkManager.shared.callRequest(target: ChatRouter.getChatList(roomId: roomId, from: from), model: ChatListResponseDTO.self)
+            return response.toEntity()
+        } catch {
+            throw error
+        }
+    }
+    
+    func uploadFiles(roomId: String, files: [ChatFile]) async throws -> ChatFileEntity {
+        //파일을 업로드함.
+        let target = ChatFilesRequestDTO(files: files)
+        do {
+            let response = try await NetworkManager.shared.callRequest(target: ChatRouter.uploadFiles(roomId: roomId, target), model: ChatFileResponseDTO.self)
+            return response.toEntity()
+        } catch {
+            throw error
+        }
+    }
+
     func getGeoFromKeywordQuery(_ query: String, page: Int) async throws -> KakaoGeoKeywordEntity {
         do {
             let response = try await NetworkManager.shared.callRequest(target: GeoRouter.getGeoByKeyword(query: query, page: page), model: KakaoGeoKeywordDTO.self)
@@ -166,7 +230,7 @@ final class NetworkRepositoryImp: NetworkRepository {
         do {
             let response = try await NetworkManager.shared.callRequest(target: UserRouter.signUp(target) , model: SignUpResponseDTO.self)
             let entity = response.toEntity()
-            let profile = ProfileInfo(userid: entity.userId, email: entity.email, nick: entity.nick, profileImage: nil, phoneNum: phoneNum, introduction: intro)
+            let profile = MyProfileInfoEntity(userid: entity.userId, email: entity.email, nick: entity.nick, profileImage: nil, phoneNum: phoneNum, introduction: intro)
             UserDefaultsManager.shared.setObject(profile, forKey: .profileData)
             return response.toEntity()
         }  catch {
@@ -186,13 +250,14 @@ final class NetworkRepositoryImp: NetworkRepository {
         }
     }
     func kakaoLogin(kakaoLoginEntity: KakaoLoginRequestEntity) async throws{
+        
         let target = kakaoLoginEntity.toDTO()
         do {
             let response = try await NetworkManager.shared.callRequest(target: UserRouter.kakaoLogin(target), model: LoginResponseDTO.self)
             let entity = response.toEntity()
             
-            if UserDefaultsManager.shared.getObject(forKey: .profileData, as: ProfileInfo.self) == nil {
-                let profile = ProfileInfo(userid: entity.userId, email: entity.email, nick: entity.nick, profileImage: nil, phoneNum: nil, introduction: nil)
+            if UserDefaultsManager.shared.getObject(forKey: .profileData, as: MyProfileInfoEntity.self) == nil {
+                let profile = MyProfileInfoEntity(userid: entity.userId, email: entity.email, nick: entity.nick, profileImage: nil, phoneNum: nil, introduction: nil)
                 UserDefaultsManager.shared.setObject(profile, forKey: .profileData)
             }
             UserDefaultsManager.shared.set(entity.accessToken, forKey: .accessToken)
@@ -201,6 +266,7 @@ final class NetworkRepositoryImp: NetworkRepository {
             throw error
         }
     }
+   
     func appleLogin(appleLoginEntity: AppleLoginRequestEntity) async throws {
         let target = appleLoginEntity.toDTO()
         
@@ -210,8 +276,8 @@ final class NetworkRepositoryImp: NetworkRepository {
                 model: LoginResponseDTO.self
             )
             let entity = response.toEntity()
-            if UserDefaultsManager.shared.getObject(forKey: .profileData, as: ProfileInfo.self) == nil {
-                let profile = ProfileInfo(userid: entity.userId, email: entity.email, nick: entity.nick, profileImage: nil, phoneNum: nil, introduction: nil)
+            if UserDefaultsManager.shared.getObject(forKey: .profileData, as: MyProfileInfoEntity.self) == nil {
+                let profile = MyProfileInfoEntity(userid: entity.userId, email: entity.email, nick: entity.nick, profileImage: nil, phoneNum: nil, introduction: nil)
                 UserDefaultsManager.shared.setObject(profile, forKey: .profileData)
             }
             UserDefaultsManager.shared.set(entity.accessToken, forKey: .accessToken)

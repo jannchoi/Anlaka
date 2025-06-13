@@ -77,7 +77,7 @@ final class HomeContainer: ObservableObject {
             let result = await AddressMappingHelper.mapTodaySummariesWithAddress(summaries.data, repository: repository)
             
             model.todayEstate = .success(result.estates)
-            
+            print(summaries.data.count)
             if let firstError = result.errors.first {
                 model.errorMessage = (firstError as? NetworkError)?.errorDescription ?? firstError.localizedDescription
             }
