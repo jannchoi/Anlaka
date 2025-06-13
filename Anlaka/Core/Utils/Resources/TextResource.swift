@@ -44,6 +44,29 @@ enum TextResource {
             }
         }
     }
+    
+    enum Categories: CaseIterable {
+        case Apartment
+        case Officetel
+        case OneRoom
+        case Storefront
+        case Villa
+        
+        var text: String {
+            switch self {
+            case .Apartment:
+                return "아파트"
+            case .Officetel:
+                return "오피스텔"
+            case .OneRoom:
+                return "원룸"
+            case .Storefront:
+                return "상가"
+            case .Villa:
+                return "빌라"
+            }
+        }
+    }
 }
 
 /*
