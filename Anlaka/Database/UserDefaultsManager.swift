@@ -12,7 +12,6 @@ enum UserDefaultsKey: String {
     case profileData
     case deviceToken
     case appleIdToken
-    case userNickname
     case kakaoToken
     case expAccess
     case expRefresh
