@@ -32,7 +32,7 @@ enum SearchMapIntent {
     case updateCenterCoordinate(CLLocationCoordinate2D)
     case updateMaxDistance(Double)
     case mapDidStopMoving(center: CLLocationCoordinate2D, maxDistance: Double)
-    case searchBarTextChanged(String)
+    case searchBarSubmitted(String)
     case startMapEngine
 }
 
@@ -87,7 +87,7 @@ final class SearchMapContainer: NSObject, ObservableObject {
                 await getGeoEstates(lon: center.longitude, lat: center.latitude, maxD: maxDistance)
             }
             
-        case .searchBarTextChanged(let text):
+        case .searchBarSubmitted(let text):
             model.addressQuery = text
             // Debounce search to avoid too many API calls
             searchDebounceTimer?.invalidate()
