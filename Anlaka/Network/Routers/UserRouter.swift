@@ -53,7 +53,7 @@ enum UserRouter: AuthorizedTarget {
 
     var header: [String: String] {
         return [
-            "SeSACKey": Environment.apiKey,
+            "SeSACKey": AppConfig.apiKey,
             "Content-Type": "application/json"
         ]
     }

@@ -8,9 +8,18 @@
 import Foundation
 
 final class NetworkRepositoryImp: NetworkRepository {
-    func getGeofromAddressQuery(_ query: String) async throws -> GeolocationEntity {
+    func getGeoFromKeywordQuery(_ query: String, page: Int) async throws -> KakaoGeoKeywordEntity {
         do {
-            let response = try await NetworkManager.shared.callRequest(target: GeoRouter.getGeolocation(query: query), model: KakaoGeolocationDTO.self)
+            let response = try await NetworkManager.shared.callRequest(target: GeoRouter.getGeoByKeyword(query: query, page: page), model: KakaoGeoKeywordDTO.self)
+            return response.toEntity()
+        } catch {
+            throw error
+        }
+    }
+    
+    func getGeofromAddressQuery(_ query: String, page: Int) async throws -> KakaoGeolocationEntity {
+        do {
+            let response = try await NetworkManager.shared.callRequest(target: GeoRouter.getGeolocation(query: query, page: page), model: KakaoGeolocationDTO.self)
             return response.toEntity()
         } catch {
             throw error
@@ -44,11 +53,15 @@ final class NetworkRepositoryImp: NetworkRepository {
                 target: EstateRouter.detailEstate(estateId: estateId),
                 model: DetailEstateResponseDTO.self
             )
-            return response.toEntity()
+            guard let entity = response.toEntity() else {
+                throw CustomError.nilResponse
+            }
+            return entity
         } catch {
             throw error
         }
     }
+
     
     func postLikeEstate(_ estateId: String, _ targetLikeEstate: LikeEstateEntity) async throws -> LikeEstateEntity {
         let target = targetLikeEstate.toDTO()
@@ -208,3 +221,4 @@ final class NetworkRepositoryImp: NetworkRepository {
         }
     }
 }
+
