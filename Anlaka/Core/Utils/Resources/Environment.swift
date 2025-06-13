@@ -10,9 +10,10 @@ import Foundation
 public enum Environment {
     enum Keys {
         enum Plist {
-            static let kakaoKey = "KAKAO_NATIVE_KEY"
+            static let kakaoNativeKey = "KAKAO_NATIVE_KEY"
             static let apiKey = "API_KEY"
             static let baseURL = "BASE_URL"
+            static let kakaoRestKey = "KAKAO_REST_KEY"
         }
     }
 
@@ -31,13 +32,18 @@ public enum Environment {
     }()
 
     
-    public static let kakaoKey: String = {
-        guard let key = infoDict[Keys.Plist.kakaoKey] as? String else {
+    public static let kakaoNativeKey: String = {
+        guard let key = infoDict[Keys.Plist.kakaoNativeKey] as? String else {
             fatalError("KAKAO_NATIVE_KEY not set in plist")
         }
         return key
     }()
-
+    public static let kakaoRestKey: String = {
+        guard let key = infoDict[Keys.Plist.kakaoRestKey] as? String else {
+            fatalError("KAKAO_REST_KEY not set in plist")
+        }
+        return key
+    }()
     public static let baseURL: String = {
         guard let rawURL = infoDict[Keys.Plist.baseURL] as? String else {
             fatalError("BASE_URL not set in plist")
