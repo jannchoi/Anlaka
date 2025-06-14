@@ -113,6 +113,24 @@ final class LoginContainer: NSObject, ObservableObject {
                     }
                 }
             }
+        } else {
+            // 카카오톡 앱이 없을 경우 웹 로그인으로 대체
+            UserApi.shared.loginWithKakaoAccount {(oauthToken, error) in
+                if let error = error {
+                    Task { @MainActor in
+                        self.model.errorMessage = error.localizedDescription
+                    }
+                    return
+                }
+                else {
+                    guard let oauthToken = oauthToken else {return}
+                    UserDefaultsManager.shared.set(oauthToken.accessToken, forKey: .kakaoToken)
+                    
+                    Task {
+                        await self.callKakaoLogin()
+                    }
+                }
+            }
         }
     }
     private func callKakaoLogin() async {
@@ -128,7 +146,10 @@ final class LoginContainer: NSObject, ObservableObject {
         } catch {
             if let error = error as? NetworkError {
                 model.errorMessage = error.errorDescription
-            } else {
+                
+            }
+            
+            else {
                 model.errorMessage = "알 수 없는 에러: \(error.localizedDescription)"
                 
             }
