@@ -17,7 +17,7 @@ struct HotEstateEntity {
 
 extension HotEstateResponseDTO {
     func toEntity() -> HotEstateEntity {
-        .init(data: data.map { $0.toHotEntity() })
+        return .init(data: data.compactMap{ $0.toHotEntity() })
     }
 }
 
@@ -26,13 +26,36 @@ struct HotSummaryEntity {
     let category: String
     let title: String
     let thumbnail: String
-    let deposit: Double
-    let monthlyRent: Double
+    let deposit: Double?
+    let monthlyRent: Double?
     let geolocation: GeolocationEntity
-    let area: Double
-    let likeCount: Int
+    let area: Double?
+    let likeCount: Int?
+}
+struct HotSummaryPresentation {
+    let estateId: String
+    let category: String
+    let title: String
+    let thumbnail: String
+    let deposit: String
+    let monthlyRent: String
+    let area: String
+    let likeCount: String
+}
+struct HotEstatePresentation  {
+    let data : [HotSummaryPresentation]
 }
 struct HotEstateWithAddress {
-    let summary: HotSummaryEntity
+    let summary: HotSummaryPresentation
     let address: String // roadRegion3
+}
+extension HotEstateEntity {
+    func toPresentation() -> HotEstatePresentation {
+        return .init(data: data.map{$0.toPresentation()})
+    }
+}
+extension HotSummaryEntity {
+    func toPresentation () -> HotSummaryPresentation {
+        return HotSummaryPresentation(estateId: estateId, category: category, title: title, thumbnail: thumbnail, deposit: PresentationMapper.formatToShortUnitString(deposit), monthlyRent: PresentationMapper.formatToShortUnitString(monthlyRent), area: PresentationMapper.formatArea(area), likeCount: PresentationMapper.formatCount(likeCount))
+    }
 }
