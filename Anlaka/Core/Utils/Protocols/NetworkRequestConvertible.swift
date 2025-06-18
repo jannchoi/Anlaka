@@ -15,3 +15,4 @@ extension AuthRouter: NetworkRequestConvertible {}
 extension EstateRouter: NetworkRequestConvertible {}
 extension GeoRouter: NetworkRequestConvertible {}
 extension ChatRouter: NetworkRequestConvertible {}
+extension AdminRouter: NetworkRequestConvertible {}
