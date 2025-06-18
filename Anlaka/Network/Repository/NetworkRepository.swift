@@ -25,5 +25,6 @@ protocol NetworkRepository {
     
     func getAddressFromGeo(_ geo: GeolocationEntity) async throws -> AddressResponseEntity
     func getRoad3FromGeo(_ geo: GeolocationEntity) async throws -> RoadRegion3Entity
-    func getGeofromAddressQuery(_ query: String) async throws -> GeolocationEntity
+    func getGeofromAddressQuery(_ query: String, page: Int) async throws -> KakaoGeolocationEntity
+    func getGeoFromKeywordQuery(_ query: String, page: Int) async throws -> KakaoGeoKeywordEntity
 }
