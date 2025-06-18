@@ -11,6 +11,9 @@
 		CE6C853C2DD71F22009E9343 /* KakaoSDKAuth in Frameworks */ = {isa = PBXBuildFile; productRef = CE6C853B2DD71F22009E9343 /* KakaoSDKAuth */; };
 		CE6C853E2DD71F22009E9343 /* KakaoSDKCommon in Frameworks */ = {isa = PBXBuildFile; productRef = CE6C853D2DD71F22009E9343 /* KakaoSDKCommon */; };
 		CE6C85402DD71F22009E9343 /* KakaoSDKUser in Frameworks */ = {isa = PBXBuildFile; productRef = CE6C853F2DD71F22009E9343 /* KakaoSDKUser */; };
+		CE7707602DF6CC770003A053 /* RealmSwift in Frameworks */ = {isa = PBXBuildFile; productRef = CE77075F2DF6CC770003A053 /* RealmSwift */; };
+		CE9291A62DF994E4000981B5 /* SocketIO in Frameworks */ = {isa = PBXBuildFile; productRef = CE9291A52DF994E4000981B5 /* SocketIO */; };
+		CEBF07B62DF97A160073A761 /* RealmSwift in Embed Frameworks */ = {isa = PBXBuildFile; productRef = CE77075F2DF6CC770003A053 /* RealmSwift */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		CEE183352DCF69D800A33B15 /* .gitignore in Resources */ = {isa = PBXBuildFile; fileRef = CEE183342DCF69D800A33B15 /* .gitignore */; };
 /* End PBXBuildFile section */
 
@@ -21,6 +24,7 @@
 			dstPath = "";
 			dstSubfolderSpec = 10;
 			files = (
+				CEBF07B62DF97A160073A761 /* RealmSwift in Embed Frameworks */,
 			);
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -62,7 +66,9 @@
 				CE6C853E2DD71F22009E9343 /* KakaoSDKCommon in Frameworks */,
 				CE6C853C2DD71F22009E9343 /* KakaoSDKAuth in Frameworks */,
 				CE6C85402DD71F22009E9343 /* KakaoSDKUser in Frameworks */,
+				CE7707602DF6CC770003A053 /* RealmSwift in Frameworks */,
 				CE5F4D8A2DDF4CF90066C970 /* KakaoMapsSDK-SPM in Frameworks */,
+				CE9291A62DF994E4000981B5 /* SocketIO in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -112,6 +118,8 @@
 				CE6C853D2DD71F22009E9343 /* KakaoSDKCommon */,
 				CE6C853F2DD71F22009E9343 /* KakaoSDKUser */,
 				CE5F4D892DDF4CF90066C970 /* KakaoMapsSDK-SPM */,
+				CE77075F2DF6CC770003A053 /* RealmSwift */,
+				CE9291A52DF994E4000981B5 /* SocketIO */,
 			);
 			productName = Anlaka;
 			productReference = CEE183232DCF698300A33B15 /* Anlaka.app */;
@@ -145,6 +153,8 @@
 			packageReferences = (
 				CE6C853A2DD71F22009E9343 /* XCRemoteSwiftPackageReference "kakao-ios-sdk" */,
 				CE5F4D882DDF4CF90066C970 /* XCRemoteSwiftPackageReference "KakaoMapsSDK-SPM" */,
+				CE77075E2DF6CC770003A053 /* XCRemoteSwiftPackageReference "realm-swift" */,
+				CE9291A42DF994E4000981B5 /* XCRemoteSwiftPackageReference "socket.io-client-swift" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = CEE183242DCF698300A33B15 /* Products */;
@@ -415,6 +425,22 @@
 				minimumVersion = 2.24.2;
 			};
 		};
+		CE77075E2DF6CC770003A053 /* XCRemoteSwiftPackageReference "realm-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/realm/realm-swift.git";
+			requirement = {
+				kind = exactVersion;
+				version = 20.0.1;
+			};
+		};
+		CE9291A42DF994E4000981B5 /* XCRemoteSwiftPackageReference "socket.io-client-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/socketio/socket.io-client-swift.git";
+			requirement = {
+				kind = exactVersion;
+				version = 16.1.1;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -437,6 +463,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = CE6C853A2DD71F22009E9343 /* XCRemoteSwiftPackageReference "kakao-ios-sdk" */;
 			productName = KakaoSDKUser;
+		};
+		CE77075F2DF6CC770003A053 /* RealmSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = CE77075E2DF6CC770003A053 /* XCRemoteSwiftPackageReference "realm-swift" */;
+			productName = RealmSwift;
+		};
+		CE9291A52DF994E4000981B5 /* SocketIO */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = CE9291A42DF994E4000981B5 /* XCRemoteSwiftPackageReference "socket.io-client-swift" */;
+			productName = SocketIO;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
