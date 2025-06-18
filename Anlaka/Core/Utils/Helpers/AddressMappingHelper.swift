@@ -23,7 +23,7 @@ struct AddressMappingHelper {
                    group.addTask {
                        let geo = summary.geolocation
                        do {
-                           let address = try await repository.getAddressFromGeo(geo).roadRegion3
+                           let address = try await repository.getAddressFromGeo(geo).toShortAddress()
                            return .success(HotEstateWithAddress(summary: summary.toPresentation(), address: address))
                        } catch {
                            let message = (error as? NetworkError)?.errorDescription ?? error.localizedDescription
@@ -62,7 +62,7 @@ extension AddressMappingHelper {
                 group.addTask {
                     let geo = summary.geolocation
                     do {
-                        let address = try await repository.getAddressFromGeo(geo).roadRegion3
+                        let address = try await repository.getAddressFromGeo(geo).toShortAddress()
                         return .success(SimilarEstateWithAddress(summary: summary.toPresentation(), address: address))
                     } catch {
                         return .success(nil)
@@ -99,7 +99,7 @@ extension AddressMappingHelper {
                 group.addTask {
                     let geo = summary.geolocation
                     do {
-                        let address = try await repository.getAddressFromGeo(geo).roadRegion3
+                        let address = try await repository.getAddressFromGeo(geo).toShortAddress()
                         return .success(TodayEstateWithAddress(summary: summary.toPresentation(), address: address))
                     } catch {
                         return .success(nil)
@@ -121,6 +121,28 @@ extension AddressMappingHelper {
             }
 
             return AddressMappingResult(estates: estates.compactMap{$0}, errors: errors)
+        }
+    }
+}
+extension AddressMappingHelper {
+    static func mapDetailEstateWithAddress(
+        _ detail: DetailEstateEntity,
+        repository: NetworkRepository
+    ) async -> Result<DetailEstateWithAddrerss, Error> {
+        
+        guard let geo = detail.geolocation else {
+            return .failure(CustomError.nilResponse)
+        }
+        
+        do {
+            let address = try await repository.getAddressFromGeo(geo).roadAddressName
+            let mapped = DetailEstateWithAddrerss(
+                detail: detail.toPresentationModel(),
+                address: address
+            )
+            return .success(mapped)
+        } catch {
+            return .failure(error)
         }
     }
 }
