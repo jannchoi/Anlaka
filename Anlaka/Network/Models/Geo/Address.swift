@@ -88,7 +88,20 @@ extension AddressResponseDTO {
             return RoadRegion3Entity(address: jibun.region_3depth_name ?? "")
         } else { return RoadRegion3Entity(address: "")}
     }
+   
 }
-
+extension AddressResponseEntity {
+     func toShortAddress() -> String {
+        if !roadRegion3.isEmpty {
+            return roadRegion3
+        } else if !roadRegion2.isEmpty {
+            return roadRegion2
+        } else if !roadRegion1.isEmpty {
+            return roadRegion1
+        } else {
+            return roadAddressName
+        }
+    }
+}
 
 
