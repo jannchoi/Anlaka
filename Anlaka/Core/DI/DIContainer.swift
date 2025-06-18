@@ -29,4 +29,10 @@ final class DIContainer: ObservableObject {
     func makeSearchAddressContainer() -> SearchAddressContainer {
         SearchAddressContainer(repository: networkRepository)
     }
+    func makeMyPageContainer() -> MyPageContainer {
+        MyPageContainer(repository: networkRepository)
+    }
+    func makeChattingContainer(roomId: String) -> ChattingContainer {
+        ChattingContainer(repository: networkRepository, roomId: roomId)
+    }
 }
