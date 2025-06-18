@@ -26,8 +26,27 @@ struct SearchMapView: View {
     
     var body: some View {
         mainContent
+            .navigationTitle("매물 찾기 ")
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarBackground(Color.white, for: .navigationBar)
+            .navigationBarTitleDisplayMode(.inline)
             .navigationBarBackButtonHidden(true)
-            .navigationBarItems(leading: backButton)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button(action: {
+                        path.removeLast()
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "chevron.left")
+                                .foregroundColor(.MainTextColor)
+                            Text("뒤로")
+                                .foregroundColor(.MainTextColor)
+                        }
+                        .padding(.leading, 8)
+                    }
+                }
+            }
+            
             .fullScreenCover(item: Binding(
                 get: { container.model.selectedEstate },
                 set: { container.model.selectedEstate = $0 }
@@ -166,15 +185,7 @@ struct SearchMapView: View {
             }
         }
     }
-    
-    private var backButton: some View {
-        Button(action: {
-            path.removeLast()
-        }) {
-            Image(systemName: "chevron.left")
-                .foregroundColor(Color.DustyLake)
-        }
-    }
+
 }
 
 struct SearchBar: View {
