@@ -100,6 +100,21 @@ extension EstateSummaryDTO {
             updatedAt: updatedAt ?? "알 수 없음"
         )
     }
+    func toLikeListEntity() -> LikeSummaryEntity? {
+        guard let estateId = estateId, let geolocation = geolocation, let geoEntity = geolocation.toEntity() else { return nil }
+        
+        return LikeSummaryEntity(
+            estateId: estateId,
+            category: category ?? "알 수 없음",
+            title: title ?? "알 수 없음",
+            thumbnail: thumbnails?.first ?? "",
+            deposit: deposit,
+            monthlyRent: monthlyRent,
+            geolocation: geoEntity,
+            area: area,
+            likeCount: likeCount, isRecommended: isRecommended
+        )
+    }
 
     func toHotEntity() -> HotSummaryEntity? {
         guard let estateId = estateId, let geolocation = geolocation, let geoEntity = geolocation.toEntity() else { return nil }
@@ -113,7 +128,7 @@ extension EstateSummaryDTO {
             monthlyRent: monthlyRent,
             geolocation: geoEntity,
             area: area,
-            likeCount: likeCount
+            likeCount: likeCount, isRecommended: isRecommended
         )
     }
 
