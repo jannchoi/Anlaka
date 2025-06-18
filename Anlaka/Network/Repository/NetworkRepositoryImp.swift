@@ -205,7 +205,10 @@ final class NetworkRepositoryImp: NetworkRepository {
                 target: EstateRouter.likeEstate(estateId: estateId, target),
                 model: LikeEstateResponseDTO.self
             )
-            return response.toEntity()
+            guard let entity = response.toEntity() else {
+                throw CustomError.nilResponse
+            }
+            return entity
         } catch {
             throw error
         }
