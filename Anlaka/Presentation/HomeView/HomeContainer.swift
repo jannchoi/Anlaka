@@ -13,9 +13,19 @@ struct HomeModel {
     var hotEstate: Loadable<[HotEstateWithAddress]> = .idle
     var topicEstate: Loadable<TopicEstateEntity> = .idle
     var address = AddressResponseEntity(roadAddressName: "", roadRegion1: "", roadRegion2: "", roadRegion3: "")
+    
+    // Navigation state
+    var navigationDestination: HomeRoute? = nil
+    var showSafariSheet: Bool = false
+    var safariURL: URL? = nil
 }
 enum HomeIntent {
     case initialRequest
+    case goToDetail(estateId: String)
+    case goToCategory(categoryType: String)
+    case goToEstatesAll(type: EstateListType)
+    case goToTopicWeb(url: URL)
+    case goToSearch
 }
 @MainActor
 final class HomeContainer: ObservableObject {
@@ -32,9 +42,33 @@ final class HomeContainer: ObservableObject {
             Task { await getTodayEstate() }
             Task { await getHotEstate() }
             Task { await getTopicEstate() }
+            
+        case .goToDetail(let estateId):
+            model.navigationDestination = .detail(estateId: estateId)
+            
+        case .goToCategory(let categoryType):
+            model.navigationDestination = .category(categoryType: categoryType)
+            
+        case .goToEstatesAll(let type):
+            model.navigationDestination = .estatesAll(type: type)
+            
+        case .goToTopicWeb(let url):
+            // For web URLs, we'll use a sheet presentation with SafariWebView
+            model.safariURL = url
+            model.showSafariSheet = true
+        case .goToSearch:
+            model.navigationDestination = .search
         }
     }
+    func resetNavigation() {
+        model.navigationDestination = nil
+    }
 
+    func closeSafariSheet() {
+         model.showSafariSheet = false
+         model.safariURL = nil
+     }
+    
     private func getTodayEstate() async {
         model.todayEstate = .loading
         do {
@@ -73,6 +107,8 @@ final class HomeContainer: ObservableObject {
         model.topicEstate = .loading
         do {
             let response = try await repository.getTopicEstate()
+            for item in response.items {
+            }
             model.topicEstate = .success(response)
         } catch {
             let message = (error as? NetworkError)?.errorDescription ?? error.localizedDescription
