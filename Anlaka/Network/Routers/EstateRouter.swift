@@ -29,7 +29,7 @@ enum EstateRouter {
         case .geoEstate:
             return "/geolocation"
         case .todayEstate:
-            return "/today-e"
+            return "/today-estates"
         case .hotEstate:
             return "/hot-estates"
         case .similarEstate:
@@ -49,9 +49,11 @@ enum EstateRouter {
     }
 
     var header: [String: String] {
+        guard let accessToken = UserDefaultsManager.shared.getString(forKey: .accessToken) else {return [:]}
         return [
             "SeSACKey": Environment.apiKey,
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            "Authorization" : accessToken
         ]
     }
 
