@@ -23,4 +23,7 @@ final class DIContainer: ObservableObject {
     func makeHomeContainer() -> HomeContainer {
         HomeContainer(repository: networkRepository)
     }
+    func makeSearchMapContainer() -> SearchMapContainer {
+        SearchMapContainer(repository: networkRepository)
+    }
 }
