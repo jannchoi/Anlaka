@@ -8,31 +8,31 @@
 import Foundation
 
 struct DetailEstateResponseDTO: Decodable {
-    let estateId: String
-    let category: String
-    let title: String
-    let introduction: String
-    let reservationPrice: Int
-    let thumbnails: [String]
-    let description: String
-    let deposit: Double
-    let monthlyRent: Double
-    let builtYear: String
-    let maintenanceFee: Double
-    let area: Double
-    let parkingCount: Int
-    let floors: Int
-    let options: OptionDTO
-    let geolocation: GeolocationDTO
-    let creator: UserInfoDTO
-    let isLiked: Bool
-    let isReserved: Bool
-    let likeCount: Int
-    let isSafeEstate: Bool
-    let isRecommended: Bool
-    let comments: [String] // 단순화
-    let createdAt: String
-    let updatedAt: String
+    let estateId: String?
+    let category: String?
+    let title: String?
+    let introduction: String?
+    let reservationPrice: Int?
+    let thumbnails: [String]?
+    let description: String?
+    let deposit: Double?
+    let monthlyRent: Double?
+    let builtYear: String?
+    let maintenanceFee: Double?
+    let area: Double?
+    let parkingCount: Int?
+    let floors: Int?
+    let options: OptionDTO?
+    let geolocation: GeolocationDTO?
+    let creator: UserInfoDTO?
+    let isLiked: Bool?
+    let isReserved: Bool?
+    let likeCount: Int?
+    let isSafeEstate: Bool?
+    let isRecommended: Bool?
+    let comments: [String]?
+    let createdAt: String?
+    let updatedAt: String?
 
     enum CodingKeys: String, CodingKey {
         case estateId = "estate_id"
@@ -58,57 +58,134 @@ struct DetailEstateEntity {
     let category: String
     let title: String
     let introduction: String
-    let reservationPrice: Int
+    let reservationPrice: Int?
     let thumbnails: [String]
     let description: String
-    let deposit: Double
-    let monthlyRent: Double
+    let deposit: Double?
+    let monthlyRent: Double?
     let builtYear: String
-    let maintenanceFee: Double
-    let area: Double
-    let parkingCount: Int
-    let floors: Int
+    let maintenanceFee: Double?
+    let area: Double?
+    let parkingCount: Int?
+    let floors: Int?
     let options: OptionEntity
-    let geolocation: GeolocationEntity
+    let geolocation: GeolocationEntity?
     let creator: UserInfoEntity
-    let isLiked: Bool
-    let isReserved: Bool
-    let likeCount: Int
-    let isSafeEstate: Bool
-    let isRecommended: Bool
+    let isLiked: Bool?
+    let isReserved: Bool?
+    let likeCount: Int?
+    let isSafeEstate: Bool?
+    let isRecommended: Bool?
     let comments: [String]
     let createdAt: String
     let updatedAt: String
 }
 
+struct DetailEstatePresentation: Identifiable {
+    let estateId: String
+    let category: String
+    let title: String
+    let introduction: String
+    let reservationPrice: String
+    let thumbnails: [String]
+    let description: String
+    let deposit: String
+    let monthlyRent: String
+    let builtYear: String
+    let maintenanceFee: String
+    let area: String
+    let parkingCount: String
+    let floors: String
+    let options: OptionEntity
+    let creator: UserInfoPresentation?
+    let isLiked: String
+    let isReserved: String
+    let likeCount: String
+    let isSafeEstate: String
+    let isRecommended: String
+    let comments: [String]
+    
+    var id: String { estateId }
+}
+
 extension DetailEstateResponseDTO {
-    func toEntity() -> DetailEstateEntity {
-        .init(
+    func toEntity() -> DetailEstateEntity? {
+        guard let estateId = estateId, let creatorEntity = creator?.toEntity() else { return nil }
+    
+        
+        // OptionDTO가 nil인 경우 기본 OptionEntity 생성
+        let optionsEntity: OptionEntity
+        if let options = options {
+            optionsEntity = options.toEntity()
+        } else {
+            optionsEntity = OptionEntity(
+                description: "알 수 없음",
+                refrigerator: false,
+                washer: false,
+                airConditioner: false,
+                closet: false,
+                shoeRack: false,
+                microwave: false,
+                sink: false,
+                tv: false
+            )
+        }
+        
+        return DetailEstateEntity(
             estateId: estateId,
-            category: category,
-            title: title,
-            introduction: introduction,
+            category: category ?? "알 수 없음",
+            title: title ?? "알 수 없음",
+            introduction: introduction ?? "알 수 없음",
             reservationPrice: reservationPrice,
-            thumbnails: thumbnails,
-            description: description,
+            thumbnails: thumbnails ?? [],
+            description: description ?? "알 수 없음",
             deposit: deposit,
             monthlyRent: monthlyRent,
-            builtYear: builtYear,
+            builtYear: builtYear ?? "알 수 없음",
             maintenanceFee: maintenanceFee,
             area: area,
             parkingCount: parkingCount,
             floors: floors,
-            options: options.toEntity(),
-            geolocation: geolocation.toEntity(),
-            creator: creator.toEntity(),
+            options: optionsEntity,
+            geolocation: geolocation?.toEntity(),
+            creator: creatorEntity,
             isLiked: isLiked,
             isReserved: isReserved,
             likeCount: likeCount,
             isSafeEstate: isSafeEstate,
             isRecommended: isRecommended,
-            comments: comments,
-            createdAt: createdAt,
-            updatedAt: updatedAt
+            comments: comments ?? [],
+            createdAt: createdAt ?? "알 수 없음",
+            updatedAt: updatedAt ?? "알 수 없음"
+        )
+    }
+}
+
+extension DetailEstateEntity {
+    func toPresentationModel() -> DetailEstatePresentation {
+        return DetailEstatePresentation(
+            estateId: estateId,
+            category: category,
+            title: title,
+            introduction: introduction,
+            reservationPrice: PresentationMapper.mapInt(reservationPrice),
+            thumbnails: thumbnails,
+            description: description,
+            deposit: PresentationMapper.formatToShortUnitString(deposit),
+            monthlyRent: PresentationMapper.formatToShortUnitString(monthlyRent),
+            builtYear: PresentationMapper.formatBuiltYear(builtYear.isEmpty ? nil : builtYear),
+            maintenanceFee: PresentationMapper.formatToShortUnitString(maintenanceFee),
+            area: PresentationMapper.formatArea(area),
+            parkingCount: PresentationMapper.formatCount(parkingCount),
+            floors: PresentationMapper.formatFloor(floors),
+            options: options,
+            creator: creator.toPresentationModel(),
+            isLiked: PresentationMapper.mapBool(isLiked),
+            isReserved: PresentationMapper.mapBool(isReserved),
+            likeCount: PresentationMapper.formatCount(likeCount),
+            isSafeEstate: PresentationMapper.mapBool(isSafeEstate),
+            isRecommended: PresentationMapper.mapBool(isRecommended),
+            comments: comments
         )
     }
 }
