@@ -8,7 +8,6 @@
 import Foundation
 
 enum LoginRoute: Hashable {
-    case home
     case signUp
 }
 

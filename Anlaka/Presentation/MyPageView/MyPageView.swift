@@ -12,15 +12,15 @@ struct MyPageView: View {
     @StateObject private var container: MyPageContainer
     let di: DIContainer
     @AppStorage(TextResource.Global.isLoggedIn.text) private var isLoggedIn: Bool = true
-    @State private var path = NavigationPath()
+    @Binding var path: NavigationPath
     
-    init(di: DIContainer) {
+    init(di: DIContainer, path: Binding<NavigationPath>) {
         self.di = di
+        self._path = path
         _container = StateObject(wrappedValue: di.makeMyPageContainer())
     }
     
     var body: some View {
-        NavigationStack(path: $path) {
             ScrollView {
                 VStack(spacing: 0) {
                     // Profile Section
@@ -57,9 +57,9 @@ struct MyPageView: View {
                     ChattingView(roomId: roomId, di: di, path: $path)
                 case .editProfile(let di):
                     EditProfileView(di: di)
-                }
             }
         }
+        
         .onChange(of: container.model.backToLogin) { backToLogin in
             if backToLogin {
                 isLoggedIn = false
