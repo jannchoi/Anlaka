@@ -6,7 +6,7 @@
 //
 
 import Foundation
-enum UserRouter {
+enum UserRouter: AuthorizedTarget {
     case emailValidation(EmailValidationRequestDTO)
     case signUp(SignUpRequestDTO)
     case emailLogin(EmailLoginRequestDTO)
@@ -18,6 +18,20 @@ enum UserRouter {
         let urlStr = BaseURL.baseV1 + "/users"
         return URL(string: urlStr)!}
 
+    var requiresAuthorization: Bool {
+        switch self {
+        case .emailValidation:
+            return false
+        case .signUp:
+            return false
+        case .emailLogin:
+            return false
+        case .kakaoLogin:
+            return false
+        case .appleLogin:
+            return false
+        }
+    }
     var path: String {
         switch self {
         case .emailValidation:

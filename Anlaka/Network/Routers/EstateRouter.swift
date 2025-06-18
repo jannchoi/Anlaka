@@ -7,7 +7,7 @@
 
 import Foundation
 
-enum EstateRouter {
+enum EstateRouter: AuthorizedTarget {
     case detailEstate(estateId: String)
     case likeEstate(estateId: String, LikeEstateRequestDTO)
     case geoEstate(category: String?, lon: String?, lat: String?, maxD: String?)
@@ -15,6 +15,10 @@ enum EstateRouter {
     case hotEstate
     case similarEstate
     case topicEstate
+    
+    var requiresAuthorization: Bool {
+        return true
+    }
 
     var baseURL: URL {
         return URL(string: BaseURL.baseV1 + "/estates")!
