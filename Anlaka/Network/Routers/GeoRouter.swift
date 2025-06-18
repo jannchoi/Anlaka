@@ -12,7 +12,7 @@ enum GeoRouter {
     case getGeolocation(query: String)
     
     var baseURL: URL {URL(string: BaseURL.geoBaseURL)!}
-    
+
     var path: String {
         switch self {
         case .getAddress:

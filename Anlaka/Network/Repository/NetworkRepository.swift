@@ -8,7 +8,7 @@
 import Foundation
 
 protocol NetworkRepository {
-    func fetchRefreshToken(refToken: String) async throws -> RefreshTokenEntity
+    func fetchRefreshToken() async throws -> RefreshTokenEntity
     func validateEmail(targeteEmail: EmailValidationRequestEntity) async throws -> EmailValidationResponseEntity
     func signUp(signUpEntity: SignUpRequestEntity) async throws -> SignUpResponseEntity
     func emailLogin(emailLoginEntity: EmailLoginRequestEntity) async throws -> LoginResponseEntity
