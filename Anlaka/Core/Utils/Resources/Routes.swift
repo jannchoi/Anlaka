@@ -59,3 +59,21 @@ enum MyPageRoute: Hashable {
         }
     }
 }
+enum PaymentRoute: Hashable {
+    case payment(PaymentContainer)
+    
+    // Hashable conformance
+    func hash(into hasher: inout Hasher) {
+        switch self {
+        case .payment:
+            hasher.combine("payment")
+        }
+    }
+    
+    static func == (lhs: PaymentRoute, rhs: PaymentRoute) -> Bool {
+        switch (lhs, rhs) {
+        case (.payment, .payment):
+            return true
+        }
+    }
+}
