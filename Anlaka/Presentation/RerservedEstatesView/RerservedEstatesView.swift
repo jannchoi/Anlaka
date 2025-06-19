@@ -1,5 +1,5 @@
 //
-//  FavoriteEstatesView.swift
+//  RerservedEstatesView.swift
 //  Anlaka
 //
 //  Created by 최정안 on 6/9/25.
@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-struct FavoriteEstatesView: View {
+struct RerservedEstatesView: View {
     let di: DIContainer
     @Binding var path: NavigationPath
     
