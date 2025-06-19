@@ -45,7 +45,7 @@ struct AdminRequestMockData: Codable {
         let randomInt = Int.random(in: 1...100)
         self.title = "정아니의 해피하우스 \(randomInt)"
         self.introduction = "사랑을 느낄 수 있는 안락한 집 \(randomInt)"
-        self.reservation_price = Int.random(in: 10...1000)
+        self.reservation_price = Int.random(in: 10...900)
        let availableThumbnails = [
     "/data/estates/example_1_1747104960999.jpg",
     "/data/estates/francesca-tosolini-w1RE0lBbREo-unsplash_1747105244716.jpg",
