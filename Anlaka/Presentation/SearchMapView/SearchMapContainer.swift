@@ -26,12 +26,16 @@ struct SearchMapModel {
     var searchedData: SearchListData?
     var detailEstateList: [DetailEstateEntity] = []
     
-    // 새로 추가할 필터 관련 프로퍼티들
+    // 필터 최대 범위 상수 정의
+    static let maxAreaRange: ClosedRange<Double> = 0...200
+    static let maxMonthlyRentRange: ClosedRange<Double> = 0...5000
+    static let maxDepositRange: ClosedRange<Double> = 0...50000
+    
     var selectedFilterIndex: Int? = nil // 0: 카테고리, 1: 평수, 2: 월세, 3: 보증금
-    var selectedCategories: [String] = [] // 배열로 변경
-    var selectedAreaRange: ClosedRange<Double> = 1...200 // 수정: 0~200평
-    var selectedMonthlyRentRange: ClosedRange<Double> = 1...5000 // 수정: 0~5000만원
-    var selectedDepositRange: ClosedRange<Double> = 1...50000 // 수정: 0~50000만원
+    var selectedCategory: String? = nil // 단일 카테고리 선택으로 변경
+    var selectedAreaRange: ClosedRange<Double> = SearchMapModel.maxAreaRange
+    var selectedMonthlyRentRange: ClosedRange<Double> = SearchMapModel.maxMonthlyRentRange
+    var selectedDepositRange: ClosedRange<Double> = SearchMapModel.maxDepositRange
     var selectedEstateIds: [String] = [] // onPOIGroupTap에서 받은 estate_id들
     var filteredEstates: [DetailEstatePresentation] = []
     var showEstateScroll: Bool = false
@@ -41,7 +45,6 @@ struct SearchMapModel {
     var selectedEstateId: IdentifiableString? = nil
     
     var curEstatesData: GeoEstateEntity? = nil
-
 }
 
 enum SearchMapIntent {
@@ -54,7 +57,7 @@ enum SearchMapIntent {
     
     // 새로 추가할 필터 관련 인텐트들
     case selectFilter(Int?) // nil이면 필터 해제
-    case selectCategory(String?)
+    case selectCategory(String?) // 단일 카테고리 선택으로 변경
     case updateAreaRange(ClosedRange<Double>)
     case updateMonthlyRentRange(ClosedRange<Double>)
     case updateDepositRange(ClosedRange<Double>)
@@ -62,7 +65,6 @@ enum SearchMapIntent {
     case poiSelected(String) // onPOITap
     case hideEstateScroll
     case estateCardSelected(String)
-    
 }
 
 @MainActor
@@ -98,7 +100,7 @@ final class SearchMapContainer: NSObject, ObservableObject {
             model.maxDistance = distance
             guard let searchedData = model.searchedData else {return}
             Task {
-                await getGeoEstates(lon: searchedData.longitude, lat: searchedData.latitude, maxD: model.maxDistance)
+                await getGeoEstates(lon: searchedData.longitude, lat: searchedData.latitude, maxD: model.maxDistance, category: model.selectedCategory)
             }
             
         case .mapDidStopMoving(let center, let maxDistance):
@@ -107,9 +109,11 @@ final class SearchMapContainer: NSObject, ObservableObject {
             debounceGeoEstates(lon: center.longitude, lat: center.latitude, maxD: maxDistance)
             
         case .searchBarSubmitted(let searchedData):
-            
             model.centerCoordinate = CLLocationCoordinate2D(latitude: searchedData.latitude, longitude: searchedData.longitude)
             model.searchedData = searchedData
+            Task {
+                await getGeoEstates(lon: searchedData.longitude, lat: searchedData.latitude, maxD: model.maxDistance, category: model.selectedCategory, forceUpdate: true)
+            }
             
         case .startMapEngine:
             model.shouldDrawMap = true
@@ -118,14 +122,10 @@ final class SearchMapContainer: NSObject, ObservableObject {
             model.selectedFilterIndex = index
             
         case .selectCategory(let category):
-            if let category = category {
-                if model.selectedCategories.contains(category) {
-                    model.selectedCategories.removeAll { $0 == category }
-                } else {
-                    model.selectedCategories.append(category)
-                }
+            if model.selectedCategory == category {
+                model.selectedCategory = nil
             } else {
-                model.selectedCategories.removeAll()
+                model.selectedCategory = category
             }
             debounceFilterUpdate()
             
@@ -238,36 +238,47 @@ final class SearchMapContainer: NSObject, ObservableObject {
     private func estateDataFiltering(_ estates: GeoEstateEntity) -> GeoEstateEntity {
         var filteredData = estates.data.compactMap { $0 }
 
+        // 필터가 선택되지 않았으면 원본 데이터 반환
+        if model.selectedFilterIndex == nil {
+            return estates
+        }
+
         // 카테고리 필터
-        if !model.selectedCategories.isEmpty {
-            filteredData = filteredData.filter {
-                model.selectedCategories.contains($0.category)
+        if let selectedCategory = model.selectedCategory {
+            filteredData = filteredData.filter { estate in
+                estate.category == selectedCategory
             }
         }
 
         // 평수 필터
-        filteredData = applyRangeFilter(
-            data: filteredData,
-            valueProvider: { $0.area },
-            selectedRange: model.selectedAreaRange,
-            fullRange: 0.0...200.0
-        )
+        if model.selectedFilterIndex == 1 {
+            filteredData = applyRangeFilter(
+                data: filteredData,
+                valueProvider: { $0.area },
+                selectedRange: model.selectedAreaRange,
+                fullRange: SearchMapModel.maxAreaRange
+            )
+        }
 
         // 월세 필터
-        filteredData = applyRangeFilter(
-            data: filteredData,
-            valueProvider: { $0.monthlyRent },
-            selectedRange: model.selectedMonthlyRentRange,
-            fullRange: 0.0...50000000.0
-        )
+        if model.selectedFilterIndex == 2 {
+            filteredData = applyRangeFilter(
+                data: filteredData,
+                valueProvider: { $0.monthlyRent },
+                selectedRange: model.selectedMonthlyRentRange,
+                fullRange: SearchMapModel.maxMonthlyRentRange
+            )
+        }
 
         // 보증금 필터
-        filteredData = applyRangeFilter(
-            data: filteredData,
-            valueProvider: { $0.deposit },
-            selectedRange: model.selectedDepositRange,
-            fullRange: 0.0...500000000.0
-        )
+        if model.selectedFilterIndex == 3 {
+            filteredData = applyRangeFilter(
+                data: filteredData,
+                valueProvider: { $0.deposit },
+                selectedRange: model.selectedDepositRange,
+                fullRange: SearchMapModel.maxDepositRange
+            )
+        }
 
         return GeoEstateEntity(data: filteredData)
     }
@@ -278,31 +289,40 @@ final class SearchMapContainer: NSObject, ObservableObject {
         selectedRange: ClosedRange<T>,
         fullRange: ClosedRange<T>
     ) -> [EstateSummaryEntity] {
-        guard selectedRange != fullRange else { return data }
-
-        return data.filter {
-            guard let value = valueProvider($0) else { return false }
-
-            if selectedRange.lowerBound <= fullRange.lowerBound &&
-                selectedRange.upperBound >= fullRange.upperBound {
-                return true
-            } else if selectedRange.lowerBound <= fullRange.lowerBound {
+        // 왼쪽 knob이 최소값(0)에 있고, 오른쪽 knob이 최대값에 있으면 필터링하지 않음
+        if selectedRange.lowerBound <= fullRange.lowerBound && selectedRange.upperBound >= fullRange.upperBound {
+            return data
+        }
+        
+        return data.filter { estate in
+            guard let value = valueProvider(estate) else { return false }
+            
+            // 왼쪽 knob이 최소값(0)에 있으면 오른쪽 값까지만 체크
+            if selectedRange.lowerBound <= fullRange.lowerBound {
                 return value <= selectedRange.upperBound
-            } else if selectedRange.upperBound >= fullRange.upperBound {
-                return value >= selectedRange.lowerBound
-            } else {
-                return selectedRange.contains(value)
             }
+            
+            // 오른쪽 knob이 최대값에 있으면 왼쪽 값부터 체크
+            if selectedRange.upperBound >= fullRange.upperBound {
+                return value >= selectedRange.lowerBound
+            }
+            
+            // 일반적인 경우
+            return selectedRange.contains(value)
         }
     }
 
-    private func getGeoEstates(lon: Double, lat: Double, maxD: Double) async {
+    private func getGeoEstates(lon: Double, lat: Double, maxD: Double, category: String? = nil, forceUpdate: Bool = false) async {
         model.isLoading = true
         do {
-            let estates = try await repository.getGeoEstate(category: nil, lon: lon, lat: lat, maxD: maxD)
+            let estates = try await repository.getGeoEstate(category: category, lon: lon, lat: lat, maxD: maxD)
+            //print("🥶 estates 데이터 받아옴: \(estates.data.count)")
             model.curEstatesData = estateDataFiltering(estates)
+            //print("🥶 model.curEstatesData 필터링후: \(model.curEstatesData?.data.count)")
             if let geoEstates = model.curEstatesData {
+                //print("🥶 estates -> pininfo 전: \(geoEstates.data.count)")
                 model.pinInfoList = geoEstates.toPinInfoList()
+                //print("🥶 pinInfoList 업데이트 성공: \(model.pinInfoList.count)")
             } else {
                 model.pinInfoList = []
             }
@@ -324,7 +344,7 @@ final class SearchMapContainer: NSObject, ObservableObject {
                 if self.lastGeoEstatesCoordinate == nil ||
                     abs(self.lastGeoEstatesCoordinate!.latitude - lat) > 0.0001 ||
                     abs(self.lastGeoEstatesCoordinate!.longitude - lon) > 0.0001 {
-                    await self.getGeoEstates(lon: lon, lat: lat, maxD: maxD)
+                    await self.getGeoEstates(lon: lon, lat: lat, maxD: maxD, category: self.model.selectedCategory)
                     self.lastGeoEstatesCoordinate = coordinate
                 }
             }
