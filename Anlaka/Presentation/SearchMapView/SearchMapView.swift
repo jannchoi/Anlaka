@@ -33,9 +33,11 @@ struct SearchMapView: View {
                     container.handle(.mapDidStopMoving(center, maxDistance))
                 },
                 onPOITap: { estateId in
+                    print("🧶 POI Tap \(estateId)")
                     // 클릭한 매물의 상세 정보 표시 -> 클릭한 매물의 estate_id를 디테일뷰로 전달
                 },
                 onPOIGroupTap: { estateIds in
+                    print("🧶🧶🧶POIS Tap \(estateIds)")
                     // 클릭한 클러스터의 매물들의 상세 정보 표시 -> 클릭한 클러스터의 estate_id 배열을 EstateSrollView로 전달
                 }
             )
