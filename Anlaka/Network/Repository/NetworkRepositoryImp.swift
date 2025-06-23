@@ -275,7 +275,19 @@ final class NetworkRepositoryImp: NetworkRepository {
         }
     }
     
-    
+    func getLikeLists(category: String?, next: String?) async throws -> LikeListsEntity {
+
+        do {
+            let response = try await NetworkManager.shared.callRequest(target: EstateRouter.likeLists(category: category, next: next), model: LikeListsDTO.self)
+            guard let entity = response.toEntity() else {
+                throw CustomError.nilResponse
+            }
+
+            return entity
+        } catch {
+            throw error 
+        }
+    }
     func fetchRefreshToken() async throws -> RefreshTokenEntity {
         do {
             let response = try await NetworkManager.shared.callRequest(
