@@ -25,6 +25,7 @@ struct AnlakaApp: App {
     var body: some Scene {
         WindowGroup {
             Group {
+                
                 if isLoggedIn {
                     MyTabView(di: di)
                 } else {

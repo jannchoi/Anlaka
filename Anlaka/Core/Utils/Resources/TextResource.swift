@@ -44,14 +44,30 @@ enum TextResource {
             }
         }
     }
+    
+    enum Categories: CaseIterable {
+        case Apartment
+        case Officetel
+        case OneRoom
+        case Storefront
+        case Villa
+        
+        var text: String {
+            switch self {
+            case .Apartment:
+                return "아파트"
+            case .Officetel:
+                return "오피스텔"
+            case .OneRoom:
+                return "원룸"
+            case .Storefront:
+                return "상가"
+            case .Villa:
+                return "빌라"
+            }
+        }
+    }
 }
-
-/*
- getGeoEstates 호출: lon=127.04542827699848, lat=37.65225820584809, maxD=387.17485781376143
- getGeoEstates 호출: lon=127.04542827699848, lat=37.65225820584809, maxD=387.17485781376143
- getGeoEstates 호출: lon=127.04976372314174, lat=37.654972870220334, maxD=387.16070370932397
- getGeoEstates 호출: lon=127.04976372314174, lat=37.654972870220334, maxD=387.16070370932397
- */
 
 enum DefaultValues {
 

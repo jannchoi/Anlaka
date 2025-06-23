@@ -1,5 +1,6 @@
 import UIKit
 import Combine
+import SwiftUI
 
 struct ChattingModel {
     var opponent_id: String?
@@ -12,6 +13,7 @@ struct ChattingModel {
     var sendingMessageId: String? = nil  // 전송 중인 메시지 ID
     var tempMessage: ChatEntity? = nil   // 임시 메시지
     var messagesGroupedByDate: [(String, [ChatEntity])] = []  // 일반 프로퍼티로 변경
+    var currentUserId: String? = nil  // 현재 로그인한 사용자의 ID
     
     // 시간순으로 정렬된 메시지 반환
     var sortedMessages: [ChatEntity] {
@@ -47,6 +49,7 @@ struct ChattingModel {
             }
     }
 }
+
 enum ChattingIntent {
     case initialLoad
     case sendMessage(text: String, files: [GalleryImage])
@@ -114,6 +117,14 @@ final class ChattingContainer: ObservableObject {
     private func loadInitialMessages() async {
         model.isLoading = true
         do {
+            // 현재 로그인한 사용자 정보 가져오기
+            guard let userInfo = UserDefaultsManager.shared.getObject(forKey: .profileData, as: MyProfileInfoEntity.self) else {
+                model.error = "사용자 정보를 찾을 수 없습니다."
+                model.isLoading = false
+                return
+            }
+            model.currentUserId = userInfo.userid
+            
             // opponent_id가 있는 경우 (새로운 채팅방 생성 또는 기존 채팅방 찾기)
             if let opponent_id = model.opponent_id {
                 // 1. 채팅방 생성 또는 정보 가져오기
@@ -122,34 +133,43 @@ final class ChattingContainer: ObservableObject {
                 model.roomId = chatRoom.roomId
             }
             
-            // 2. 로컬 DB에서 채팅 내역 조회
-            let localMessages = try await databaseRepository.getMessages(roomId: model.roomId)
-            model.messages = localMessages
+            // 2. 현재 사용자가 해당 채팅방에 존재하는지 확인
+            let userInChatRoom = try await databaseRepository.isUserInChatRoom(roomId: model.roomId, userId: userInfo.userid)
             
-            // 3. 마지막 메시지 날짜 가져오기
-            if let lastDate = try await databaseRepository.getLastMessageDate(roomId: model.roomId) {
-                // 4. 서버에서 최신 메시지 동기화
-                let formattedDate = PresentationMapper.formatDateToISO8601(lastDate)
-                let chatList = try await repository.getChatList(roomId: model.roomId, from: formattedDate)
+            if !userInChatRoom {
+                // 3. 현재 사용자가 채팅방에 없는 경우 채팅방 삭제
+                try await databaseRepository.deleteChatRoom(roomId: model.roomId)
                 
-                // 5. 새 메시지 저장 및 UI 업데이트
-                try await databaseRepository.saveMessages(chatList.chats)
-                
-                // 중복되지 않은 새 메시지만 추가
-                let newMessages = chatList.chats.filter { newMessage in
-                    !model.messages.contains { $0.chatId == newMessage.chatId }
-                }
-                model.messages.append(contentsOf: newMessages)
-                model.updateMessagesGroupedByDate()  // 메시지 그룹화 업데이트
-            } else {
-                // 첫 로드인 경우 전체 메시지 가져오기
+                // 4. 서버에서 전체 채팅 내역 가져오기
                 let chatList = try await repository.getChatList(roomId: model.roomId, from: nil)
                 try await databaseRepository.saveMessages(chatList.chats)
                 model.messages = chatList.chats
-                model.updateMessagesGroupedByDate()  // 메시지 그룹화 업데이트
+            } else {
+                // 5. 기존 사용자인 경우 로컬 DB에서 채팅 내역 조회
+                let localMessages = try await databaseRepository.getMessages(roomId: model.roomId)
+                model.messages = localMessages
+                
+                // 6. 마지막 메시지 날짜 가져오기
+                if let lastDate = try await databaseRepository.getLastMessageDate(roomId: model.roomId) {
+                    // 7. 서버에서 최신 메시지 동기화
+                    let formattedDate = PresentationMapper.formatDateToISO8601(lastDate)
+                    let chatList = try await repository.getChatList(roomId: model.roomId, from: formattedDate)
+                    
+                    // 8. 새 메시지 저장 및 UI 업데이트
+                    try await databaseRepository.saveMessages(chatList.chats)
+                    
+                    // 중복되지 않은 새 메시지만 추가
+                    let newMessages = chatList.chats.filter { newMessage in
+                        !model.messages.contains { $0.chatId == newMessage.chatId }
+                    }
+                    model.messages.append(contentsOf: newMessages)
+                }
             }
             
-            // 6. WebSocket 연결 - 여기서만 연결
+            // 9. 메시지 그룹화 업데이트
+            model.updateMessagesGroupedByDate()
+            
+            // 10. WebSocket 연결
             socket?.connect()
             
         } catch {
@@ -163,27 +183,30 @@ final class ChattingContainer: ObservableObject {
         let tempMessageId = "temp_\(UUID().uuidString)"
         model.sendingMessageId = tempMessageId
         
-        // 임시 메시지 생성
-        if let userInfo = UserDefaultsManager.shared.getObject(forKey: .profileData, as: MyProfileInfoEntity.self) {
-            let tempMessage = ChatEntity(
-                chatId: "temp_\(UUID().uuidString)",
-                roomId: model.roomId,
-                content: text,
-                createdAt: PresentationMapper.formatDateToISO8601(Date()),
-                updatedAt: PresentationMapper.formatDateToISO8601(Date()),
-                sender: UserInfoEntity(
-                    userId: userInfo.userid,
-                    nick: userInfo.nick,
-                    introduction: userInfo.introduction ?? "",
-                    profileImage: userInfo.profileImage ?? ""
-                ),
-                files: []
-            )
-            model.tempMessage = tempMessage
-            model.updateMessagesGroupedByDate()
+        // 현재 사용자 정보 가져오기
+        guard let userInfo = UserDefaultsManager.shared.getObject(forKey: .profileData, as: MyProfileInfoEntity.self) else {
+            model.error = "사용자 정보를 찾을 수 없습니다."
+            return
         }
+        // 임시 메시지 생성
+        let tempMessage = ChatEntity(
+            chatId: tempMessageId,
+            roomId: model.roomId,
+            content: text,
+            createdAt: PresentationMapper.formatDateToISO8601(Date()),
+            updatedAt: PresentationMapper.formatDateToISO8601(Date()),
+            sender: UserInfoEntity(
+                userId: userInfo.userid,  // 현재 로그인한 사용자의 ID 사용
+                nick: userInfo.nick,
+                introduction: userInfo.introduction ?? "",
+                profileImage: userInfo.profileImage ?? ""
+            ),
+            files: []
+        )
         
-        print("📝 메시지 전송 시작 - 텍스트: \(text), 파일 수: \(files.count)")
+        // 임시 메시지 추가 및 그룹화 업데이트
+        model.tempMessage = tempMessage
+        model.updateMessagesGroupedByDate()
         
         do {
             // 1. GalleryImage를 ChatFile로 변환
@@ -206,8 +229,10 @@ final class ChattingContainer: ObservableObject {
             // 2. 파일 업로드
             var uploadedFiles: [String] = []
             if !chatFiles.isEmpty {
+                print("📝 파일 업로드 시작")
                 let chatFile = try await repository.uploadFiles(roomId: model.roomId, files: chatFiles)
                 uploadedFiles = chatFile.files
+                print("✅ 파일 업로드 성공 - 업로드된 파일 URL: \(uploadedFiles)")
             }
             
             // 3. 메시지 전송
@@ -216,7 +241,7 @@ final class ChattingContainer: ObservableObject {
                 files: uploadedFiles
             )
             
-            // Socket.IO emit을 사용하여 메시지 전송
+            // Socket.IO를 통한 메시지 전송
             let messageData: [String: Any] = [
                 "content": text,
                 "files": uploadedFiles,
@@ -241,6 +266,7 @@ final class ChattingContainer: ObservableObject {
                                 self?.model.updateMessagesGroupedByDate()  // 그룹화 업데이트
                             }
                         } else {
+                            print("❌ 메시지 전송 실패: 응답이 없음")
                             self?.model.error = "메시지 전송에 실패했습니다."
                         }
                         

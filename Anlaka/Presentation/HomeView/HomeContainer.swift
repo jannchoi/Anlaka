@@ -40,6 +40,7 @@ final class HomeContainer: ObservableObject {
     func handle(_ intent: HomeIntent) {
         switch intent {
         case .initialRequest:
+            
             Task { await getTodayEstate() }
             Task { await getHotEstate() }
             Task { await getTopicEstate() }
@@ -71,13 +72,13 @@ final class HomeContainer: ObservableObject {
      }
     
     private func getTodayEstate() async {
+        
         model.todayEstate = .loading
         do {
             let summaries = try await repository.getTodayEstate()
             let result = await AddressMappingHelper.mapTodaySummariesWithAddress(summaries.data, repository: repository)
             
             model.todayEstate = .success(result.estates)
-            print(summaries.data.count)
             if let firstError = result.errors.first {
                 model.errorMessage = (firstError as? NetworkError)?.errorDescription ?? firstError.localizedDescription
             }
@@ -98,7 +99,6 @@ final class HomeContainer: ObservableObject {
             let result = await AddressMappingHelper.mapHotSummariesWithAddress(summaries.data, repository: repository)
             
             model.hotEstate = .success(result.estates)
-            
             if let firstError = result.errors.first {
                 model.errorMessage = (firstError as? NetworkError)?.errorDescription ?? firstError.localizedDescription
             }
