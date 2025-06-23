@@ -10,18 +10,61 @@ import CoreLocation
 
 struct SearchMapView: View {
     let di: DIContainer
+    @Binding var path: NavigationPath
     @StateObject private var container: SearchMapContainer
     @State private var forceUpdate = false
     @State private var previousPinCount = 0
     
     @AppStorage(TextResource.Global.isLoggedIn.text) private var isLoggedIn: Bool = true
     @State private var showSearchAddress = false
-    init(di: DIContainer) {
+    
+    init(di: DIContainer, path: Binding<NavigationPath>) {
         self.di = di
+        self._path = path
         _container = StateObject(wrappedValue: di.makeSearchMapContainer())
     }
     
     var body: some View {
+        mainContent
+            .navigationBarBackButtonHidden(true)
+            .navigationBarItems(leading: backButton)
+            .fullScreenCover(item: Binding(
+                get: { container.model.selectedEstate },
+                set: { container.model.selectedEstate = $0 }
+            )) { estate in
+                EstateDetailView(estate: estate)
+            }
+            .fullScreenCover(item: Binding(
+                get: { container.model.selectedEstateId },
+                set: { container.model.selectedEstateId = $0 }
+            )) { identifiableString in
+                EstateDetailView(estateId: identifiableString.id)
+            }
+            .animation(.easeInOut(duration: 0.3), value: container.model.selectedFilterIndex)
+            .animation(.easeInOut(duration: 0.3), value: container.model.showEstateScroll)
+            .onAppear {
+                container.handle(.requestLocationPermission)
+            }
+            .onChange(of: container.model.backToLogin) { needsLogin in
+                if needsLogin {
+                    isLoggedIn = false
+                }
+            }
+            .fullScreenCover(isPresented: $showSearchAddress) {
+                SearchAddressView(
+                    di: di,
+                    isPresented: $showSearchAddress,
+                    onAddressSelected: { selectedAddress in
+                        container.handle(.searchBarSubmitted(selectedAddress))
+                    },
+                    onDismiss: {
+                        print("onDismiss")
+                    }
+                )
+            }
+    }
+    
+    private var mainContent: some View {
         ZStack {
             KakaoMapView(
                 draw: .constant(container.model.shouldDrawMap),
@@ -35,11 +78,9 @@ struct SearchMapView: View {
                     container.handle(.mapDidStopMoving(center, maxDistance))
                 },
                 onPOITap: { estateId in
-                    print("🧶 POI Tap \(estateId)")
                     container.handle(.poiSelected(estateId))
                 },
                 onPOIGroupTap: { estateIds in
-                    print("🧶🧶🧶POIS Tap \(estateIds)")
                     container.handle(.poiGroupSelected(estateIds))
                 }
             )
@@ -102,7 +143,6 @@ struct SearchMapView: View {
                     EstateScrollView(
                         estates: container.model.filteredEstates,
                         onEstateSelect: { estateId in
-                            // container를 통해 처리하도록 수정
                             container.handle(.estateCardSelected(estateId))
                         },
                         onClose: {
@@ -125,43 +165,14 @@ struct SearchMapView: View {
                     .cornerRadius(8)
             }
         }
-        
-        .navigationBarTitleDisplayMode(.inline)
-        .fullScreenCover(item: Binding(
-            get: { container.model.selectedEstate },
-            set: { container.model.selectedEstate = $0 }
-        )) { estate in
-            EstateDetailView(estate: estate)
-        }
-        .fullScreenCover(item: Binding(
-            get: { container.model.selectedEstateId },
-            set: { container.model.selectedEstateId = $0 }
-        )) { identifiableString in
-            EstateDetailView(estateId: identifiableString.id)
-        }
-        .animation(.easeInOut(duration: 0.3), value: container.model.selectedFilterIndex)
-        .animation(.easeInOut(duration: 0.3), value: container.model.showEstateScroll)
-        .onAppear {
-            container.handle(.requestLocationPermission)
-        }
-        .onChange(of: container.model.backToLogin) { needsLogin in
-            if needsLogin {
-                isLoggedIn = false
-            }
-        }
-        .fullScreenCover(isPresented: $showSearchAddress) {
-            SearchAddressView(
-                di: di,
-                isPresented: $showSearchAddress,
-                onAddressSelected: { selectedAddress in
-                    
-                    container.handle(.searchBarSubmitted(selectedAddress))
-                    
-                },
-                onDismiss: {
-                    print("onDismiss")
-                }
-            )
+    }
+    
+    private var backButton: some View {
+        Button(action: {
+            path.removeLast()
+        }) {
+            Image(systemName: "chevron.left")
+                .foregroundColor(Color.DustyLake)
         }
     }
 }
@@ -197,8 +208,6 @@ struct SearchBar: View {
         }
     }
 }
-
-
 
 // MARK: - FilterButtonView
 struct FilterButtonView: View {
@@ -350,8 +359,6 @@ struct CustomRangeSlider: View {
     
     @State private var dragStartLower: CGFloat = 0
     @State private var dragStartUpper: CGFloat = 0
-    
-    
     
     // 눈금 값에 따른 슬라이더 위치를 계산하는 함수
     private func calculatePosition(for value: Double, in range: ClosedRange<Double>, sliderWidth: CGFloat) -> CGFloat {
@@ -541,7 +548,6 @@ struct CustomRangeSlider: View {
     }
 }
 
-
 // 새로 추가되는 helper 메서드들
 private func formatValue(_ value: Double, unit: String) -> String {
     switch unit {
@@ -727,7 +733,6 @@ struct EstateCardView: View {
         .frame(width: 150)
     }
 }
-
 
 // MARK: - View Extension for specific corners
 extension View {
