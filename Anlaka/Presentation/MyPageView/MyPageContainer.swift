@@ -17,6 +17,7 @@ struct MyPageModel {
 
 enum MyPageIntent {
     case initialRequest
+    case addMyEstate
 }
 
 @MainActor
@@ -37,6 +38,26 @@ final class MyPageContainer: ObservableObject {
                  getMyProfileInfo()
                  getChatRoomList()
             
+        case .addMyEstate:
+            uploadAdminRequest()
+        }
+    }
+    private func uploadAdminRequest() {
+        Task {
+            do {
+                let adminRequest = AdminRequestMockData()
+                print("🍿🍿🍿",adminRequest)
+                let response = try await repository.uploadAdminRequest(adminRequest: adminRequest)
+                print("🧶🧶🧶",response)
+            } catch {
+                print("❌ Failed to upload admin request: \(error)")
+                if let netError = error as? NetworkError, netError == .expiredRefreshToken {
+                    model.backToLogin = true
+                } else {
+                    let message = (error as? NetworkError)?.errorDescription ?? error.localizedDescription
+                    model.errorMessage = message
+                }
+            }
         }
     }
     
