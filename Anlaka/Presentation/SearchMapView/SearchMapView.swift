@@ -14,6 +14,7 @@ struct SearchMapView: View {
     @State var draw: Bool = false
     @State private var isMapReady: Bool = false
     @State private var isSearchBarEditing: Bool = false // 검색 바 편집 상태 추가
+    @AppStorage(TextResource.Global.isLoggedIn.text) private var isLoggedIn: Bool = true
     
     init(di: DIContainer) {
         self.di = di
@@ -131,6 +132,12 @@ struct SearchMapView: View {
             isMapReady = false
             print("SearchMapView disappeared")
         }
+        .onChange(of: container.model.backToLogin) { backToLogin in
+            if backToLogin {
+                isLoggedIn = false
+            }
+        }
+        
         .alert("오류", isPresented: .constant(container.model.errorMessage != nil), actions: {
             Button("확인") {
                 container.model.errorMessage = nil
