@@ -12,7 +12,6 @@ final class NetworkRepositoryImp: NetworkRepository {
     private func saveTokens(accessToken: String, refreshToken: String) {
         UserDefaultsManager.shared.set(accessToken, forKey: .accessToken)
         UserDefaultsManager.shared.set(refreshToken, forKey: .refreshToken)
-        print("🔍 accessToken: \(accessToken)")
     }
     
     private func saveProfileInfo(userId: String, email: String, nick: String, phoneNum: String? = nil, introduction: String? = nil) {
@@ -24,6 +23,7 @@ final class NetworkRepositoryImp: NetworkRepository {
             phoneNum: phoneNum,
             introduction: introduction
         )
+
         UserDefaultsManager.shared.setObject(profile, forKey: .profileData)
     }
 
@@ -291,7 +291,8 @@ final class NetworkRepositoryImp: NetworkRepository {
             let response = try await NetworkManager.shared.callRequest(target: UserRouter.kakaoLogin(target), model: LoginResponseDTO.self)
             let entity = response.toEntity()
             
-            if UserDefaultsManager.shared.getObject(forKey: .profileData, as: MyProfileInfoEntity.self) == nil {
+            let savedProfile = UserDefaultsManager.shared.getObject(forKey: .profileData, as: MyProfileInfoEntity.self)
+            if savedProfile == nil || savedProfile?.userid != entity.userId {
                 saveProfileInfo(userId: entity.userId, email: entity.email, nick: entity.nick)
             }
             saveTokens(accessToken: entity.accessToken, refreshToken: entity.refreshToken)
@@ -309,7 +310,8 @@ final class NetworkRepositoryImp: NetworkRepository {
                 model: LoginResponseDTO.self
             )
             let entity = response.toEntity()
-            if UserDefaultsManager.shared.getObject(forKey: .profileData, as: MyProfileInfoEntity.self) == nil {
+            let savedProfile = UserDefaultsManager.shared.getObject(forKey: .profileData, as: MyProfileInfoEntity.self)
+            if savedProfile == nil || savedProfile?.userid != entity.userId {
                 saveProfileInfo(userId: entity.userId, email: entity.email, nick: entity.nick)
             }
             saveTokens(accessToken: entity.accessToken, refreshToken: entity.refreshToken)
