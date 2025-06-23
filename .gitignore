@@ -1,0 +1,72 @@
+# Xcode
+DerivedData/
+*.xcuserstate
+*.xcscmblueprint
+*.xccheckout
+*.xcodeproj/*
+!*.xcodeproj/project.pbxproj
+!*.xcodeproj/xcshareddata/
+*.xcworkspace/*
+!*.xcworkspace/contents.xcworkspacedata
+!*.xcworkspace/xcshareddata/
+
+# SwiftPM
+.build/
+Packages/
+Package.resolved
+
+# CocoaPods
+Pods/
+Podfile.lock
+
+# Carthage
+Carthage/
+
+# User settings
+*.moved-aside
+*.swp
+*.lock
+*.DS_Store
+*.env
+*.xcuserdata/
+
+# Archives
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+fastlane/test_output
+
+# Firebase
+GoogleService-Info.plist
+
+# Xcode Cloud
+.xcresults/
+
+# IDEs
+.idea/
+.vscode/
+
+# Build artifacts
+*.app
+*.framework
+*.a
+*.o
+*.d
+
+# Logs
+*.log
+
+# Other
+*.orig
+
+# API Key
+APIKey.swift
+
+# Request
+URLRequest.swift
+
