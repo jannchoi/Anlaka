@@ -8,9 +8,10 @@
 import SwiftUI
 
 struct CategoryDetailView: View {
-    let categoryType: String
+    @AppStorage(TextResource.Global.isLoggedIn.text) private var isLoggedIn: Bool = true
+    let categoryType: CategoryType
     
     var body: some View {
-        Text("Category Detail View: \(categoryType)")
+        Text("Category Detail View: \(categoryType.rawValue)")
     }
 }

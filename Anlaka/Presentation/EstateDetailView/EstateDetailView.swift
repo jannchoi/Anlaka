@@ -8,6 +8,7 @@
 import SwiftUI
 
 struct EstateDetailView: View {
+    @AppStorage(TextResource.Global.isLoggedIn.text) private var isLoggedIn: Bool = true
     let estateId: String
     
     var body: some View {
