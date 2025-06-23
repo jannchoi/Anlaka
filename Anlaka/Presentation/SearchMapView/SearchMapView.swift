@@ -41,11 +41,8 @@ struct SearchMapView: View {
             VStack {
                 SearchBarView(
                     searchText: $container.model.addressQuery,
-                    onSearchTextChanged: { text in
-                        container.handle(.searchBarTextChanged(text))
-                    },
                     onSubmitted: { text in
-                        container.handle(.queryIsAddress(query: text))
+                        container.handle(.searchBarSubmitted(text))
                     }
                 )
                 .padding(.horizontal, 16)
@@ -104,8 +101,7 @@ struct SearchMapView: View {
                 .padding(.top, 80)
                 .padding(.leading, 16)
             }
-        }
-        .navigationBarHidden(true)
+        }.navigationBarHidden(true)
         .onAppear {
             print("SearchMapView appeared")
             // 단계별 초기화
@@ -135,8 +131,6 @@ struct SearchMapView: View {
             }
         })
     }
-       
-
 }
 
 
@@ -163,7 +157,6 @@ struct EstateCountView: View {
 
 struct SearchBarView: View {
     @Binding var searchText: String
-    let onSearchTextChanged: (String) -> Void
     let onSubmitted: (String) -> Void
     let placeholder: String
     
@@ -171,11 +164,9 @@ struct SearchBarView: View {
     
     init(searchText: Binding<String>,
          placeholder: String = "주소를 검색하세요",
-         onSearchTextChanged: @escaping (String) -> Void,
          onSubmitted: @escaping (String) -> Void) {
         self._searchText = searchText
         self.placeholder = placeholder
-        self.onSearchTextChanged = onSearchTextChanged
         self.onSubmitted = onSubmitted
     }
     
@@ -191,9 +182,6 @@ struct SearchBarView: View {
                     .onTapGesture {
                         isEditing = true
                     }
-                    .onChange(of: searchText) { newValue in
-                        onSearchTextChanged(newValue)
-                    }
                     .onSubmit {
                         onSubmitted(searchText)
                         hideKeyboard()
@@ -203,7 +191,6 @@ struct SearchBarView: View {
                 if !searchText.isEmpty {
                     Button(action: {
                         searchText = ""
-                        onSearchTextChanged("")
                     }) {
                         Image(systemName: "xmark.circle.fill")
                             .foregroundColor(.gray)
@@ -220,7 +207,6 @@ struct SearchBarView: View {
                 Button("취소") {
                     isEditing = false
                     searchText = ""
-                    onSearchTextChanged("")
                     hideKeyboard()
                 }
                 .foregroundColor(.blue)
