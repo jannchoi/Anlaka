@@ -14,6 +14,7 @@ struct KakaoMapView: UIViewRepresentable {
     @Binding var draw: Bool
     var centerCoordinate: CLLocationCoordinate2D
     var pinInfoList: [PinInfo]
+    var forceUpdate: Bool = false
     var onMapReady: ((Double) -> Void)?
     var onMapChanged: ((CLLocationCoordinate2D, Double) -> Void)?
     var onClusterTap: ((ClusterInfo) -> Void)?
@@ -54,10 +55,10 @@ struct KakaoMapView: UIViewRepresentable {
         context.coordinator.updatePOIsWithClustering(  
             pinInfoList,
             currentCenter: centerCoordinate,
-            maxDistance: maxDistance
+            maxDistance: maxDistance,
+            forceUpdate: forceUpdate
         )
     }
-    
     
     func makeCoordinator() -> Coordinator {
         print(#function)
