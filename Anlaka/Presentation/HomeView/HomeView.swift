@@ -54,10 +54,10 @@ struct HomeView: View {
                         })
                         
                         // 최신 매물
-                        SectionTitleView(title: "최신 매물", hasViewAll: true) {
+                        SectionTitleView(title: "좋아요 매물", hasViewAll: true) {
                             container.handle(.goToEstatesAll(type: .latest))
                         }
-                        renderLatestEstate()
+                        renderFavoriteEstate()
                         
                         // 인기 매물
                         SectionTitleView(title: "인기 매물", hasViewAll: true) {
@@ -271,9 +271,9 @@ struct SectionTitleView: View {
     }
 }
 
-// 4. 최신 매물 뷰
-struct LatestView: View {
-    let entity: [mockLatestData]
+// 4. 좋아요 한 매물 뷰
+struct FavoriteView: View {
+    let entity: [LikeEstateWithAddress]
     let onTap: (String) -> Void
     
     var body: some View {
@@ -282,24 +282,11 @@ struct LatestView: View {
                 ForEach(0..<entity.count, id: \.self) { index in
                     VStack(alignment: .leading, spacing: 8) {
                         // 썸네일 이미지
-                        CustomAsyncImage(imagePath: entity[index].summary.thumbnail)
+                        CustomAsyncImage(imagePath: entity[index].summary.thumbnail
+                        )
                         .frame(width: 200, height: 140)
                         .clipShape(RoundedRectangle(cornerRadius: 12))
-                        .overlay(
-                            entity[index].summary.isRecommended ?
-                            Text("추천")
-                                .font(.caption2)
-                                .fontWeight(.bold)
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(Color.OliveMist)
-                                .cornerRadius(4)
-                                .padding(6)
-                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                            : nil
-                        )
-                        
+
                         // 정보
                         VStack(alignment: .leading, spacing: 4) {
                             HStack {
@@ -309,7 +296,7 @@ struct LatestView: View {
                                 
                                 Spacer()
                                 
-                                Text("\(FormatManager.formatArea(entity[index].summary.area))")
+                                Text("\(entity[index].summary.area)")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
@@ -319,7 +306,7 @@ struct LatestView: View {
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                                 
-                                Text("\(FormatManager.formatCurrency(entity[index].summary.deposit))/\(FormatManager.formatCurrency(entity[index].summary.monthlyRent))")
+                                Text("\(entity[index].summary.deposit)/\(entity[index].summary.monthlyRent)")
                                     .font(.subheadline)
                                     .fontWeight(.bold)
                                     .foregroundColor(Color.MainTextColor)
@@ -335,7 +322,7 @@ struct LatestView: View {
                     .background(Color.white)
                     .cornerRadius(12)
                     .onTapGesture {
-                         onTap("estate_\(index)")
+                         onTap(entity[index].summary.estateId)
                      }
                 }
             }
@@ -356,6 +343,21 @@ struct HotEstateItemView: View {
             CustomAsyncImage(imagePath: item.summary.thumbnail)
                 .frame(width: 200, height: 140)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
+                .overlay(
+                    item.summary.isRecommended ?
+                    Text("추천")
+                        .font(.caption2)
+                        .fontWeight(.bold)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.OliveMist)
+                        .cornerRadius(4)
+                        .padding(6)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    : nil
+                )
+                
             
             // 정보 섹션
             itemInfoSection
@@ -568,11 +570,27 @@ extension HomeView {
         }
     }
     @ViewBuilder
-    private func renderLatestEstate() -> some View {
-        let mockData : [mockLatestData] = .init(repeating: mockLatestData(), count: 5)
-        LatestView(entity: mockData, onTap: { estateId in
-            container.handle(.goToDetail(estateId: estateId))
-        })
+    private func renderFavoriteEstate() -> some View {
+        switch container.model.likeLists {
+        case .idle, .loading:
+            ProgressView("좋아요 매물 로딩 중…")
+                .frame(height: 200)
+        case .success(let data):
+            FavoriteView(entity: data, onTap: { estateId in
+                container.handle(.goToDetail(estateId: estateId))
+            })
+        case .failure(let message):
+            Text("에러: \(message)")
+                .foregroundColor(Color.TomatoRed)
+                .frame(height: 200)
+        case .requiresLogin:
+            Text("세션이 만료되어 로그아웃되었습니다.")
+                .foregroundColor(Color.TomatoRed)
+                .frame(height: 200)
+                .task {
+                    isLoggedIn = false
+                }
+        }
     }
 }
 // Mock 데이터 구조 정의 (실제로는 별도 파일로 분리되어 있을 것입니다)
