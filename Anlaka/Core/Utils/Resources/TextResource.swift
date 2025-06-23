@@ -35,3 +35,23 @@ enum TextResource {
         }
     }
 }
+
+enum DefaultValues {
+    
+    enum Geolocation {
+        case longitude
+        case latitude
+        case maxDistanse
+        
+        var value: Double {
+            switch self {
+            case .longitude:
+                return 37.576175
+            case .latitude:
+                return 126.977733
+            case .maxDistanse:
+                return 0.0 //
+            }
+        }
+    }
+}
