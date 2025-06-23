@@ -123,6 +123,7 @@ private struct SignUpIntroductionView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("자기소개")
                 .font(.headline)
+                .foregroundColor(Color.MainTextColor)
             TextEditor(text: $container.model.introduction)
                 .onChange(of: container.model.introduction) { container.handle(.introChanged($0)) }
                 .frame(height: 100)
