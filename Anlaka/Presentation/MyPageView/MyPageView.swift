@@ -30,8 +30,8 @@ struct MyPageView: View {
                             path.append(MyPageRoute.editProfile(di: di))
                         }
                     )
-                    .padding(.horizontal, 16)
                     .padding(.top, 20)
+                    .padding(.horizontal, 16)
                     
                     // Chatting Section
                     VStack(spacing: 16) {
