@@ -14,9 +14,11 @@ struct KakaoMapView: UIViewRepresentable {
     @Binding var draw: Bool
     var centerCoordinate: CLLocationCoordinate2D
     var isInteractive: Bool
-    var pinInfoList: [PinInfo] // 핀 정보 리스트 추가
+    var pinInfoList: [PinInfo]
     var onCenterChanged: (CLLocationCoordinate2D) -> Void
-    var onMapReady: ((Double) -> Void)? // 지도 준비 완료 콜백 추가
+    var onMapReady: ((Double) -> Void)?
+    // 새로운 콜백 추가: 지도 변화 시 즉시 호출
+    var onMapChanged: ((CLLocationCoordinate2D, Double) -> Void)?
     
     func makeUIView(context: Context) -> KMViewContainer {
         let view = KMViewContainer(frame: CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height))
@@ -42,11 +44,7 @@ struct KakaoMapView: UIViewRepresentable {
         if context.coordinator.auth {
             context.coordinator.addViews()
             context.coordinator.addCenterPin()
-            
-            // 중심 좌표 변경 확인 및 지도 업데이트
             context.coordinator.updateCenterCoordinate(centerCoordinate)
-            
-            // 3. pinInfoList 업데이트 시 지도에 핀 추가
             context.coordinator.addGeolocationPOIs(pinInfoList)
         }
     }
@@ -56,7 +54,8 @@ struct KakaoMapView: UIViewRepresentable {
             onCenterChanged: onCenterChanged,
             centerCoordinate: centerCoordinate,
             isInteractive: isInteractive,
-            onMapReady: onMapReady
+            onMapReady: onMapReady,
+            onMapChanged: onMapChanged // 새 콜백 전달
         )
     }
     
@@ -74,16 +73,19 @@ class KakaoMapCoordinator: NSObject, MapControllerDelegate, KakaoMapEventDelegat
     var auth: Bool
     var onCenterChanged: (CLLocationCoordinate2D) -> Void
     var onMapReady: ((Double) -> Void)?
+    var onMapChanged: ((CLLocationCoordinate2D, Double) -> Void)? // 새 콜백 추가
     var isInteractive: Bool
     private let geolocationLayerID = "geolocation_layer"
     private var isViewAdded = false
     private var lastCenter: CLLocationCoordinate2D?
+    private var lastZoomLevel: Int? // 마지막 줌 레벨 추가
     
     init(
         onCenterChanged: @escaping (CLLocationCoordinate2D) -> Void,
         centerCoordinate: CLLocationCoordinate2D,
         isInteractive: Bool,
-        onMapReady: ((Double) -> Void)? = nil
+        onMapReady: ((Double) -> Void)? = nil,
+        onMapChanged: ((CLLocationCoordinate2D, Double) -> Void)? = nil
     ) {
         self.longitude = centerCoordinate.longitude.isFinite ? centerCoordinate.longitude : DefaultValues.Geolocation.longitude.value
         self.latitude = centerCoordinate.latitude.isFinite ? centerCoordinate.latitude : DefaultValues.Geolocation.latitude.value
@@ -91,6 +93,7 @@ class KakaoMapCoordinator: NSObject, MapControllerDelegate, KakaoMapEventDelegat
         self.auth = false
         self.onCenterChanged = onCenterChanged
         self.onMapReady = onMapReady
+        self.onMapChanged = onMapChanged
         self.isInteractive = isInteractive
         super.init()
     }
@@ -110,7 +113,7 @@ class KakaoMapCoordinator: NSObject, MapControllerDelegate, KakaoMapEventDelegat
             
             let cameraUpdate = CameraUpdate.make(
                 target: MapPoint(longitude: longitude, latitude: latitude),
-                zoomLevel: 17,
+                zoomLevel: kakaoMap.zoomLevel,
                 rotation: 0,
                 tilt: 0,
                 mapView: kakaoMap
@@ -153,7 +156,7 @@ class KakaoMapCoordinator: NSObject, MapControllerDelegate, KakaoMapEventDelegat
         mapView.eventDelegate = self
         let cameraUpdate = CameraUpdate.make(
             target: MapPoint(longitude: longitude, latitude: latitude),
-            zoomLevel: 17,
+            zoomLevel: mapView.zoomLevel,
             rotation: 0,
             tilt: 0,
             mapView: mapView
@@ -172,7 +175,7 @@ class KakaoMapCoordinator: NSObject, MapControllerDelegate, KakaoMapEventDelegat
         if first {
             let cameraUpdate = CameraUpdate.make(
                 target: MapPoint(longitude: longitude, latitude: latitude),
-                zoomLevel: 17,
+                zoomLevel: mapView.zoomLevel,
                 rotation: 0,
                 tilt: 0,
                 mapView: mapView
@@ -242,31 +245,51 @@ class KakaoMapCoordinator: NSObject, MapControllerDelegate, KakaoMapEventDelegat
     }
     
     func cameraDidStopped(kakaoMap: KakaoMap, by: MoveBy) {
+        guard isInteractive else {
+            print("🗺️ 지도 상호작용 비활성화됨, 스킵")
+            return
+        }
+        
         let viewSize = kakaoMap.viewRect.size
         let centerPoint = CGPoint(x: viewSize.width / 2, y: viewSize.height / 2)
         let cameraPosition = kakaoMap.getPosition(centerPoint)
-        print("🗺️ Camera position: \(cameraPosition)")
+        let currentZoomLevel = kakaoMap.zoomLevel
+        
         let center = CLLocationCoordinate2D(
             latitude: cameraPosition.wgsCoord.latitude.isFinite ? cameraPosition.wgsCoord.latitude : DefaultValues.Geolocation.latitude.value,
             longitude: cameraPosition.wgsCoord.longitude.isFinite ? cameraPosition.wgsCoord.longitude : DefaultValues.Geolocation.longitude.value
         )
         
-        let centerChanged = lastCenter == nil || abs(lastCenter!.latitude - center.latitude) > 0.0001 || abs(lastCenter!.longitude - center.longitude) > 0.0001
+        // 중심 좌표 또는 줌 레벨 변화 확인
+        let centerChanged = lastCenter == nil ||
+            abs(lastCenter!.latitude - center.latitude) > 0.0001 ||
+            abs(lastCenter!.longitude - center.longitude) > 0.0001
+        let zoomChanged = lastZoomLevel == nil || lastZoomLevel != currentZoomLevel
         
-        if centerChanged && isInteractive { // isInteractive 확인
-            print("🗺️ cameraDidStopped 호출됨")
-            print("📍 지도 중심 좌표 변경됨: \(center)")
+        if centerChanged || zoomChanged {
+            print("🗺️ 지도 변화 감지됨 - 중심좌표: \(centerChanged), 줌레벨: \(zoomChanged)")
+            print("📍 새 중심 좌표: \(center), 줌 레벨: \(currentZoomLevel)")
             
-            // 1. 사용자 제스처로 지도 이동 시 maxDistance 계산 후 이벤트 전송
+            // maxDistance 재계산
             let maxDistance = calculateMaxDistanceFromCenter(mapView: kakaoMap, center: center)
-            onCenterChanged(center) // 단순 좌표 변경 알림이 아닌 사용자 제스처 이벤트로 처리
             
+            // 상태 업데이트
             lastCenter = center
+            lastZoomLevel = currentZoomLevel
             longitude = center.longitude
             latitude = center.latitude
+            
+            // 중심 핀 업데이트
             addCenterPin()
+            
+            // 기존 콜백 호출 (호환성 유지)
+            onCenterChanged(center)
+            
+            // 새로운 콜백 호출 - 즉시 getGeoEstates 호출을 위해
+            onMapChanged?(center, maxDistance)
+            
         } else {
-            print("🗺️ cameraDidStopped 호출됨, 하지만 좌표 변화 없음 또는 상호작용 비활성화, 스킵")
+            print("🗺️ cameraDidStopped 호출됨, 하지만 변화 없음, 스킵")
         }
     }
     
@@ -368,9 +391,8 @@ class KakaoMapCoordinator: NSObject, MapControllerDelegate, KakaoMapEventDelegat
                 longitude: pinInfo.longitude,
                 latitude: pinInfo.latitude
             )
-            let poi = layer.addPoi(option: poiOption, at: mapPoint) { poi in
-                poi?.show()
-            }
+            let poi = layer.addPoi(option: poiOption, at: mapPoint)
+            poi?.show()
         }
     }
     
