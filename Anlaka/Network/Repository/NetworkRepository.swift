@@ -22,7 +22,7 @@ protocol NetworkRepository {
     func getHotEstate() async throws -> HotEstateEntity
     func getSimilarEstate() async throws -> SimilarEstateEntity
     func getTopicEstate() async throws -> TopicEstateEntity
-    
+    func getLikeLists(category: String?, next: String?) async throws -> LikeListsEntity
     func getAddressFromGeo(_ geo: GeolocationEntity) async throws -> AddressResponseEntity
     func getRoad3FromGeo(_ geo: GeolocationEntity) async throws -> RoadRegion3Entity
     func getGeofromAddressQuery(_ query: String, page: Int) async throws -> KakaoGeolocationEntity

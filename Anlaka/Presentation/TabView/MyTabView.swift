@@ -11,12 +11,12 @@ struct MyTabView: View {
     let di: DIContainer
     
     enum Tab {
-        case home, favorite, myPage
+        case home, reserved, myPage
     }
     
     @State private var selected: Tab = .home
     @State private var homePath = NavigationPath()
-    @State private var favoritePath = NavigationPath()
+    @State private var reservedPath = NavigationPath()
     @State private var myPagePath = NavigationPath()
     
     init(di: DIContainer) {
@@ -31,9 +31,9 @@ struct MyTabView: View {
                     NavigationStack(path: $homePath) {
                         HomeView(di: di, path: $homePath)
                     }
-                case .favorite:
-                    NavigationStack(path: $favoritePath) {
-                        FavoriteEstatesView(di: di, path: $favoritePath)
+                case .reserved:
+                    NavigationStack(path: $reservedPath) {
+                        RerservedEstatesView(di: di, path: $reservedPath)
                     }
                 case .myPage:
                     NavigationStack(path: $myPagePath) {
@@ -53,8 +53,8 @@ struct MyTabView: View {
         switch selected {
         case .home:
             return homePath.isEmpty
-        case .favorite:
-            return favoritePath.isEmpty
+        case .reserved:
+            return reservedPath.isEmpty
         case .myPage:
             return myPagePath.isEmpty
         }
@@ -80,20 +80,20 @@ struct MyTabView: View {
             .foregroundStyle(selected == .home ? Color.DeepForest : Color.Deselected)
             Spacer()
             Button {
-                selected = .favorite
+                selected = .reserved
             } label: {
                 VStack(alignment: .center) {
-                    Image(selected == .favorite ? "Interest_Fill" : "Interest_Empty")
+                    Image(selected == .reserved ? "Interest_Fill" : "Interest_Empty")
                         .resizable()
                         .scaledToFit()
                         .frame(width: 30)
-                    if selected == .favorite {
+                    if selected == .reserved {
                         Text("관심매물")
                             .font(.system(size: 11))
                     }
                 }
             }
-            .foregroundStyle(selected == .favorite ? Color.DeepForest : Color.Deselected)
+            .foregroundStyle(selected == .reserved ? Color.DeepForest : Color.Deselected)
             Spacer()
             Button {
                 selected = .myPage
