@@ -116,11 +116,12 @@
 				};
 			};
 			buildConfigurationList = CEE1831E2DCF698300A33B15 /* Build configuration list for PBXProject "Anlaka" */;
-			developmentRegion = en;
+			developmentRegion = ko;
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
 				Base,
+				ko,
 			);
 			mainGroup = CEE1831A2DCF698300A33B15;
 			minimizedProjectReferenceProxies = 1;
