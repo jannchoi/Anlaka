@@ -42,6 +42,16 @@ struct CustomAsyncImage: View {
             self.uiImage = nil
             return
         }
+        
+        // 캐시에서 이미지 확인
+        if let cachedImage = ImageCache.shared.image(forKey: imagePath) {
+            DispatchQueue.main.async {
+                self.uiImage = cachedImage
+                self.isLoading = false
+            }
+            return
+        }
+        
         guard let url = URL(string: FormatManager.formatImageURL(imagePath)) else {
             isLoading = false
             return
@@ -57,6 +67,8 @@ struct CustomAsyncImage: View {
             if let data = data, let image = UIImage(data: data) {
                 DispatchQueue.main.async {
                     self.uiImage = image
+                    // 이미지를 캐시에 저장
+                    ImageCache.shared.setImage(image, forKey: imagePath)
                 }
             }
         }.resume()
