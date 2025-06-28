@@ -238,7 +238,7 @@ struct FilterButtonView: View {
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
                         .background(selectedIndex == index ? Color.oliveMist : Color.white)
-                        .foregroundColor(selectedIndex == index ? .white : .black)
+                        .foregroundColor(selectedIndex == index ? .white : Color.MainTextColor)
                         .overlay(
                             RoundedRectangle(cornerRadius: 16)
                                 .stroke(Color.gray.opacity(0.3), lineWidth: 1)
