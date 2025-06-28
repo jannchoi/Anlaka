@@ -9,6 +9,11 @@ import SwiftUI
 import CoreLocation
 import Foundation
 
+// String을 Identifiable로 감싸는 래퍼 타입
+struct IdentifiableString: Identifiable {
+    let id: String
+}
+
 struct SearchMapModel {
     var currentLocation: CLLocationCoordinate2D?
     var centerCoordinate: CLLocationCoordinate2D = CLLocationCoordinate2D(
@@ -28,15 +33,17 @@ struct SearchMapModel {
     // 새로 추가할 필터 관련 프로퍼티들
     var selectedFilterIndex: Int? = nil // 0: 카테고리, 1: 평수, 2: 월세, 3: 보증금
     var selectedCategories: [String] = [] // 배열로 변경
-    var selectedAreaRange: ClosedRange<Double> = 0...200 // 수정: 0~200평
-    var selectedMonthlyRentRange: ClosedRange<Double> = 0...5000 // 수정: 0~5000만원
-    var selectedDepositRange: ClosedRange<Double> = 0...50000 // 수정: 0~50000만원
+    var selectedAreaRange: ClosedRange<Double> = 1...200 // 수정: 0~200평
+    var selectedMonthlyRentRange: ClosedRange<Double> = 1...5000 // 수정: 0~5000만원
+    var selectedDepositRange: ClosedRange<Double> = 1...50000 // 수정: 0~50000만원
     var selectedEstateIds: [String] = [] // onPOIGroupTap에서 받은 estate_id들
-    var filteredEstates: [DetailEstateEntity] = []
+    var filteredEstates: [DetailEstatePresentation] = []
     var showEstateScroll: Bool = false
     
-    var navigationDestination: SearchMapRoute? = nil
-    
+    // DetailView로 이동하기 위한 상태 추가
+    var selectedEstate: DetailEstatePresentation? = nil
+    var selectedEstateId: IdentifiableString? = nil
+
 }
 
 enum SearchMapIntent {
@@ -56,6 +63,8 @@ enum SearchMapIntent {
     case poiGroupSelected([String]) // onPOIGroupTap
     case poiSelected(String) // onPOITap
     case hideEstateScroll
+    case estateCardSelected(String)
+    
 }
 
 @MainActor
@@ -137,12 +146,21 @@ final class SearchMapContainer: NSObject, ObservableObject {
             loadEstatesForScroll(estateIds: estateIds)
             
         case .poiSelected(let estateId):
-            model.navigationDestination = .detail(estateId: estateId)
+
+            model.selectedEstateId = IdentifiableString(id: estateId)
+            model.selectedEstate = nil
 
         case .hideEstateScroll:
             model.showEstateScroll = false
             model.filteredEstates = []
-            
+        
+        case .estateCardSelected(let estateId):
+
+            if let estate = model.filteredEstates.first(where: { $0.estateId == estateId }) {
+                model.selectedEstate = estate
+                model.selectedEstateId = nil
+            }
+
         }
     }
     private func scaleRange(_ range: ClosedRange<Double>, by factor: Double) -> ClosedRange<Double> {
@@ -183,8 +201,8 @@ final class SearchMapContainer: NSObject, ObservableObject {
                 }
                 return results
             }
-            
-            model.filteredEstates = estates
+            model.filteredEstates = estates.map{$0.toPresentationModel()}
+            print("👠👠👠",model.filteredEstates.count)
             model.showEstateScroll = true
         }
     }
@@ -198,75 +216,136 @@ final class SearchMapContainer: NSObject, ObservableObject {
         }
     }
     private func estateDataFiltering(_ estates: GeoEstateEntity) -> GeoEstateEntity {
-        var filteredData = estates.data
-        
+        var filteredData = estates.data.compactMap { $0 }
+
         // 카테고리 필터
         if !model.selectedCategories.isEmpty {
-            filteredData = filteredData.filter { model.selectedCategories.contains($0.category) }
-        }
-        
-        // 평수 필터 - 슬라이더 범위 기반 처리
-        let sliderAreaRange = 0.0...200.0   // 슬라이더 범위 수정
-        let fullAreaRange = 0.0...200.0     // 전체 데이터 범위
-        
-        if model.selectedAreaRange != fullAreaRange {
-            if model.selectedAreaRange.lowerBound <= sliderAreaRange.lowerBound &&
-               model.selectedAreaRange.upperBound >= sliderAreaRange.upperBound {
-                // 슬라이더 전체 범위인 경우 필터링 안함
-            } else if model.selectedAreaRange.lowerBound <= sliderAreaRange.lowerBound {
-                // 하한선 없음 (상한선만 적용)
-                filteredData = filteredData.filter { $0.area <= model.selectedAreaRange.upperBound }
-            } else if model.selectedAreaRange.upperBound >= sliderAreaRange.upperBound {
-                // 상한선 없음 (하한선만 적용)
-                filteredData = filteredData.filter { $0.area >= model.selectedAreaRange.lowerBound }
-            } else {
-                // 일반 범위 필터링
-                filteredData = filteredData.filter { model.selectedAreaRange.contains($0.area) }
+            filteredData = filteredData.filter {
+                model.selectedCategories.contains($0.category)
             }
         }
-        
-        // 월세 필터 - 슬라이더 범위 기반 처리
-        let sliderMonthlyRentRange = 0.0...5000.0   // 슬라이더 범위 수정
-        let fullMonthlyRentRange = 0.0...5000.0
-        
-        if model.selectedMonthlyRentRange != fullMonthlyRentRange {
-            if model.selectedMonthlyRentRange.lowerBound <= sliderMonthlyRentRange.lowerBound &&
-               model.selectedMonthlyRentRange.upperBound >= sliderMonthlyRentRange.upperBound {
-                // 슬라이더 전체 범위인 경우 필터링 안함
-            } else if model.selectedMonthlyRentRange.lowerBound <= sliderMonthlyRentRange.lowerBound {
-                // 하한선 없음 (상한선만 적용)
-                filteredData = filteredData.filter { $0.monthlyRent <= model.selectedMonthlyRentRange.upperBound }
-            } else if model.selectedMonthlyRentRange.upperBound >= sliderMonthlyRentRange.upperBound {
-                // 상한선 없음 (하한선만 적용)
-                filteredData = filteredData.filter { $0.monthlyRent >= model.selectedMonthlyRentRange.lowerBound }
-            } else {
-                // 일반 범위 필터링
-                filteredData = filteredData.filter { model.selectedMonthlyRentRange.contains($0.monthlyRent) }
-            }
-        }
-        
-        // 보증금 필터 - 슬라이더 범위 기반 처리
-        let sliderDepositRange = 0.0...50000.0
-        let fullDepositRange = 0.0...50000.0
-        
-        if model.selectedDepositRange != fullDepositRange {
-            if model.selectedDepositRange.lowerBound <= sliderDepositRange.lowerBound &&
-               model.selectedDepositRange.upperBound >= sliderDepositRange.upperBound {
-                // 슬라이더 전체 범위인 경우 필터링 안함
-            } else if model.selectedDepositRange.lowerBound <= sliderDepositRange.lowerBound {
-                // 하한선 없음 (상한선만 적용)
-                filteredData = filteredData.filter { $0.deposit <= model.selectedDepositRange.upperBound }
-            } else if model.selectedDepositRange.upperBound >= sliderDepositRange.upperBound {
-                // 상한선 없음 (하한선만 적용)
-                filteredData = filteredData.filter { $0.deposit >= model.selectedDepositRange.lowerBound }
-            } else {
-                // 일반 범위 필터링
-                filteredData = filteredData.filter { model.selectedDepositRange.contains($0.deposit) }
-            }
-        }
-        
+
+        // 평수 필터
+        filteredData = applyRangeFilter(
+            data: filteredData,
+            valueProvider: { $0.area },
+            selectedRange: model.selectedAreaRange,
+            fullRange: 0.0...200.0
+        )
+
+        // 월세 필터
+        filteredData = applyRangeFilter(
+            data: filteredData,
+            valueProvider: { $0.monthlyRent },
+            selectedRange: model.selectedMonthlyRentRange,
+            fullRange: 0.0...5000.0
+        )
+
+        // 보증금 필터
+        filteredData = applyRangeFilter(
+            data: filteredData,
+            valueProvider: { $0.deposit },
+            selectedRange: model.selectedDepositRange,
+            fullRange: 0.0...50000.0
+        )
+
         return GeoEstateEntity(data: filteredData)
     }
+    
+    private func applyRangeFilter<T: BinaryFloatingPoint>(
+        data: [EstateSummaryEntity],
+        valueProvider: (EstateSummaryEntity) -> T?,
+        selectedRange: ClosedRange<T>,
+        fullRange: ClosedRange<T>
+    ) -> [EstateSummaryEntity] {
+        guard selectedRange != fullRange else { return data }
+
+        return data.filter {
+            guard let value = valueProvider($0) else { return false }
+
+            if selectedRange.lowerBound <= fullRange.lowerBound &&
+                selectedRange.upperBound >= fullRange.upperBound {
+                return true
+            } else if selectedRange.lowerBound <= fullRange.lowerBound {
+                return value <= selectedRange.upperBound
+            } else if selectedRange.upperBound >= fullRange.upperBound {
+                return value >= selectedRange.lowerBound
+            } else {
+                return selectedRange.contains(value)
+            }
+        }
+    }
+
+//    private func estateDataFiltering(_ estates: GeoEstateEntity) -> GeoEstateEntity {
+//        var filteredData = estates.data.compactMap{$0}
+//        
+//        // 카테고리 필터
+//        if !model.selectedCategories.isEmpty {
+//            filteredData = filteredData.filter { model.selectedCategories.contains($0.category) }
+//        }
+//        
+//        // 평수 필터 - 슬라이더 범위 기반 처리
+//        let sliderAreaRange = 0.0...200.0   // 슬라이더 범위 수정
+//        let fullAreaRange = 0.0...200.0     // 전체 데이터 범위
+//        
+//        if model.selectedAreaRange != fullAreaRange {
+//            if model.selectedAreaRange.lowerBound <= sliderAreaRange.lowerBound &&
+//               model.selectedAreaRange.upperBound >= sliderAreaRange.upperBound {
+//                // 슬라이더 전체 범위인 경우 필터링 안함
+//            } else if model.selectedAreaRange.lowerBound <= sliderAreaRange.lowerBound {
+//                // 하한선 없음 (상한선만 적용)
+//                filteredData = filteredData.filter { $0.area <= model.selectedAreaRange.upperBound }
+//            } else if model.selectedAreaRange.upperBound >= sliderAreaRange.upperBound {
+//                // 상한선 없음 (하한선만 적용)
+//                filteredData = filteredData.filter { $0.area >= model.selectedAreaRange.lowerBound }
+//            } else {
+//                // 일반 범위 필터링
+//                filteredData = filteredData.filter { model.selectedAreaRange.contains($0.area) }
+//            }
+//        }
+//        
+//        // 월세 필터 - 슬라이더 범위 기반 처리
+//        let sliderMonthlyRentRange = 0.0...5000.0   // 슬라이더 범위 수정
+//        let fullMonthlyRentRange = 0.0...5000.0
+//        
+//        if model.selectedMonthlyRentRange != fullMonthlyRentRange {
+//            if model.selectedMonthlyRentRange.lowerBound <= sliderMonthlyRentRange.lowerBound &&
+//               model.selectedMonthlyRentRange.upperBound >= sliderMonthlyRentRange.upperBound {
+//                // 슬라이더 전체 범위인 경우 필터링 안함
+//            } else if model.selectedMonthlyRentRange.lowerBound <= sliderMonthlyRentRange.lowerBound {
+//                // 하한선 없음 (상한선만 적용)
+//                filteredData = filteredData.filter { $0.monthlyRent <= model.selectedMonthlyRentRange.upperBound }
+//            } else if model.selectedMonthlyRentRange.upperBound >= sliderMonthlyRentRange.upperBound {
+//                // 상한선 없음 (하한선만 적용)
+//                filteredData = filteredData.filter { $0.monthlyRent >= model.selectedMonthlyRentRange.lowerBound }
+//            } else {
+//                // 일반 범위 필터링
+//                filteredData = filteredData.filter { model.selectedMonthlyRentRange.contains($0.monthlyRent) }
+//            }
+//        }
+//        
+//        // 보증금 필터 - 슬라이더 범위 기반 처리
+//        let sliderDepositRange = 0.0...50000.0
+//        let fullDepositRange = 0.0...50000.0
+//        
+//        if model.selectedDepositRange != fullDepositRange {
+//            if model.selectedDepositRange.lowerBound <= sliderDepositRange.lowerBound &&
+//               model.selectedDepositRange.upperBound >= sliderDepositRange.upperBound {
+//                // 슬라이더 전체 범위인 경우 필터링 안함
+//            } else if model.selectedDepositRange.lowerBound <= sliderDepositRange.lowerBound {
+//                // 하한선 없음 (상한선만 적용)
+//                filteredData = filteredData.filter { $0.deposit <= model.selectedDepositRange.upperBound }
+//            } else if model.selectedDepositRange.upperBound >= sliderDepositRange.upperBound {
+//                // 상한선 없음 (하한선만 적용)
+//                filteredData = filteredData.filter { $0.deposit >= model.selectedDepositRange.lowerBound }
+//            } else {
+//                // 일반 범위 필터링
+//                filteredData = filteredData.filter { model.selectedDepositRange.contains($0.deposit) }
+//            }
+//        }
+//        
+//        return GeoEstateEntity(data: filteredData)
+//    }
     // getGeoEstates 메서드 수정
     private func getGeoEstates(lon: Double, lat: Double, maxD: Double) async {
         model.isLoading = true
@@ -274,10 +353,7 @@ final class SearchMapContainer: NSObject, ObservableObject {
         do {
 
             let estates = try await repository.getGeoEstate(category: nil, lon: lon, lat: lat, maxD: maxD)
-            print("⛑️⛑️⛑️ monthly",estates.data.map{$0.monthlyRent}.sorted())
-            print("🧤🧤🧤 deposit",estates.data.map{$0.deposit}.sorted())
-            print("🔷🔷🔷 area", estates.data.map{$0.area}.sorted())
-            let filteredEstates = estateDataFiltering(estates) // 필터링 적용
+            let filteredEstates = estateDataFiltering(estates)
             model.pinInfoList = filteredEstates.toPinInfoList()
 
         } catch {

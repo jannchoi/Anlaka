@@ -16,21 +16,43 @@ struct SimilarEstateEntity {
 
 extension SimilarEstateResponseDTO {
     func toEntity() -> SimilarEstateEntity {
-        .init(data: data.map { $0.toSimilarEntity() })
+        return .init(data: data.compactMap { $0.toSimilarEntity() })
     }
 }
-
+struct SimilarEstatePresentation {
+    let data: [SimilarSummaryPresentation]
+}
 struct SimilarSummaryEntity {
     let estateId: String
     let category: String
     let thumbnail: String
-    let deposit: Double
-    let monthlyRent: Double
-    let area: Double
+    let deposit: Double?
+    let monthlyRent: Double?
+    let area: Double?
     let geolocation: GeolocationEntity
     let isRecommended: Bool
 }
+struct SimilarSummaryPresentation {
+    let estateId: String
+    let category: String
+    let thumbnail: String
+    let deposit: String
+    let monthlyRent: String
+    let area: String
+    let isRecommended: Bool
+}
 struct SimilarEstateWithAddress {
-    let summary: SimilarSummaryEntity
+    let summary: SimilarSummaryPresentation
     let address: String // roadRegion3
+}
+
+extension SimilarEstateEntity {
+    func toPresentation () -> SimilarEstatePresentation {
+        return .init(data: data.map{$0.toPresentation()})
+    }
+}
+extension SimilarSummaryEntity {
+    func toPresentation () -> SimilarSummaryPresentation {
+        return SimilarSummaryPresentation(estateId: estateId, category: category, thumbnail: thumbnail, deposit: PresentationMapper.formatToShortUnitString(deposit), monthlyRent: PresentationMapper.formatToShortUnitString(monthlyRent), area: PresentationMapper.formatArea(area), isRecommended: isRecommended)
+    }
 }

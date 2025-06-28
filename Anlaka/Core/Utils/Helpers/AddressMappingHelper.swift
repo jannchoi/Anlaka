@@ -18,22 +18,22 @@ struct AddressMappingHelper {
            repository: NetworkRepository
        ) async -> AddressMappingResult<HotEstateWithAddress> {
 
-           await withTaskGroup(of: Result<HotEstateWithAddress, Error>.self) { group in
+           await withTaskGroup(of: Result<HotEstateWithAddress?, Error>.self) { group in
                for summary in summaries {
                    group.addTask {
                        let geo = summary.geolocation
                        do {
                            let address = try await repository.getAddressFromGeo(geo).roadRegion3
-                           return .success(HotEstateWithAddress(summary: summary, address: address))
+                           return .success(HotEstateWithAddress(summary: summary.toPresentation(), address: address))
                        } catch {
                            let message = (error as? NetworkError)?.errorDescription ?? error.localizedDescription
-                           return .success(HotEstateWithAddress(summary: summary, address: "")) // 앱은 돌아가게
+                           return .success(nil) // 앱은 돌아가게
                                .flatMapError { _ in .failure(error) }
                        }
                    }
                }
 
-               var estates: [HotEstateWithAddress] = []
+               var estates: [HotEstateWithAddress?] = []
                var errors: [Error] = []
 
                for await result in group {
@@ -45,7 +45,7 @@ struct AddressMappingHelper {
                    }
                }
 
-               return AddressMappingResult(estates: estates, errors: errors)
+               return AddressMappingResult(estates: estates.compactMap{$0}, errors: errors)
            }
        }
 
@@ -57,21 +57,21 @@ extension AddressMappingHelper {
         repository: NetworkRepository
     ) async -> AddressMappingResult<SimilarEstateWithAddress> {
 
-        await withTaskGroup(of: Result<SimilarEstateWithAddress, Error>.self) { group in
+        await withTaskGroup(of: Result<SimilarEstateWithAddress?, Error>.self) { group in
             for summary in summaries {
                 group.addTask {
                     let geo = summary.geolocation
                     do {
                         let address = try await repository.getAddressFromGeo(geo).roadRegion3
-                        return .success(SimilarEstateWithAddress(summary: summary, address: address))
+                        return .success(SimilarEstateWithAddress(summary: summary.toPresentation(), address: address))
                     } catch {
-                        return .success(SimilarEstateWithAddress(summary: summary, address: ""))
+                        return .success(nil)
                             .flatMapError { _ in .failure(error) }
                     }
                 }
             }
 
-            var estates: [SimilarEstateWithAddress] = []
+            var estates: [SimilarEstateWithAddress?] = []
             var errors: [Error] = []
 
             for await result in group {
@@ -83,7 +83,7 @@ extension AddressMappingHelper {
                 }
             }
 
-            return AddressMappingResult(estates: estates, errors: errors)
+            return AddressMappingResult(estates: estates.compactMap{$0}, errors: errors)
         }
     }
 }
@@ -94,21 +94,21 @@ extension AddressMappingHelper {
         repository: NetworkRepository
     ) async -> AddressMappingResult<TodayEstateWithAddress> {
 
-        await withTaskGroup(of: Result<TodayEstateWithAddress, Error>.self) { group in
+        await withTaskGroup(of: Result<TodayEstateWithAddress?, Error>.self) { group in
             for summary in summaries {
                 group.addTask {
                     let geo = summary.geolocation
                     do {
                         let address = try await repository.getAddressFromGeo(geo).roadRegion3
-                        return .success(TodayEstateWithAddress(summary: summary, address: address))
+                        return .success(TodayEstateWithAddress(summary: summary.toPresentation(), address: address))
                     } catch {
-                        return .success(TodayEstateWithAddress(summary: summary, address: ""))
+                        return .success(nil)
                             .flatMapError { _ in .failure(error) }
                     }
                 }
             }
 
-            var estates: [TodayEstateWithAddress] = []
+            var estates: [TodayEstateWithAddress?] = []
             var errors: [Error] = []
 
             for await result in group {
@@ -120,7 +120,7 @@ extension AddressMappingHelper {
                 }
             }
 
-            return AddressMappingResult(estates: estates, errors: errors)
+            return AddressMappingResult(estates: estates.compactMap{$0}, errors: errors)
         }
     }
 }
