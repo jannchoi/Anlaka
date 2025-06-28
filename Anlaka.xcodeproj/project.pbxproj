@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		CE6C853C2DD71F22009E9343 /* KakaoSDKAuth in Frameworks */ = {isa = PBXBuildFile; productRef = CE6C853B2DD71F22009E9343 /* KakaoSDKAuth */; };
+		CE6C853E2DD71F22009E9343 /* KakaoSDKCommon in Frameworks */ = {isa = PBXBuildFile; productRef = CE6C853D2DD71F22009E9343 /* KakaoSDKCommon */; };
+		CE6C85402DD71F22009E9343 /* KakaoSDKUser in Frameworks */ = {isa = PBXBuildFile; productRef = CE6C853F2DD71F22009E9343 /* KakaoSDKUser */; };
 		CEE183352DCF69D800A33B15 /* .gitignore in Resources */ = {isa = PBXBuildFile; fileRef = CEE183342DCF69D800A33B15 /* .gitignore */; };
 /* End PBXBuildFile section */
 
@@ -15,9 +18,22 @@
 		CEE183342DCF69D800A33B15 /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		CE6C85422DD72055009E9343 /* Exceptions for "Anlaka" folder in "Anlaka" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = CEE183222DCF698300A33B15 /* Anlaka */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		CEE183252DCF698300A33B15 /* Anlaka */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				CE6C85422DD72055009E9343 /* Exceptions for "Anlaka" folder in "Anlaka" target */,
+			);
 			path = Anlaka;
 			sourceTree = "<group>";
 		};
@@ -28,6 +44,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CE6C853E2DD71F22009E9343 /* KakaoSDKCommon in Frameworks */,
+				CE6C853C2DD71F22009E9343 /* KakaoSDKAuth in Frameworks */,
+				CE6C85402DD71F22009E9343 /* KakaoSDKUser in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -71,6 +90,9 @@
 			);
 			name = Anlaka;
 			packageProductDependencies = (
+				CE6C853B2DD71F22009E9343 /* KakaoSDKAuth */,
+				CE6C853D2DD71F22009E9343 /* KakaoSDKCommon */,
+				CE6C853F2DD71F22009E9343 /* KakaoSDKUser */,
 			);
 			productName = Anlaka;
 			productReference = CEE183232DCF698300A33B15 /* Anlaka.app */;
@@ -100,6 +122,9 @@
 			);
 			mainGroup = CEE1831A2DCF698300A33B15;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				CE6C853A2DD71F22009E9343 /* XCRemoteSwiftPackageReference "kakao-ios-sdk" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = CEE183242DCF698300A33B15 /* Products */;
 			projectDirPath = "";
@@ -261,6 +286,7 @@
 				DEVELOPMENT_ASSET_PATHS = "\"Anlaka/Preview Content\"";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Anlaka/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -289,6 +315,7 @@
 				DEVELOPMENT_ASSET_PATHS = "\"Anlaka/Preview Content\"";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Anlaka/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -329,6 +356,35 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		CE6C853A2DD71F22009E9343 /* XCRemoteSwiftPackageReference "kakao-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/kakao/kakao-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.24.2;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		CE6C853B2DD71F22009E9343 /* KakaoSDKAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = CE6C853A2DD71F22009E9343 /* XCRemoteSwiftPackageReference "kakao-ios-sdk" */;
+			productName = KakaoSDKAuth;
+		};
+		CE6C853D2DD71F22009E9343 /* KakaoSDKCommon */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = CE6C853A2DD71F22009E9343 /* XCRemoteSwiftPackageReference "kakao-ios-sdk" */;
+			productName = KakaoSDKCommon;
+		};
+		CE6C853F2DD71F22009E9343 /* KakaoSDKUser */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = CE6C853A2DD71F22009E9343 /* XCRemoteSwiftPackageReference "kakao-ios-sdk" */;
+			productName = KakaoSDKUser;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = CEE1831B2DCF698300A33B15 /* Project object */;
 }
