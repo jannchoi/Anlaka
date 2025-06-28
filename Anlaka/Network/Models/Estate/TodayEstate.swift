@@ -17,10 +17,13 @@ struct TodayEstateEntity {
 
 extension TodayEstateResponseDTO {
     func toEntity() -> TodayEstateEntity {
-        .init(data: data.map { $0.toTodayEntity() })
+        .init(data: data.compactMap{ $0.toTodayEntity() })
     }
 }
 
+struct TodayEstatePresentation {
+    let data: [TodaySummaryPresentation]
+}
 
 struct TodaySummaryEntity {
     let estateId: String
@@ -31,7 +34,24 @@ struct TodaySummaryEntity {
     let geolocation: GeolocationEntity
 
 }
+struct TodaySummaryPresentation {
+    let estateId: String
+    let category: String
+    let title: String
+    let introduction: String
+    let thumbnail: String
+}
 struct TodayEstateWithAddress {
-    let summary: TodaySummaryEntity
+    let summary: TodaySummaryPresentation
     let address: String // roadRegion3
+}
+extension TodayEstateEntity {
+    func toPresentation () -> TodayEstatePresentation {
+        return .init(data: data.map{$0.toPresentation()})
+    }
+}
+extension TodaySummaryEntity {
+    func toPresentation () -> TodaySummaryPresentation {
+        return TodaySummaryPresentation(estateId: estateId, category: category, title: title, introduction: introduction, thumbnail: thumbnail)
+    }
 }

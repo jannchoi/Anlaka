@@ -77,11 +77,6 @@ struct HomeView: View {
             .navigationBarHidden(true) // 네비게이션 바 완전히 숨김
             .navigationDestination(for: HomeRoute.self) { route in
                 switch route {
-                case .detail(let estateId):
-                    LazyView(content: EstateDetailView(estateId: estateId))
-                        .onAppear {
-                            container.resetNavigation()
-                        }
                 case .category(let categoryType):
                     LazyView(content: CategoryDetailView(categoryType: categoryType))
                         .onAppear {
@@ -106,6 +101,12 @@ struct HomeView: View {
                 if let destination = destination {
                     path.append(destination)
                 }
+            }
+            .fullScreenCover(item: Binding(
+                get: { container.model.selectedEstateId},
+                set: { container.model.selectedEstateId = $0 }
+            )) { identifiableString in
+                EstateDetailView(estateId: identifiableString.id)
             }
             .sheet(isPresented: $container.model.showSafariSheet) {
                 if let url = container.model.safariURL {
@@ -438,7 +439,7 @@ struct HotEstateItemView: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
             
-            Text("\(FormatManager.formatCurrency(item.summary.deposit))/\(FormatManager.formatCurrency(item.summary.monthlyRent))")
+            Text("\(item.summary.deposit)/\(item.summary.monthlyRent)")
                 .font(.subheadline)
                 .fontWeight(.bold)
         }
@@ -452,7 +453,7 @@ struct HotEstateItemView: View {
             
             Spacer()
             
-            Text("\(FormatManager.formatArea(item.summary.area))")
+            Text("\(item.summary.area)")
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
