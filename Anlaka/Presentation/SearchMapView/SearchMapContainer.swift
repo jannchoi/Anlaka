@@ -9,11 +9,6 @@ import SwiftUI
 import CoreLocation
 import Foundation
 
-// String을 Identifiable로 감싸는 래퍼 타입
-struct IdentifiableString: Identifiable {
-    let id: String
-}
-
 struct SearchMapModel {
     var currentLocation: CLLocationCoordinate2D?
     var centerCoordinate: CLLocationCoordinate2D = CLLocationCoordinate2D(
@@ -29,6 +24,7 @@ struct SearchMapModel {
     var errorMessage: String?
     var backToLogin: Bool = false
     var searchedData: SearchListData?
+    var detailEstateList: [DetailEstateEntity] = []
     
     // 새로 추가할 필터 관련 프로퍼티들
     var selectedFilterIndex: Int? = nil // 0: 카테고리, 1: 평수, 2: 월세, 3: 보증금
@@ -41,7 +37,7 @@ struct SearchMapModel {
     var showEstateScroll: Bool = false
     
     // DetailView로 이동하기 위한 상태 추가
-    var selectedEstate: DetailEstatePresentation? = nil
+    var selectedEstate: DetailEstateEntity? = nil
     var selectedEstateId: IdentifiableString? = nil
     
     var curEstatesData: GeoEstateEntity? = nil
@@ -163,7 +159,7 @@ final class SearchMapContainer: NSObject, ObservableObject {
         
         case .estateCardSelected(let estateId):
 
-            if let estate = model.filteredEstates.first(where: { $0.estateId == estateId }) {
+            if let estate = model.detailEstateList.first(where: { $0.estateId == estateId }) {
                 model.selectedEstate = estate
                 model.selectedEstateId = nil
             }
@@ -224,6 +220,7 @@ final class SearchMapContainer: NSObject, ObservableObject {
                 }
                 return results
             }
+            model.detailEstateList = estates
             model.filteredEstates = estates.map{$0.toPresentationModel()}
             print("👠👠👠",model.filteredEstates.count)
             model.showEstateScroll = true
