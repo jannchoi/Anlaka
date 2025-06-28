@@ -8,6 +8,16 @@
 import Foundation
 
 enum TextResource {
+    enum Global {
+        case isLoggedIn
+        
+        var text: String {
+            switch self {
+            case .isLoggedIn:
+                return "isLoggedIn"
+            }
+        }
+    }
     
     enum Validation {
         case emailValid
@@ -31,6 +41,27 @@ enum TextResource {
                 "유효한 닉네임 형식 입니다."
             case .nickInvalid:
                 "닉네임에 . , ? * - @ 는 사용할 수 없습니다."
+            }
+        }
+    }
+}
+
+enum DefaultValues {
+
+    
+    enum Geolocation {
+        case longitude
+        case latitude
+        case maxDistanse
+        
+        var value: Double {
+            switch self {
+            case .longitude:
+                return 127.045432300312 //126.977733
+            case .latitude:
+                return 37.6522582058481//37.576175
+            case .maxDistanse:
+                return 0.0 //
             }
         }
     }
