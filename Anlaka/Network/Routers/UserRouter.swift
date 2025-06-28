@@ -83,10 +83,10 @@ enum UserRouter: AuthorizedTarget {
         switch self {
         case .getMyProfileInfo:
             var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
-            let queryItems = parameters.map {
-                URLQueryItem(name: $0.key, value: "\($0.value)")
-            }
-            components?.queryItems = queryItems
+//            let queryItems = parameters.map {
+//                URLQueryItem(name: $0.key, value: "\($0.value)")
+//            }
+//            components?.queryItems = queryItems
             if let composedURL = components?.url {
                 url = composedURL
             }
