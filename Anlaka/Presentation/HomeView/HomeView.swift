@@ -12,6 +12,7 @@ struct HomeView: View {
     let di: DIContainer
     @StateObject private var container: HomeContainer
     @State private var path = NavigationPath()
+    @AppStorage(TextResource.Global.isLoggedIn.text) private var isLoggedIn: Bool = true
     @State private var searchText = ""
     
     init(di: DIContainer) {
@@ -537,6 +538,7 @@ struct TopicEstateView: View {
 
 // HomeView 확장 - 각 컨테이너 렌더링 메서드
 extension HomeView {
+    
     @ViewBuilder
     func renderTodayEstate() -> some View {
         switch container.model.todayEstate {
@@ -553,6 +555,13 @@ extension HomeView {
             Text("에러: \(message)")
                 .foregroundColor(.red)
                 .frame(height: 400)
+        case .requiresLogin:
+            Text("세션이 만료되어 로그아웃되었습니다.")
+                .foregroundColor(.red)
+                .frame(height: 400)
+                .task {
+                    isLoggedIn = false
+                }
         }
     }
     
@@ -570,6 +579,13 @@ extension HomeView {
             Text("에러: \(message)")
                 .foregroundColor(.red)
                 .frame(height: 200)
+        case .requiresLogin:
+            Text("세션이 만료되어 로그아웃되었습니다.")
+                .foregroundColor(.red)
+                .frame(height: 400)
+                .task {
+                    isLoggedIn = false
+                }
         }
     }
     
@@ -592,6 +608,14 @@ extension HomeView {
             Text("에러: \(message)")
                 .foregroundColor(.red)
                 .frame(height: 200)
+        case .requiresLogin:
+            Text("세션이 만료되어 로그아웃되었습니다.")
+                .foregroundColor(.red)
+                .frame(height: 400)
+                .task {
+                    isLoggedIn = false
+                }
+            
         }
     }
     @ViewBuilder
