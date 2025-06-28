@@ -138,7 +138,7 @@ final class LoginContainer: NSObject, ObservableObject {
         let deviceToken = UserDefaultsManager.shared.getString(forKey: .deviceToken)
         guard let deviceToken = deviceToken, let oauthToken = oauthToken else {return}
         let target = KakaoLoginRequestEntity(oauthToken: oauthToken, deviceToken: deviceToken)
-        print("✅✅✅kakaoTarget:", target)
+        //print("✅✅✅kakaoTarget:", target)
         do {
             try await repository.kakaoLogin(kakaoLoginEntity: target)
             model.loginCompleted = true
