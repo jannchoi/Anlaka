@@ -17,7 +17,10 @@ struct ChattingModel {
     var sortedMessages: [ChatEntity] {
         var allMessages = messages
         if let temp = tempMessage {
-            allMessages.append(temp)
+            // tempMessage가 messages에 없는 경우에만 추가
+            if !allMessages.contains(where: { $0.chatId == temp.chatId }) {
+                allMessages.append(temp)
+            }
         }
         return allMessages.sorted(by: { 
             PresentationMapper.parseISO8601ToDate($0.createdAt) < PresentationMapper.parseISO8601ToDate($1.createdAt)
@@ -34,7 +37,6 @@ struct ChattingModel {
             let utcDate = PresentationMapper.parseISO8601ToDate(message.createdAt)
             return calendar.startOfDay(for: utcDate)
         }
-        
         messagesGroupedByDate = grouped.sorted { $0.key < $1.key }
             .map { (date, messages) -> (String, [ChatEntity]) in
                 let formatter = DateFormatter()
@@ -123,7 +125,6 @@ final class ChattingContainer: ObservableObject {
             // 2. 로컬 DB에서 채팅 내역 조회
             let localMessages = try await databaseRepository.getMessages(roomId: model.roomId)
             model.messages = localMessages
-            model.updateMessagesGroupedByDate()  // 메시지 그룹화 업데이트
             
             // 3. 마지막 메시지 날짜 가져오기
             if let lastDate = try await databaseRepository.getLastMessageDate(roomId: model.roomId) {
@@ -133,7 +134,12 @@ final class ChattingContainer: ObservableObject {
                 
                 // 5. 새 메시지 저장 및 UI 업데이트
                 try await databaseRepository.saveMessages(chatList.chats)
-                model.messages.append(contentsOf: chatList.chats)
+                
+                // 중복되지 않은 새 메시지만 추가
+                let newMessages = chatList.chats.filter { newMessage in
+                    !model.messages.contains { $0.chatId == newMessage.chatId }
+                }
+                model.messages.append(contentsOf: newMessages)
                 model.updateMessagesGroupedByDate()  // 메시지 그룹화 업데이트
             } else {
                 // 첫 로드인 경우 전체 메시지 가져오기
