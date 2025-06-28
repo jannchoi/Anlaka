@@ -16,6 +16,7 @@
 		CE98A8F52DFD040B005279D3 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = CE98A8F42DFD040B005279D3 /* FirebaseMessaging */; };
 		CEBF07B62DF97A160073A761 /* RealmSwift in Embed Frameworks */ = {isa = PBXBuildFile; productRef = CE77075F2DF6CC770003A053 /* RealmSwift */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		CEE183352DCF69D800A33B15 /* .gitignore in Resources */ = {isa = PBXBuildFile; fileRef = CEE183342DCF69D800A33B15 /* .gitignore */; };
+		CEFDB83F2E015014009C4117 /* iamport-ios in Frameworks */ = {isa = PBXBuildFile; productRef = CEFDB83E2E015014009C4117 /* iamport-ios */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -71,6 +72,7 @@
 				CE7707602DF6CC770003A053 /* RealmSwift in Frameworks */,
 				CE5F4D8A2DDF4CF90066C970 /* KakaoMapsSDK-SPM in Frameworks */,
 				CE9291A62DF994E4000981B5 /* SocketIO in Frameworks */,
+				CEFDB83F2E015014009C4117 /* iamport-ios in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -123,6 +125,7 @@
 				CE77075F2DF6CC770003A053 /* RealmSwift */,
 				CE9291A52DF994E4000981B5 /* SocketIO */,
 				CE98A8F42DFD040B005279D3 /* FirebaseMessaging */,
+				CEFDB83E2E015014009C4117 /* iamport-ios */,
 			);
 			productName = Anlaka;
 			productReference = CEE183232DCF698300A33B15 /* Anlaka.app */;
@@ -159,6 +162,7 @@
 				CE77075E2DF6CC770003A053 /* XCRemoteSwiftPackageReference "realm-swift" */,
 				CE9291A42DF994E4000981B5 /* XCRemoteSwiftPackageReference "socket.io-client-swift" */,
 				CE98A8F32DFD040B005279D3 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+				CEFDB83D2E015014009C4117 /* XCRemoteSwiftPackageReference "iamport-ios" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = CEE183242DCF698300A33B15 /* Products */;
@@ -453,6 +457,14 @@
 				minimumVersion = 11.14.0;
 			};
 		};
+		CEFDB83D2E015014009C4117 /* XCRemoteSwiftPackageReference "iamport-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/iamport/iamport-ios.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.4.7;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -490,6 +502,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = CE98A8F32DFD040B005279D3 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseMessaging;
+		};
+		CEFDB83E2E015014009C4117 /* iamport-ios */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = CEFDB83D2E015014009C4117 /* XCRemoteSwiftPackageReference "iamport-ios" */;
+			productName = "iamport-ios";
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
