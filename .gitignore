@@ -70,3 +70,5 @@ APIKey.swift
 # Request
 URLRequest.swift
 
+# SecretKey
+SecretKey.swift
