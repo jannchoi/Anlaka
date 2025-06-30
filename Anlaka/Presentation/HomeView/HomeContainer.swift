@@ -19,9 +19,12 @@ struct HomeModel {
     var showSafariSheet: Bool = false
     var safariURL: URL? = nil
     var selectedEstateId: IdentifiableString? = nil
+    // 초기화 상태 추적
+    var isInitialized: Bool = false
 }
 enum HomeIntent {
     case initialRequest
+    case refreshData
     case goToDetail(estateId: String)
     case goToCategory(categoryType: CategoryType)
     case goToEstatesAll(type: EstateListType)
@@ -40,6 +43,23 @@ final class HomeContainer: ObservableObject {
     func handle(_ intent: HomeIntent) {
         switch intent {
         case .initialRequest:
+            // 이미 초기화된 경우 중복 로드 방지
+            guard !model.isInitialized else { return }
+            
+            Task { await getTodayEstate() }
+            Task { await getLikeLists() }
+            Task { await getHotEstate() }
+            Task { await getTopicEstate() }
+            
+            model.isInitialized = true
+            
+        case .refreshData:
+            // 기존 데이터를 초기화한 후 다시 로드
+            model.todayEstate = .idle
+            model.hotEstate = .idle
+            model.topicEstate = .idle
+            model.likeLists = .idle
+            
             Task { await getTodayEstate() }
             Task { await getLikeLists() }
             Task { await getHotEstate() }

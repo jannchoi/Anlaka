@@ -30,13 +30,13 @@ final class EditProfileContainer: ObservableObject {
     init(repository: NetworkRepository) {
         self.repository = repository
     }
-
+    
     func handle(_ intent: EditProfileIntent) {
         switch intent {
         case .initialRequest:
-            Task {
-                await getMyProfileInfo()
-            }
+            
+            getMyProfileInfo()
+            
         case .nicknameChanged(let newNick):
             model.nick = newNick
             validateNickname(newNick)
@@ -46,7 +46,7 @@ final class EditProfileContainer: ObservableObject {
             }
         }
     }
-
+    
     private func getMyProfileInfo() {
         let savedProfile = UserDefaultsManager.shared.getObject(forKey: .profileData, as: MyProfileInfoEntity.self)
         if let savedProfile = savedProfile {
@@ -81,7 +81,7 @@ final class EditProfileContainer: ObservableObject {
             model.errorMessage = error.localizedDescription
         }
     }
-
+    
     private func saveProfile(editProfile: EditProfileRequestEntity) async {
         do {
             let profile = try await repository.editProfile(editProfile: editProfile)
@@ -103,7 +103,7 @@ final class EditProfileContainer: ObservableObject {
             model.errorMessage = error.localizedDescription
         }
     }
-
+    
     private func handleSaveProfile(editProfile: EditProfileRequestEntity, profileImageData: Data?) async {
         model.isLoading = true
         
@@ -135,7 +135,7 @@ final class EditProfileContainer: ObservableObject {
         
         model.isLoading = false
     }
-
+    
     private func validateNickname(_ nickname: String) {
         if ValidationManager.shared.isValidNick(nickname) {
             model.isNicknameValid = true
@@ -145,4 +145,4 @@ final class EditProfileContainer: ObservableObject {
             model.nicknameValidationMessage = "닉네임에 특수문자(.,?*@-)를 포함할 수 없습니다"
         }
     }
-} 
+}
