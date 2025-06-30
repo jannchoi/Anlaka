@@ -15,6 +15,10 @@ struct ChattingModel {
     var messagesGroupedByDate: [(String, [ChatEntity])] = []  // 일반 프로퍼티로 변경
     var currentUserId: String? = nil  // 현재 로그인한 사용자의 ID
     
+    // 재연결 관련 상태 추가
+    var isReconnecting: Bool = false
+    var reconnectAttempts: Int = 0
+    
     // 시간순으로 정렬된 메시지 반환
     var sortedMessages: [ChatEntity] {
         // 중복 제거 (chatId 기준) - Dictionary 사용
@@ -56,6 +60,7 @@ enum ChattingIntent {
     case loadMoreMessages
     case reconnectSocket
     case disconnectSocket
+    case setError(String?)  // 에러 설정을 위한 새로운 Intent 추가
 }
 
 @MainActor
@@ -90,6 +95,15 @@ final class ChattingContainer: ObservableObject {
             DispatchQueue.main.async {
                 print("🔌 WebSocket 연결 상태 변경: \(isConnected)")
                 self?.model.isConnected = isConnected
+                
+                // 연결이 끊어진 경우 재연결 시도
+                if !isConnected {
+                    self?.attemptReconnect()
+                } else {
+                    // 연결이 성공한 경우 재연결 상태 초기화
+                    self?.model.isReconnecting = false
+                    self?.model.reconnectAttempts = 0
+                }
             }
         }
         // 초기화 시에는 연결하지 않음
@@ -113,6 +127,8 @@ final class ChattingContainer: ObservableObject {
             socket?.connect()
         case .disconnectSocket:
             socket?.disconnect()
+        case .setError(let error):
+            model.error = error
         }
     }
     
@@ -403,5 +419,28 @@ final class ChattingContainer: ObservableObject {
         socket?.disconnect()
     }
     
-    
+    // 재연결 시도 메서드 추가
+    private func attemptReconnect() {
+        guard !model.isReconnecting else { return }
+        
+        model.isReconnecting = true
+        let maxAttempts = 5
+        let baseDelay = 1.0 // 초기 지연 시간 (초)
+        
+        func tryReconnect(attempt: Int) {
+            guard attempt < maxAttempts else {
+                model.isReconnecting = false
+                model.error = "연결을 재설정할 수 없습니다. 앱을 다시 시작해주세요."
+                return
+            }
+            
+            let delay = baseDelay * pow(2.0, Double(attempt)) // exponential backoff
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                self.handle(.initialLoad)
+            }
+        }
+        
+        tryReconnect(attempt: model.reconnectAttempts)
+        model.reconnectAttempts += 1
+    }
 }   
