@@ -18,13 +18,13 @@ struct EstateDetailView: View {
     
     // estateId로 초기화하는 경우
     init(di: DIContainer,estateId: String) {
-        self._container = StateObject(wrappedValue: EstateDetailContainer(repository: di.networkRepository, estateId: estateId))
+        self._container = StateObject(wrappedValue: di.makeEstateDetailContainer(estateId: estateId))
         self.di = di
     }
     
     // estate 객체로 초기화하는 경우
     init(di: DIContainer,estate: DetailEstateEntity) {
-        self._container = StateObject(wrappedValue: EstateDetailContainer(repository: di.networkRepository, estate: estate))
+        self._container = StateObject(wrappedValue: di.makeEstateDetailContainer(estate: estate))
         self.di = di
     }
     
@@ -421,6 +421,7 @@ extension EstateDetailView {
                         Image("Chat Button")
                             .frame(width: 40, height: 40)
                     }
+                    .disabled(container.model.opponent_id != nil)
                 }
             }
             .padding()
