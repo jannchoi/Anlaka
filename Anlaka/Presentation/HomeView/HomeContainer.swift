@@ -18,6 +18,7 @@ struct HomeModel {
     var navigationDestination: HomeRoute? = nil
     var showSafariSheet: Bool = false
     var safariURL: URL? = nil
+    var selectedEstateId: IdentifiableString? = nil
 }
 enum HomeIntent {
     case initialRequest
@@ -44,7 +45,7 @@ final class HomeContainer: ObservableObject {
             Task { await getTopicEstate() }
             
         case .goToDetail(let estateId):
-            model.navigationDestination = .detail(estateId: estateId)
+            model.selectedEstateId = IdentifiableString(id: estateId)
             
         case .goToCategory(let categoryType):
             model.navigationDestination = .category(categoryType: categoryType)
@@ -82,7 +83,7 @@ final class HomeContainer: ObservableObject {
             }
         } catch {
             if let netError = error as? NetworkError, netError == .expiredRefreshToken {
-                model.todayEstate = .requiresLogin // 🔥 로그인 필요 상태로 업데이트
+                model.todayEstate = .requiresLogin
             } else {
                 let message = (error as? NetworkError)?.errorDescription ?? error.localizedDescription
                 model.todayEstate = .failure(message)
@@ -103,7 +104,7 @@ final class HomeContainer: ObservableObject {
             }
         } catch {
             if let netError = error as? NetworkError, netError == .expiredRefreshToken {
-                model.hotEstate = .requiresLogin // 🔥 로그인 필요 상태로 업데이트
+                model.hotEstate = .requiresLogin
             } else {
                 let message = (error as? NetworkError)?.errorDescription ?? error.localizedDescription
                 model.hotEstate = .failure(message)
@@ -115,12 +116,12 @@ final class HomeContainer: ObservableObject {
         model.topicEstate = .loading
         do {
             let response = try await repository.getTopicEstate()
-            for item in response.items {
+            for _ in response.items {
             }
             model.topicEstate = .success(response)
         } catch {
             if let netError = error as? NetworkError, netError == .expiredRefreshToken {
-                model.topicEstate = .requiresLogin // 🔥 로그인 필요 상태로 업데이트
+                model.topicEstate = .requiresLogin
             } else {
                 let message = (error as? NetworkError)?.errorDescription ?? error.localizedDescription
                 model.topicEstate = .failure(message)
