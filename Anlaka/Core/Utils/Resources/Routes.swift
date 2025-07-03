@@ -35,7 +35,7 @@ enum SearchMapRoute: Hashable {
 // MARK: - Route Definition
 enum MyPageRoute: Hashable {
     case chatRoom(roomId: String, di: DIContainer)
-    case editProfile(di: DIContainer)
+    case editProfile
     
     // Hashable conformance
     func hash(into hasher: inout Hasher) {
