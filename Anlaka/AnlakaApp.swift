@@ -26,7 +26,7 @@ struct AnlakaApp: App {
         WindowGroup {
             Group {
                 if isLoggedIn {
-                    HomeView(di: di)
+                    MyTabView(di: di)
                 } else {
                     LoginView(di: di)
                 }
