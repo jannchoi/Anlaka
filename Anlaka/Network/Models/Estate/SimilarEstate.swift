@@ -23,10 +23,14 @@ extension SimilarEstateResponseDTO {
 struct SimilarSummaryEntity {
     let estateId: String
     let category: String
-    let thumbnails: [String]
+    let thumbnail: String
     let deposit: Double
     let monthlyRent: Double
     let area: Double
     let geolocation: GeolocationEntity
     let isRecommended: Bool
+}
+struct SimilarEstateWithAddress {
+    let summary: SimilarSummaryEntity
+    let address: String // roadRegion3
 }
