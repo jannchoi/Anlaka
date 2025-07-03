@@ -287,10 +287,18 @@ struct ChattingRoomCell: View {
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 12) {
-                // Profile Image
-                CustomAsyncImage(imagePath: room.lastChat?.sender.profileImage)
-                    .frame(width: 48, height: 48)
-                    .clipShape(Circle())
+                // Profile Image - 상대방의 프로필 이미지 사용
+                if let opponent = getOpponent(room: room) {
+                    CustomAsyncImage(imagePath: opponent.profileImage)
+                        .frame(width: 48, height: 48)
+                        .clipShape(Circle())
+                } else {
+                    // 기본 이미지
+                    Image(systemName: "person.circle.fill")
+                        .resizable()
+                        .frame(width: 48, height: 48)
+                        .foregroundColor(.gray)
+                }
                 
                 // Chat Info
                 ChatInfoView(
@@ -305,6 +313,16 @@ struct ChattingRoomCell: View {
         }
         .buttonStyle(PlainButtonStyle())
     }
+    
+    // 상대방 정보를 가져오는 헬퍼 메서드
+    private func getOpponent(room: ChatRoomEntity) -> UserInfoEntity? {
+        guard let currentUser = UserDefaultsManager.shared.getObject(forKey: .profileData, as: MyProfileInfoEntity.self) else {
+            return nil
+        }
+        
+        // participants 중에서 currentUser가 아닌 상대방 찾기
+        return room.participants.first { $0.userId != currentUser.userid }
+    }
 }
 
 // MARK: - ChatInfoView
@@ -315,10 +333,18 @@ struct ChatInfoView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
-                Text(room.lastChat?.sender.nick ?? "")
-                    .font(.body)
-                    .fontWeight(.medium)
-                    .foregroundColor(Color.MainTextColor)
+                // 상대방의 닉네임 사용
+                if let opponent = getOpponent(room: room) {
+                    Text(opponent.nick)
+                        .font(.body)
+                        .fontWeight(.medium)
+                        .foregroundColor(Color.MainTextColor)
+                } else {
+                    Text("사용자")
+                        .font(.body)
+                        .fontWeight(.medium)
+                        .foregroundColor(Color.MainTextColor)
+                }
                 
                 if hasNewChat {
                     Circle()
@@ -332,5 +358,15 @@ struct ChatInfoView: View {
                 .foregroundColor(.gray)
                 .lineLimit(1)
         }
+    }
+    
+    // 상대방 정보를 가져오는 헬퍼 메서드
+    private func getOpponent(room: ChatRoomEntity) -> UserInfoEntity? {
+        guard let currentUser = UserDefaultsManager.shared.getObject(forKey: .profileData, as: MyProfileInfoEntity.self) else {
+            return nil
+        }
+        
+        // participants 중에서 currentUser가 아닌 상대방 찾기
+        return room.participants.first { $0.userId != currentUser.userid }
     }
 }
