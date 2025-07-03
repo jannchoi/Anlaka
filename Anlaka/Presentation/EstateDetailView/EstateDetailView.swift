@@ -14,6 +14,7 @@ struct EstateDetailView: View {
     @AppStorage(TextResource.Global.isLoggedIn.text) private var isLoggedIn: Bool = true
     @StateObject private var container: EstateDetailContainer
     @State private var path = NavigationPath()
+    @State private var showPaymentStartView = false
     
     // estateId로 초기화하는 경우
     init(di: DIContainer,estateId: String) {
@@ -56,6 +57,23 @@ struct EstateDetailView: View {
             set: { container.model.selectedEstateId = $0 }
         )) { identifiableString in
             EstateDetailView(di: di,estateId: identifiableString.id)
+        }
+        .fullScreenCover(isPresented: $showPaymentStartView) {
+            if let payment = container.model.iamportPayment {
+                PaymentStartView(
+                    di: di,
+                    iamportPayment: payment,
+                    showPaymentStartView: $showPaymentStartView,
+                    onCancel: {
+                        container.handle(.resetReservation)
+                    }
+                )
+            }
+        }
+        .onChange(of: container.model.iamportPayment) { payment in
+            if payment != nil {
+                showPaymentStartView = true
+            }
         }
         .onAppear {
             container.handle(.initialRequest)
@@ -428,6 +446,7 @@ extension EstateDetailView {
                 .background(container.model.isReserved ? Color.Deselected : Color.OliveMist)
                 .cornerRadius(12)
         }
+        .disabled(container.model.isReserved)
         .padding(.horizontal)
         .padding(.vertical, 16)
         .shadow(color: .black.opacity(0.1), radius: 4, y: -2)
