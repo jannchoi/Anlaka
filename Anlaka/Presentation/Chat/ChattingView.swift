@@ -15,7 +15,7 @@ struct ChatMessagesView: View {
                         VStack(spacing: 12) {
                             DateDivider(dateString: date)
                             
-                            ForEach(messages, id: \.chatId) { message in
+                            ForEach(Array(messages.enumerated()), id: \.offset) { index, message in
                                 ChatMessageCell(
                                     message: message,
                                     isSending: message.chatId.hasPrefix("temp_")
