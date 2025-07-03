@@ -42,7 +42,7 @@ struct HomeView: View {
                         // 검색바를 오늘의 부동산 위에 배치
                         searchBar
                             .padding(.horizontal)
-                            .padding(.top, 50) // 상단 영역에 충분한 여백
+                            .padding(.top, 60) // 상단 영역에 충분한 여백
                     }
                     
                     VStack(spacing: 24) {
