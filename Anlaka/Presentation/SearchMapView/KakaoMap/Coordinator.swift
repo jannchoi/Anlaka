@@ -555,7 +555,7 @@ extension Coordinator {
 // MARK: - 클러스터링 기반 POI 업데이트 메서드 (기존 updatePOIsEfficiently 대체)
 extension Coordinator {
     
-    @MainActor func updatePOIsWithClustering(_ pinInfos: [PinInfo], currentCenter: CLLocationCoordinate2D, maxDistance: Double) {
+    @MainActor func updatePOIsWithClustering(_ pinInfos: [PinInfo], currentCenter: CLLocationCoordinate2D, maxDistance: Double, forceUpdate: Bool = false) {
         //print(#function)
         guard let kakaoMap = controller?.getView("mapview") as? KakaoMap else {
             print("🚫 KakaoMap 객체를 가져올 수 없습니다.")
@@ -583,7 +583,7 @@ extension Coordinator {
 
         let isSignificantChange = topLeftDistance > 10 || bottomRightDistance > 10
 
-        if !isSignificantChange {
+        if !isSignificantChange && !forceUpdate {
             //print("변화 없음")
             return
         }
