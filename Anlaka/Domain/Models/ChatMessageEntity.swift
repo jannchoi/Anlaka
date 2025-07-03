@@ -6,7 +6,7 @@ struct ChatMessageDTO: Codable {
     let content: String?
     let createdAt: String?
     let updatedAt: String?
-    let sender: String?
+    let sender: SenderDTO?
     let files: [String]
 
     enum CodingKeys: String, CodingKey {
@@ -17,6 +17,24 @@ struct ChatMessageDTO: Codable {
         case updatedAt
         case sender
         case files
+    }
+}
+
+struct SenderDTO: Codable {
+    let userID: String
+    let nick: String
+    let name: String?
+    let introduction: String?
+    let profileImage: String?
+    let hashTags: [String]?
+
+    enum CodingKeys: String, CodingKey {
+        case userID = "user_id"
+        case nick
+        case name
+        case introduction
+        case profileImage
+        case hashTags
     }
 }
 
@@ -60,7 +78,7 @@ extension ChatMessageDTO {
             content: content ?? "",
             createdAt: createdAt ?? currentTime,
             updatedAt: updatedAt ?? currentTime,
-            sender: sender,
+            sender: sender.userID,
             files: self.files
         )
     }
