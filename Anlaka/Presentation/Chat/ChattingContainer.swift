@@ -11,6 +11,7 @@ struct ChattingModel {
     var isConnected: Bool = false
     var sendingMessageId: String? = nil  // 전송 중인 메시지 ID
     var tempMessage: ChatEntity? = nil   // 임시 메시지
+    var messagesGroupedByDate: [(String, [ChatEntity])] = []  // 일반 프로퍼티로 변경
     
     // 시간순으로 정렬된 메시지 반환
     var sortedMessages: [ChatEntity] {
@@ -21,6 +22,27 @@ struct ChattingModel {
         return allMessages.sorted(by: { 
             PresentationMapper.parseISO8601ToDate($0.createdAt) < PresentationMapper.parseISO8601ToDate($1.createdAt)
         })
+    }
+    
+    // 메시지가 변경될 때 날짜별 그룹화 업데이트
+    mutating func updateMessagesGroupedByDate() {
+        var calendar = Calendar.current
+        let koreaTimeZone = TimeZone(identifier: "Asia/Seoul")!
+        calendar.timeZone = koreaTimeZone
+        
+        let grouped = Dictionary(grouping: sortedMessages) { message in
+            let utcDate = PresentationMapper.parseISO8601ToDate(message.createdAt)
+            return calendar.startOfDay(for: utcDate)
+        }
+        
+        messagesGroupedByDate = grouped.sorted { $0.key < $1.key }
+            .map { (date, messages) -> (String, [ChatEntity]) in
+                let formatter = DateFormatter()
+                formatter.dateFormat = "yyyy년 MM월 dd일"
+                formatter.locale = Locale(identifier: "ko_KR")
+                formatter.timeZone = koreaTimeZone
+                return (formatter.string(from: date), messages)
+            }
     }
 }
 enum ChattingIntent {
@@ -101,6 +123,7 @@ final class ChattingContainer: ObservableObject {
             // 2. 로컬 DB에서 채팅 내역 조회
             let localMessages = try await databaseRepository.getMessages(roomId: model.roomId)
             model.messages = localMessages
+            model.updateMessagesGroupedByDate()  // 메시지 그룹화 업데이트
             
             // 3. 마지막 메시지 날짜 가져오기
             if let lastDate = try await databaseRepository.getLastMessageDate(roomId: model.roomId) {
@@ -111,11 +134,13 @@ final class ChattingContainer: ObservableObject {
                 // 5. 새 메시지 저장 및 UI 업데이트
                 try await databaseRepository.saveMessages(chatList.chats)
                 model.messages.append(contentsOf: chatList.chats)
+                model.updateMessagesGroupedByDate()  // 메시지 그룹화 업데이트
             } else {
                 // 첫 로드인 경우 전체 메시지 가져오기
                 let chatList = try await repository.getChatList(roomId: model.roomId, from: nil)
                 try await databaseRepository.saveMessages(chatList.chats)
                 model.messages = chatList.chats
+                model.updateMessagesGroupedByDate()  // 메시지 그룹화 업데이트
             }
             
             // 6. WebSocket 연결 - 여기서만 연결
@@ -148,8 +173,9 @@ final class ChattingContainer: ObservableObject {
             files: []
         )
         
-        // 임시 메시지 추가
+        // 임시 메시지 추가 및 그룹화 업데이트
         model.tempMessage = tempMessage
+        model.updateMessagesGroupedByDate()
         
         print("📝 메시지 전송 시작 - 텍스트: \(text), 파일 수: \(files.count)")
         
@@ -211,6 +237,7 @@ final class ChattingContainer: ObservableObject {
                             if !(self?.model.messages.contains(where: { $0.chatId == message.chatId }) ?? false) {
                                 try await self?.databaseRepository.saveMessage(message)
                                 self?.model.messages.append(message)
+                                self?.model.updateMessagesGroupedByDate()  // 그룹화 업데이트
                             }
                         } else {
                             print("❌ 메시지 전송 실패: 응답이 없음")
@@ -220,12 +247,14 @@ final class ChattingContainer: ObservableObject {
                         // 임시 메시지 제거 및 전송 완료 처리
                         self?.model.tempMessage = nil
                         self?.model.sendingMessageId = nil
+                        self?.model.updateMessagesGroupedByDate()  // 임시 메시지 제거 후 그룹화 업데이트
                     } catch {
                         print("❌ 메시지 전송 실패: \(error.localizedDescription)")
                         self?.model.error = error.localizedDescription
                         // 임시 메시지 제거 및 전송 완료 처리
                         self?.model.tempMessage = nil
                         self?.model.sendingMessageId = nil
+                        self?.model.updateMessagesGroupedByDate()  // 임시 메시지 제거 후 그룹화 업데이트
                     }
                 }
             }
@@ -236,6 +265,7 @@ final class ChattingContainer: ObservableObject {
             // 임시 메시지 제거 및 전송 완료 처리
             model.tempMessage = nil
             model.sendingMessageId = nil
+            model.updateMessagesGroupedByDate()  // 임시 메시지 제거 후 그룹화 업데이트
         }
     }
     
@@ -303,6 +333,7 @@ final class ChattingContainer: ObservableObject {
                 // DB 저장 및 UI 업데이트
                 try await databaseRepository.saveMessage(chatEntity)
                 model.messages.append(chatEntity)
+                model.updateMessagesGroupedByDate()  // 메시지 그룹화 업데이트
             } catch {
                 model.error = error.localizedDescription
             }

@@ -25,23 +25,22 @@ struct MyTabView: View {
     
     var body: some View {
         ZStack(alignment: .bottom) {
-            TabView(selection: $selected) {
-                NavigationStack(path: $homePath) {
-                    HomeView(di: di, path: $homePath)
-
-                } .tag(Tab.home)
-                
-                NavigationStack(path: $favoritePath) {
-                    FavoriteEstatesView(di: di, path: $favoritePath)
-
-                } .tag(Tab.favorite)
-                
-                NavigationStack(path: $myPagePath) {
-                    MyPageView(di: di, path: $myPagePath)
-
-                } .tag(Tab.myPage)
+            Group {
+                switch selected {
+                case .home:
+                    NavigationStack(path: $homePath) {
+                        HomeView(di: di, path: $homePath)
+                    }
+                case .favorite:
+                    NavigationStack(path: $favoritePath) {
+                        FavoriteEstatesView(di: di, path: $favoritePath)
+                    }
+                case .myPage:
+                    NavigationStack(path: $myPagePath) {
+                        MyPageView(di: di, path: $myPagePath)
+                    }
+                }
             }
-            .tabViewStyle(.page(indexDisplayMode: .never))
             
             if shouldShowTabBar {
                 tabBar
