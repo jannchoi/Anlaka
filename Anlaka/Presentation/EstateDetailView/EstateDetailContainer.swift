@@ -12,6 +12,7 @@ struct EstateDetailModel {
     var detailEstate: Loadable<DetailEstateWithAddrerss> = .idle
     var similarEstates: Loadable<[SimilarEstateWithAddress]> = .idle
     var selectedEstateId: IdentifiableString? = nil
+    let curEstateid: String
     var order: CreateOrderRequestDTO? = nil
     var iamportPayment: IamportPaymentEntity? = nil
     var estateTitle: String? = nil
@@ -34,7 +35,7 @@ enum EstateDetailIntent {
 // MARK: - EstateDetailContainer 초기화 메서드 수정
 @MainActor
 final class EstateDetailContainer: ObservableObject {
-    @Published var model = EstateDetailModel()
+    @Published var model : EstateDetailModel
     private let repository: NetworkRepository
     private let initializationType: InitializationType
     
@@ -46,11 +47,13 @@ final class EstateDetailContainer: ObservableObject {
     init(repository: NetworkRepository, estateId: String) {
         self.repository = repository
         self.initializationType = .estateId(estateId)
+        self.model = EstateDetailModel(curEstateid: estateId)
     }
     
     init(repository: NetworkRepository, estate: DetailEstateEntity) {
         self.repository = repository
         self.initializationType = .estate(estate)
+        self.model = EstateDetailModel(curEstateid: estate.estateId)
     }
     
     func handle(_ intent: EstateDetailIntent) {
@@ -74,8 +77,9 @@ final class EstateDetailContainer: ObservableObject {
                 }
             }
         case .likeButtonTapped:
-            model.isLiked.toggle()
-            print("isLiked: \(model.isLiked)")
+            Task {
+                await toggleIsLiked()
+            }
         case .chatButtonTapped:
             if case .success(let data) = model.detailEstate {
                 // opponent_id를 초기화한 후 다시 설정
@@ -103,6 +107,15 @@ final class EstateDetailContainer: ObservableObject {
             print("error: \(error)")
         }
 
+    }
+    private func toggleIsLiked() async {
+
+        do {
+            let result = try await repository.postLikeEstate(model.curEstateid, LikeEstateEntity(likeStatus: !model.isLiked))
+            model.isLiked = result.likeStatus
+        } catch {
+            print("error: \(error)")
+        }
     }
     private func mapToEstateDetailWithAddress(estate: DetailEstateEntity) async {
         model.detailEstate = .loading
