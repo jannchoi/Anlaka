@@ -81,7 +81,7 @@ enum PresentationMapper {
         let formatter = NumberFormatter()
         formatter.numberStyle = .decimal
         let formatted = formatter.string(from: NSNumber(value: value)) ?? "\(value)"
-        return "\(formatted)개"
+        return "\(formatted)"
     }
     static func formatBuiltYear(_ builtYear: String?) -> String {
         guard let year = builtYear, !year.isEmpty else {

@@ -30,7 +30,10 @@ struct HomeView: View {
     }
     
     var body: some View {
-        
+        ZStack {
+            Color.WarmLinen
+                .ignoresSafeArea()
+            
             ZStack(alignment: .top) {
                 // 컨텐츠 스크롤뷰
                 ScrollView {
@@ -42,7 +45,7 @@ struct HomeView: View {
                         // 검색바를 오늘의 부동산 위에 배치
                         searchBar
                             .padding(.horizontal)
-                            .padding(.top, 60) // 상단 영역에 충분한 여백
+                            .padding(.top, 80) // 상단 영역에 충분한 여백
                     }
                     
                     VStack(spacing: 24) {
@@ -78,6 +81,7 @@ struct HomeView: View {
                     container.handle(.refreshData)
                 }
             }
+        }
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarHidden(true) // 네비게이션 바 완전히 숨김
             .navigationDestination(for: HomeRoute.self) { route in
@@ -153,6 +157,7 @@ struct TodayEstateView: View {
     let onTap: () -> Void
     
     @State private var currentPage: Int = 0
+    @State private var imageBrightness: [Int: Bool] = [:] // 각 페이지별 밝기 상태 저장
     
     var body: some View {
         GeometryReader { geometry in
@@ -161,24 +166,29 @@ struct TodayEstateView: View {
                 TabView(selection: $currentPage) {
                     ForEach(Array(entity.enumerated()), id: \.offset) { index, item in
                         ZStack(alignment: .bottom) {
-                            CustomAsyncImage(imagePath: item.summary.thumbnail)
-                                .frame(width: geometry.size.width, height: geometry.size.height)
-                                .clipped()
+                            CustomAsyncImage(imagePath: item.summary.thumbnail) { image in
+                                // 이미지 로드 완료 시 밝기 확인
+                                if let image = image {
+                                    checkImageBrightness(for: index, image: image)
+                                }
+                            }
+                            .frame(width: geometry.size.width, height: geometry.size.height)
+                            .clipped()
                             
                             // 텍스트 콘텐츠
                             VStack(alignment: .leading, spacing: 8) {
                                 Text(item.address)
                                     .font(.pretendardSubheadline)
-                                    .foregroundColor(.white.opacity(0.9))
+                                    .foregroundColor(getTextColor(for: index))
                                 
                                 Text(item.summary.title)
                                     .font(.soyoTitle2)
-                                    .foregroundColor(.white)
+                                    .foregroundColor(getTextColor(for: index))
                                     .multilineTextAlignment(.leading)
                                 
                                 Text(item.summary.introduction)
                                     .font(.pretendardBody)
-                                    .foregroundColor(.white.opacity(0.9))
+                                    .foregroundColor(getTextColor(for: index))
                                     .multilineTextAlignment(.leading)
                                     .lineLimit(2)
                             }
@@ -187,7 +197,7 @@ struct TodayEstateView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .background(
                                 LinearGradient(
-                                    gradient: Gradient(colors: [Color.black.opacity(0.7), Color.black.opacity(0)]),
+                                    gradient: Gradient(colors: getGradientColors(for: index)),
                                     startPoint: .bottom,
                                     endPoint: .top
                                 )
@@ -205,6 +215,32 @@ struct TodayEstateView: View {
             }
         }
         .ignoresSafeArea() // 전체 영역을 무시
+    }
+    
+    // 이미지 밝기 확인 함수
+    private func checkImageBrightness(for index: Int, image: UIImage) {
+        if let brightness = image.averageBrightness() {
+            let isBright = brightness > 0.7
+            DispatchQueue.main.async {
+                imageBrightness[index] = isBright
+            }
+        }
+    }
+    
+    // 텍스트 색상 결정 함수
+    private func getTextColor(for index: Int) -> Color {
+        let isBright = imageBrightness[index] ?? false
+        return isBright ? Color.black : Color.white
+    }
+    
+    // 그라데이션 색상 결정 함수
+    private func getGradientColors(for index: Int) -> [Color] {
+        let isBright = imageBrightness[index] ?? false
+        if isBright {
+            return [Color.white.opacity(0.7), Color.white.opacity(0)]
+        } else {
+            return [Color.black.opacity(0.7), Color.black.opacity(0)]
+        }
     }
 }
 
@@ -283,15 +319,19 @@ struct FavoriteView: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 16) {
                 ForEach(0..<entity.count, id: \.self) { index in
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 0) {
                         // 썸네일 이미지
                         CustomAsyncImage(imagePath: entity[index].summary.thumbnail
                         )
-                        .frame(width: 200, height: 140)
+                        .frame(width: 176, height: 140) // width를 200에서 176으로 줄임 (좌우 패딩 12씩 고려)
                         .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .padding(.top, 12) // 상단 패딩 추가
+                        .frame(maxWidth: .infinity, alignment: .center) // 가운데 정렬
 
                         // 정보
                         VStack(alignment: .leading, spacing: 4) {
+                            Spacer()
+                                .frame(height: 4) // 썸네일과 텍스트 사이 일정한 간격 유지
                             HStack {
                                 Text(entity[index].summary.category)
                                     .font(.pretendardCaption)
@@ -320,6 +360,8 @@ struct FavoriteView: View {
                                 .foregroundColor(.secondary)
                                 .lineLimit(1)
                         }
+                        .padding(.horizontal, 12) // 좌우 패딩 추가
+                        .padding(.bottom, 12) // 하단 패딩 추가
                     }
                     .frame(width: 200)
                     .background(Color.white)
@@ -341,11 +383,13 @@ struct HotEstateItemView: View {
     let onTap: (String) -> Void
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 0) {
             // 썸네일 이미지
             CustomAsyncImage(imagePath: item.summary.thumbnail)
-                .frame(width: 200, height: 140)
+                .frame(width: 176, height: 140) // width를 200에서 176으로 줄임 (좌우 패딩 12씩 고려)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
+                .padding(.top, 12) // 상단 패딩 추가
+                .frame(maxWidth: .infinity, alignment: .center) // 가운데 정렬
                 .overlay(
                     item.summary.isRecommended ?
                     Text("추천")
@@ -356,11 +400,12 @@ struct HotEstateItemView: View {
                         .padding(.vertical, 4)
                         .background(Color.OliveMist)
                         .cornerRadius(4)
-                        .padding(6)
+                        .padding(.top, 18) // 상단 패딩 12 + 6
+                        .padding(.leading, 18) // 좌측 패딩 12 + 6
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     : nil
                 )
-                
+                .padding(.bottom, 4) // 썸네일과 텍스트 사이 패딩 추가
             
             // 정보 섹션
             itemInfoSection
@@ -376,7 +421,7 @@ struct HotEstateItemView: View {
     private var itemInfoSection: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(item.summary.title)
-                .font(.soyoHeadline)
+                .font(.soyoSubheadline) // soyo 폰트 유지하면서 작은 크기 사용
                 .foregroundColor(Color.MainTextColor)
                 .lineLimit(1)
             
@@ -384,6 +429,8 @@ struct HotEstateItemView: View {
             addressAndAreaView
             likesView
         }
+        .padding(.horizontal, 12) // 좌우 패딩 추가
+        .padding(.bottom, 12) // 하단 패딩 추가
     }
     
     private var priceInfoView: some View {
@@ -446,7 +493,7 @@ struct TopicEstateView: View {
     let onTap: (URL?) -> Void
     
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 0) {
             ForEach(0..<entity.items.count, id: \.self) { index in
                 Button(action: {
                     if let linkString = entity.items[index].link, let url = URL(string: linkString) {
@@ -462,9 +509,13 @@ struct TopicEstateView: View {
                 
                 if index < entity.items.count - 1 {
                     Divider()
+                        .padding(.horizontal, 16)
                 }
             }
         }
+        .background(Color.white)
+        .cornerRadius(12)
+        .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 1)
         .padding(.horizontal)
     }
     
@@ -484,7 +535,8 @@ struct TopicEstateView: View {
                 .foregroundColor(Color.SubText)
                 .frame(maxWidth: .infinity, alignment: .trailing)
         }
-        .padding(.vertical, 8)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 16)
     }
 }
 
