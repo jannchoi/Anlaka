@@ -15,39 +15,50 @@ struct MyTabView: View {
     }
     
     @State private var selected: Tab = .home
-    
-    // 각 뷰를 State로 관리하여 메모리에 유지
-    @State private var homeView: HomeView
-    @State private var favoriteView : FavoriteEstatesView
-    @State private var myPageView : MyPageView
+    @State private var homePath = NavigationPath()
+    @State private var favoritePath = NavigationPath()
+    @State private var myPagePath = NavigationPath()
     
     init(di: DIContainer) {
         self.di = di
-        // State 프로퍼티는 init에서 직접 초기화할 수 없으므로 _homeView로 초기화
-        _homeView = State(initialValue: HomeView(di: di))
-        _favoriteView = State(initialValue: FavoriteEstatesView(di: di))
-        _myPageView = State(initialValue: MyPageView(di: di))
     }
     
     var body: some View {
         ZStack(alignment: .bottom) {
             TabView(selection: $selected) {
-                Group {
-                    homeView
-                        .tag(Tab.home)
-                    
-                    favoriteView
-                        .tag(Tab.favorite)
-                    
-                    myPageView
-                        .tag(Tab.myPage)
-                }
-                .toolbar(.hidden, for: .tabBar)
+                NavigationStack(path: $homePath) {
+                    HomeView(di: di, path: $homePath)
+
+                } .tag(Tab.home)
+                
+                NavigationStack(path: $favoritePath) {
+                    FavoriteEstatesView(di: di, path: $favoritePath)
+
+                } .tag(Tab.favorite)
+                
+                NavigationStack(path: $myPagePath) {
+                    MyPageView(di: di, path: $myPagePath)
+
+                } .tag(Tab.myPage)
             }
+            .tabViewStyle(.page(indexDisplayMode: .never))
             
-            tabBar
+            if shouldShowTabBar {
+                tabBar
+            }
         }
         .ignoresSafeArea(.all, edges: .bottom)
+    }
+    
+    private var shouldShowTabBar: Bool {
+        switch selected {
+        case .home:
+            return homePath.isEmpty
+        case .favorite:
+            return favoritePath.isEmpty
+        case .myPage:
+            return myPagePath.isEmpty
+        }
     }
     
     var tabBar: some View {
