@@ -56,7 +56,7 @@ struct CustomNavigationBar<LeftButton: View, RightButton: View>: View {
             
             // Title
             Text(title)
-                .font(.system(size: 18, weight: .semibold))
+                .font(.soyoHeadline)
                 .foregroundColor(Color.MainTextColor)
             
             Spacer()
