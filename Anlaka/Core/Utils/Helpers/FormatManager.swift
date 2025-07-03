@@ -46,5 +46,11 @@ struct FormatManager {
     static func formatArea(_ area: Double) -> String {
         return "\(String(format: "%.1f", area))m²"
     }
+        static func extractRelativePath(from url: URL) -> String {
+            guard let range = url.absoluteString.range(of: BaseURL.baseV1) else {
+            return url.path  // baseURL이 없으면 그냥 path만
+        }
+        return String(url.absoluteString[range.upperBound...])
+    }
 }
 

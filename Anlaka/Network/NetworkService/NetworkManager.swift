@@ -17,7 +17,7 @@ final class NetworkManager {
         try await prepareAuthorizationIfNeeded(for: target)
         
         let request = try target.asURLRequest()
-
+        //print("📦 Request:\n\(request)")
         let (data, response) = try await URLSession.shared.data(for: request)
 
         // ✅ 응답 타입 확인

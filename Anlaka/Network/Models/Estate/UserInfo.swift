@@ -6,6 +6,26 @@
 //
 
 import Foundation
+struct UserInfoResponseDTO: Codable {
+    let userId: String
+    let nick: String
+    let introduction: String?
+    let profileImage: String?
+    enum CodingKeys: String, CodingKey {
+        case userId = "user_id"
+        case nick, introduction, profileImage
+    }
+    
+    func toEntity() -> UserInfoEntity {
+        return UserInfoEntity(
+            userId: userId,
+            nick: nick,
+            introduction: introduction ?? "",
+            profileImage: profileImage ?? ""
+        )
+    }
+}
+
 
 struct UserInfoDTO: Decodable {
     let userId: String?
@@ -40,8 +60,8 @@ extension UserInfoDTO {
         return UserInfoEntity(
             userId: userId,
             nick: nick ?? "알 수 없음",
-            introduction: introduction ?? "알 수 없음",
-            profileImage: profileImage ?? "알 수 없음"
+            introduction: introduction ?? "",
+            profileImage: profileImage ?? ""
         )
     }
 }
