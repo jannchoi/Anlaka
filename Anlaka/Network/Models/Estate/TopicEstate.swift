@@ -24,7 +24,7 @@ struct TopicEstateItemEntity {
     let title: String
     let content: String
     let date: String
-    let link: String
+    let link: String?
 }
 
 extension TopicEstateDTO {
@@ -40,7 +40,7 @@ extension TopicEstateItemDTO {
             title: title,
             content: content,
             date: date,
-            link: link ?? "" // optional → non-optional
+            link: link 
         )
     }
 }
