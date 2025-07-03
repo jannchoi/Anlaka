@@ -8,9 +8,18 @@
 import Foundation
 
 final class NetworkRepositoryImp: NetworkRepository {
-    func getGeofromAddressQuery(_ query: String) async throws -> GeolocationEntity {
+    func getGeoFromKeywordQuery(_ query: String, page: Int) async throws -> KakaoGeoKeywordEntity {
         do {
-            let response = try await NetworkManager.shared.callRequest(target: GeoRouter.getGeolocation(query: query), model: KakaoGeolocationDTO.self)
+            let response = try await NetworkManager.shared.callRequest(target: GeoRouter.getGeoByKeyword(query: query, page: page), model: KakaoGeoKeywordDTO.self)
+            return response.toEntity()
+        } catch {
+            throw error
+        }
+    }
+    
+    func getGeofromAddressQuery(_ query: String, page: Int) async throws -> KakaoGeolocationEntity {
+        do {
+            let response = try await NetworkManager.shared.callRequest(target: GeoRouter.getGeolocation(query: query, page: page), model: KakaoGeolocationDTO.self)
             return response.toEntity()
         } catch {
             throw error
