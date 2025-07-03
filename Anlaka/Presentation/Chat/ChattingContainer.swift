@@ -176,7 +176,7 @@ final class ChattingContainer: ObservableObject {
             let userInChatRoom = try await databaseRepository.isUserInChatRoom(roomId: model.roomId, userId: userInfo.userid)
             
             if !userInChatRoom {
-                // 4. 현재 사용자가 채팅방에 없는 경우 채팅방 삭제
+                // 4. 현재 사용자가 채팅방에 없는 경우(이 기기를 사용하던 사람이 아니므로 db에 없음) db에서 채팅방 삭제
                 try await databaseRepository.deleteChatRoom(roomId: model.roomId)
                 
                 // 5. 서버에서 전체 채팅 내역 가져오기

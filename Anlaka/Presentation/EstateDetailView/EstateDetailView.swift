@@ -138,7 +138,7 @@ extension EstateDetailView {
     private func topThumbnailView(thumbnails: [String]) -> some View {
         TabView {
             ForEach(0..<thumbnails.count, id: \.self) { index in
-                CustomAsyncImage(imagePath: thumbnails[index])
+                CustomAsyncImage.detail(imagePath: thumbnails[index])
                     .frame(height: 250)
                     .clipped()
             }

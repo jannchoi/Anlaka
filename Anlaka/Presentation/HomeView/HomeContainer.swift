@@ -81,6 +81,7 @@ final class HomeContainer: ObservableObject {
         case .goToSearch:
             model.navigationDestination = .search
             
+            
         }
     }
     func resetNavigation() {

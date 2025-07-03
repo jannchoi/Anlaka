@@ -721,7 +721,7 @@ struct EstateCardView: View {
             VStack(alignment: .leading, spacing: 8) {
                 // 썸네일
                 if let firstThumbnail = estate.thumbnails.first {
-                    CustomAsyncImage(imagePath: firstThumbnail)
+                    CustomAsyncImage.listCell(imagePath: firstThumbnail)
                         .frame(width: 150, height: 100)
                         .cornerRadius(8)
                 } else {
