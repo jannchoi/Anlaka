@@ -144,11 +144,21 @@ final class DatabaseRepositoryImp: DatabaseRepository {
         try await withCheckedThrowingContinuation { continuation in
             do {
                 let realm = try Realm(configuration: configuration)
+                
+                // ChatRoomRealmModel 삭제
                 if let room = realm.object(ofType: ChatRoomRealmModel.self, forPrimaryKey: roomId) {
                     try realm.write {
                         realm.delete(room)
                     }
                 }
+                
+                // ChatListRealmModel 삭제
+                if let chatList = realm.object(ofType: ChatListRealmModel.self, forPrimaryKey: roomId) {
+                    try realm.write {
+                        realm.delete(chatList)
+                    }
+                }
+                
                 continuation.resume()
             } catch {
                 continuation.resume(throwing: error)
@@ -250,6 +260,12 @@ final class DatabaseRepositoryImp: DatabaseRepository {
                     return
                 }
                 
+                // 현재 로그인한 사용자 정보 가져오기
+                guard let userInfo = UserDefaultsManager.shared.getObject(forKey: .profileData, as: MyProfileInfoEntity.self) else {
+                    continuation.resume(throwing: NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "사용자 정보를 찾을 수 없습니다."]))
+                    return
+                }
+                
                 let messages = chatList.chats.sorted(by: { $0.createdAt < $1.createdAt }).map { message -> ChatEntity in
                     // senderId를 통해 participant 정보 찾기
                     let sender = chatList.participants.first(where: { $0.userId == message.senderId })
@@ -283,6 +299,12 @@ final class DatabaseRepositoryImp: DatabaseRepository {
                 let realmMessages = realm.objects(ChatRealmModel.self)
                     .filter("roomId == %@ AND createdAt >= %@", roomId, date)
                     .sorted(byKeyPath: "createdAt", ascending: true)
+                
+                // 현재 로그인한 사용자 정보 가져오기
+                guard let userInfo = UserDefaultsManager.shared.getObject(forKey: .profileData, as: MyProfileInfoEntity.self) else {
+                    continuation.resume(throwing: NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "사용자 정보를 찾을 수 없습니다."]))
+                    return
+                }
                 
                 let messages = realmMessages.map { message -> ChatEntity in
                     let sender = realm.object(ofType: UserInfoRealmModel.self, forPrimaryKey: message.senderId)
@@ -372,6 +394,50 @@ final class DatabaseRepositoryImp: DatabaseRepository {
                 continuation.resume()
             } catch {
                 print("❌ userId 업데이트 실패: \(error.localizedDescription)")
+                continuation.resume(throwing: error)
+            }
+        }
+    }
+    
+    func resetDatabase() async throws {
+        try await withCheckedThrowingContinuation { continuation in
+            do {
+                let realm = try Realm(configuration: configuration)
+                try realm.write {
+                    realm.deleteAll()
+                }
+                continuation.resume()
+            } catch {
+                continuation.resume(throwing: error)
+            }
+        }
+    }
+    
+    func isUserExists(userId: String) async throws -> Bool {
+        try await withCheckedThrowingContinuation { continuation in
+            do {
+                let realm = try Realm(configuration: configuration)
+                let userExists = realm.objects(UserInfoRealmModel.self)
+                    .filter("userId == %@", userId)
+                    .first != nil
+                continuation.resume(returning: userExists)
+            } catch {
+                continuation.resume(throwing: error)
+            }
+        }
+    }
+    
+    func isUserInChatRoom(roomId: String, userId: String) async throws -> Bool {
+        try await withCheckedThrowingContinuation { continuation in
+            do {
+                let realm = try Realm(configuration: configuration)
+                if let chatList = realm.object(ofType: ChatListRealmModel.self, forPrimaryKey: roomId) {
+                    let userExists = chatList.participants.contains(where: { $0.userId == userId })
+                    continuation.resume(returning: userExists)
+                } else {
+                    continuation.resume(returning: false)
+                }
+            } catch {
                 continuation.resume(throwing: error)
             }
         }
