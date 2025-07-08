@@ -91,7 +91,7 @@ struct HomeView: View {
                     // This is handled by the sheet, not navigation
                     EmptyView()
                 case .search:
-                    LazyView(content: SearchMapView(di: di))
+                    LazyView(content: SearchMapView(di: di,path: $path))
                         .onAppear {
                             container.resetNavigation()
                         }
@@ -106,7 +106,7 @@ struct HomeView: View {
                 get: { container.model.selectedEstateId},
                 set: { container.model.selectedEstateId = $0 }
             )) { identifiableString in
-                EstateDetailView(estateId: identifiableString.id)
+                LazyView(content: EstateDetailView(di: di,estateId: identifiableString.id))
             }
             .sheet(isPresented: $container.model.showSafariSheet) {
                 if let url = container.model.safariURL {
@@ -123,20 +123,11 @@ struct HomeView: View {
     private var searchBar: some View {
         HStack {
             Image(systemName: "magnifyingglass")
-                .foregroundColor(.gray)
+                .foregroundColor(Color.MainTextColor)
             
             TextField("검색어를 입력해주세요", text: $searchText)
                 .font(.system(size: 14))
                 .disabled(true) // 입력은 불가능
-            
-            if !searchText.isEmpty {
-                Button(action: {
-                    searchText = ""
-                }) {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(.gray)
-                }
-            }
         }
         .padding(8)
         .background(Color.white.opacity(0.9))
@@ -280,7 +271,7 @@ struct CategoryEstateView: View {
                         
                         Text(titles[index].rawValue)
                             .font(.caption)
-                            .foregroundColor(.primary)
+                            .foregroundColor(Color.MainTextColor)
                     }
                     .onTapGesture {
                         onCategoryTapped(titles[index])
@@ -303,7 +294,7 @@ struct SectionTitleView: View {
             Text(title)
                 .font(.title3)
                 .fontWeight(.bold)
-                .foregroundColor(.primary)
+                .foregroundColor(Color.MainTextColor)
             
             Spacer()
             
@@ -313,7 +304,7 @@ struct SectionTitleView: View {
                 }) {
                     Text("View All")
                         .font(.subheadline)
-                        .foregroundColor(.blue)
+                        .foregroundColor(Color.OliveMist)
                 }
             }
         }
@@ -344,7 +335,7 @@ struct LatestView: View {
                                 .foregroundColor(.white)
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 4)
-                                .background(Color.blue)
+                                .background(Color.OliveMist)
                                 .cornerRadius(4)
                                 .padding(6)
                                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -373,7 +364,7 @@ struct LatestView: View {
                                 Text("\(FormatManager.formatCurrency(entity[index].summary.deposit))/\(FormatManager.formatCurrency(entity[index].summary.monthlyRent))")
                                     .font(.subheadline)
                                     .fontWeight(.bold)
-                                    .foregroundColor(.primary)
+                                    .foregroundColor(Color.MainTextColor)
                             }
                             
                             Text(entity[index].address)
@@ -386,7 +377,6 @@ struct LatestView: View {
                     .background(Color.white)
                     .cornerRadius(12)
                     .onTapGesture {
-                         // 실제 데이터 있을 때 estateId넣기
                          onTap("estate_\(index)")
                      }
                 }
@@ -520,16 +510,16 @@ struct TopicEstateView: View {
             Text(entity.items[index].title)
                 .font(.headline)
                 .fontWeight(.bold)
-                .foregroundColor(.primary)
+                .foregroundColor(Color.MainTextColor)
             
             Text(entity.items[index].content)
                 .font(.subheadline)
-                .foregroundColor(.secondary)
+                .foregroundColor(Color.SubText)
                 .lineLimit(2)
             
             Text(entity.items[index].date)
                 .font(.caption)
-                .foregroundColor(.gray)
+                .foregroundColor(Color.SubText)
                 .frame(maxWidth: .infinity, alignment: .trailing)
         }
         .padding(.vertical, 8)
@@ -553,11 +543,11 @@ extension HomeView {
             })
         case .failure(let message):
             Text("에러: \(message)")
-                .foregroundColor(.red)
+                .foregroundColor(Color.TomatoRed)
                 .frame(height: 400)
         case .requiresLogin:
             Text("세션이 만료되어 로그아웃되었습니다.")
-                .foregroundColor(.red)
+                .foregroundColor(Color.TomatoRed)
                 .frame(height: 400)
                 .task {
                     isLoggedIn = false
@@ -577,11 +567,11 @@ extension HomeView {
             })
         case .failure(let message):
             Text("에러: \(message)")
-                .foregroundColor(.red)
+                .foregroundColor(Color.TomatoRed)
                 .frame(height: 200)
         case .requiresLogin:
             Text("세션이 만료되어 로그아웃되었습니다.")
-                .foregroundColor(.red)
+                .foregroundColor(Color.TomatoRed)
                 .frame(height: 400)
                 .task {
                     isLoggedIn = false
@@ -606,11 +596,11 @@ extension HomeView {
             })
         case .failure(let message):
             Text("에러: \(message)")
-                .foregroundColor(.red)
+                .foregroundColor(Color.TomatoRed)
                 .frame(height: 200)
         case .requiresLogin:
             Text("세션이 만료되어 로그아웃되었습니다.")
-                .foregroundColor(.red)
+                .foregroundColor(Color.TomatoRed)
                 .frame(height: 400)
                 .task {
                     isLoggedIn = false
