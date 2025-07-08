@@ -38,7 +38,6 @@ struct FormatManager {
     /// 이미지 경로를 받아 전체 URL로 반환합니다.
     /// 예: "/data/estates/house.png" -> "https://api.myserver.com/v1/data/estates/house.png"
     static func formatImageURL(_ path: String) -> String {
-        print(BaseURL.baseV1 + path)
         return BaseURL.baseV1 + path
     }
     
