@@ -28,12 +28,19 @@ final class NetworkManager {
 
         // ✅ 상태 코드 검사
         guard 200..<300 ~= httpResponse.statusCode else {
-            print(httpResponse.statusCode)
+            print("❌ HTTP 에러 발생:")
+            print("   상태 코드: \(httpResponse.statusCode)")
+            print("   URL: \(request.url?.absoluteString ?? "알 수 없음")")
+            print("   메서드: \(request.httpMethod ?? "알 수 없음")")
+            print("   헤더: \(request.allHTTPHeaderFields ?? [:])")
+            if let body = request.httpBody, let bodyString = String(data: body, encoding: .utf8) {
+                print("   요청 본문: \(bodyString)")
+            }
             throw CustomError.from(code: httpResponse.statusCode, router: target)
         }
 
         if let rawJSON = String(data: data, encoding: .utf8) {
-            //print("🧤Raw Response:\n\(rawJSON)")
+            print("🧤Raw Response:\n\(rawJSON)")
         } else {
             print("⚠️ Raw 데이터 UTF-8 디코딩 실패")
         }
@@ -43,9 +50,17 @@ final class NetworkManager {
             let decoded = try Self.makeDecoder().decode(T.self, from: data)
             return decoded
         } catch let decodingError as DecodingError {
-            print("🔍 디코딩 실패: \(decodingError)")
+            print("🔍 디코딩 실패:")
+            print("   URL: \(request.url?.absoluteString ?? "알 수 없음")")
+            print("   에러: \(decodingError)")
+            if let rawJSON = String(data: data, encoding: .utf8) {
+                print("   응답 데이터: \(rawJSON)")
+            }
             throw CustomError.unknown(code: 500, message: "디코딩 실패: \(decodingError.localizedDescription)")
         } catch {
+            print("🔍 기타 에러:")
+            print("   URL: \(request.url?.absoluteString ?? "알 수 없음")")
+            print("   에러: \(error)")
             throw CustomError.unknown(code: 500, message: error.localizedDescription)
         }
     }
@@ -107,6 +122,10 @@ final class NetworkManager {
         }
         
         guard httpResponse.statusCode == 200 else {
+            print("❌ 파일 다운로드 에러 발생:")
+            print("   상태 코드: \(httpResponse.statusCode)")
+            print("   URL: \(fullURL.absoluteString)")
+            print("   서버 경로: \(serverPath)")
             throw CustomError.from(code: httpResponse.statusCode, router: "FileDownload")
         }
         

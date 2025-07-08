@@ -6,15 +6,18 @@
 //
 
 import SwiftUI
+import CoreLocation
 
 struct CommunityView: View {
     @StateObject private var container: CommunityContainer
     @State private var profileImageData: Data?
     @Binding var path: NavigationPath
+    let di: DIContainer
     
     init(di: DIContainer, path: Binding<NavigationPath>) {
         self._container = StateObject(wrappedValue: di.makeCommunityContainer())
         self._path = path
+        self.di = di
     }
     
     var body: some View {
@@ -71,7 +74,7 @@ struct CommunityView: View {
                     }
                 
                 SearchAddressView(
-                    di: DIContainer(),
+                    di:di,
                     isPresented: $container.model.showSearchAddressView,
                     onAddressSelected: { searchData in
                         // SearchAddressView에서 선택된 위치 정보를 CommunityContainer로 전달
@@ -90,12 +93,53 @@ struct CommunityView: View {
                 .cornerRadius(12)
                 .padding()
             }
+            
+            // Posting Button
+            VStack {
+                Spacer()
+                HStack {
+                    Spacer()
+                    postingButton
+                }
+                .padding(.trailing, 20)
+                .padding(.bottom, 58) // 탭바 높이(78) + 20 offset
+            }
+        }
+        .navigationDestination(for: AppRoute.CommunityRoute.self) { route in
+            switch route {
+            case .posting:
+                LazyView(content: PostingView(di: di, path: $path))
+            case .postDetail(let postId):
+                LazyView(content: PostDetailView(postId: postId, di: di, path: $path))
+            }
+        }
+    }
+    
+    // MARK: - Posting Button
+    private var postingButton: some View {
+        Button(action: {
+            path.append(AppRoute.CommunityRoute.posting)
+        }) {
+            ZStack {
+                // 흰색 배경 원형
+                Circle()
+                    .fill(Color.white)
+                    .frame(width: 40, height: 40)
+                    .shadow(color: .black.opacity(0.15), radius: 8, y: 2)
+                
+                // 연필 아이콘
+                Image(systemName: "pencil.and.outline")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(.OliveMist)
+                    .frame(width: 30, height: 30)
+            }
         }
     }
     
     // MARK: - Search Bar
     private var searchBar: some View {
         HStack {
+            
             Image("Search")
                 .resizable()
                 .frame(width: 20, height: 20)
@@ -206,32 +250,47 @@ struct CommunityView: View {
                 ProgressView()
                     .padding()
             case .success(let posts):
-                LazyVStack(spacing: 0) {
-                    ForEach(Array(posts.enumerated()), id: \.element.summary.postId) { index, post in
-                        postCell(for: post)
-                        
-                        if index < posts.count - 1 {
-                            Divider()
-                                .background(Color.Gray60)
-                                .padding(.horizontal, 16)
-                        }
-                        
-                        // Load more when reaching the last item (위치 검색 모드에서만)
-                        if index == posts.count - 1 && 
-                           !container.model.isSearchMode && 
-                           container.model.nextCursor != nil {
-                            Color.clear
-                                .frame(height: 1)
-                                .onAppear {
-                                    container.handle(.loadMorePosts)
-                                }
-                        }
+                if posts.isEmpty {
+                    VStack(spacing: 16) {
+                        Image(systemName: "xmark.bin")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 60, height: 60)
+                            .foregroundColor(Color.Gray60)
+                        Text("검색 결과가 없습니다")
+                            .font(.pretendardBody)
+                            .foregroundColor(Color.Gray60)
                     }
-                    
-                    // Loading indicator for pagination
-                    if container.model.isLoadingMore {
-                        ProgressView()
-                            .padding()
+                    .frame(maxWidth: .infinity, minHeight: 200)
+                    .padding(.vertical, 40)
+                } else {
+                    LazyVStack(spacing: 0) {
+                        ForEach(Array(posts.enumerated()), id: \.element.postId) { index, post in
+                            postCell(for: post)
+                            
+                            if index < posts.count - 1 {
+                                Divider()
+                                    .background(Color.Gray60)
+                                    .padding(.horizontal, 16)
+                            }
+                            
+                            // Load more when reaching the last item (위치 검색 모드에서만)
+                            if index == posts.count - 1 && 
+                               !container.model.isSearchMode && 
+                               container.model.nextCursor != nil {
+                                Color.clear
+                                    .frame(height: 1)
+                                    .onAppear {
+                                        container.handle(.loadMorePosts)
+                                    }
+                            }
+                        }
+                        
+                        // Loading indicator for pagination
+                        if container.model.isLoadingMore {
+                            ProgressView()
+                                .padding()
+                        }
                     }
                 }
             case .failure(let error):
@@ -280,7 +339,7 @@ struct CommunityView: View {
                 
                 // Address, CreatedAt, Like Count
                 HStack(spacing: 8) {
-                    Text(post.address ?? "알 수 없음")
+                    Text(post.address)
                         .font(.soyoCaption)
                         .foregroundColor(Color.Gray60)
                     
@@ -306,16 +365,9 @@ struct CommunityView: View {
             // Image Section
             if !post.files.isEmpty {
                 ZStack(alignment: .topTrailing) {
-                    AsyncImage(url: URL(string: post.files[0] ?? "")) { image in
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                    } placeholder: {
-                        Rectangle()
-                            .fill(Color.Gray60.opacity(0.3))
-                    }
-                    .frame(width: 80, height: 80)
-                    .cornerRadius(6)
+                    CustomAsyncImage.listCell(imagePath: post.files[0])
+                        .frame(width: 80, height: 80)
+                        .cornerRadius(6)
                     
                     // Image Count Badge
                     if post.files.count > 1 {
@@ -334,14 +386,8 @@ struct CommunityView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
         .onTapGesture {
-            container.handle(.navigateToPostDetail(post.postId))
+            path.append(post.postId)
         }
-    }
-}
-
-#Preview {
-    NavigationStack {
-        CommunityView(di: DIContainer(), path: .constant(NavigationPath()))
     }
 }
 

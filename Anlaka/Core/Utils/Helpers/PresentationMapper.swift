@@ -163,11 +163,15 @@ enum PresentationMapper {
     static func formatRelativeTime(_ dateString: String?) -> String {
         guard let dateString = dateString else { return "알 수 없음" }
         
-        // ISO8601 형식의 String을 Date로 변환
+        // ISO8601 형식의 String을 Date로 변환 (한국 시간)
         guard let date = formatISO8601ToDate(dateString) else { return "알 수 없음" }
         
+        // 현재 시간을 한국 시간으로 설정
         let now = Date()
-        let timeInterval = now.timeIntervalSince(date)
+        let koreanTimeZone = TimeZone(identifier: "Asia/Seoul")!
+        let koreanNow = now.addingTimeInterval(TimeInterval(koreanTimeZone.secondsFromGMT()))
+        
+        let timeInterval = koreanNow.timeIntervalSince(date)
         
         // 24시간 이상 (86400초)
         if timeInterval >= 86400 {

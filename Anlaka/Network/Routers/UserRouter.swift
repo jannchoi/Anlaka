@@ -105,61 +105,31 @@ extension UserRouter {
         var body = Data()
         
         switch self {
-        case .profileImageUpload(let imageData):
+        case .profileImageUpload(let fileData):
             // 프로필 이미지 업로드 특화 로직
             // 1. 확장자 제한: jpg, png, jpeg
             // 2. 용량 제한: 1MB
             // 3. 최대 파일 개수: 1개
             // 4. request body: multipart/form-data - "profile" : String
-            
+
             let validExtensions = ["jpg", "jpeg", "png"]
             let maxSize: Int = 1 * 1024 * 1024 // 1MB
-            let targetSize = CGSize(width: 100, height: 100)
-            
-            // 이미지 압축 및 리사이즈
-            var compressedImageData = imageData
-            var compressionQuality: CGFloat = 0.5
-            
-            if let uiImage = UIImage(data: imageData) {
-                UIGraphicsBeginImageContextWithOptions(targetSize, false, 1.0)
-                uiImage.draw(in: CGRect(origin: .zero, size: targetSize))
-                let resizedImage = UIGraphicsGetImageFromCurrentImageContext()
-                UIGraphicsEndImageContext()
-                
-                if let resizedImage = resizedImage {
-                    while compressionQuality > 0.1 {
-                        if let jpegData = resizedImage.jpegData(compressionQuality: compressionQuality) {
-                            if jpegData.count <= maxSize {
-                                compressedImageData = jpegData
-                                break
-                            }
-                            compressionQuality -= 0.1
-                        } else {
-                            break
-                        }
-                    }
-                }
-            }
-            
-            // 이미지 시그니처 확인하여 파일 타입 결정
-            var mimeType = "image/jpeg"
-            var filename = "profile.jpg"
-            
-            let imageSignature: [UInt8] = Array(compressedImageData.prefix(4))
-            
-            // PNG 시그니처 확인 (0x89, 0x50, 0x4E, 0x47)
-            if imageSignature.starts(with: [0x89, 0x50, 0x4E, 0x47]) {
-                mimeType = "image/png"
-                filename = "profile.png"
-            }
 
+            // FileData 타입 활용
+            guard validExtensions.contains(fileData.fileExtension.lowercased()) else {
+                print("[UserRouter] Invalid file extension: \(fileData.fileExtension)")
+                break
+            }
+            guard fileData.data.count <= maxSize else {
+                print("[UserRouter] File too large: \(fileData.fileName)")
+                break
+            }
             // multipart/form-data 구성
             body.append("--\(boundary)\r\n".data(using: .utf8)!)
-            body.append("Content-Disposition: form-data; name=\"profile\"; filename=\"\(filename)\"\r\n".data(using: .utf8)!)
-            body.append("Content-Type: \(mimeType)\r\n\r\n".data(using: .utf8)!)
-            body.append(compressedImageData)
+            body.append("Content-Disposition: form-data; name=\"profile\"; filename=\"\(fileData.fileName)\"\r\n".data(using: .utf8)!)
+            body.append("Content-Type: \(fileData.mimeType)\r\n\r\n".data(using: .utf8)!)
+            body.append(fileData.data)
             body.append("\r\n".data(using: .utf8)!)
-            
         default:
             break
         }
