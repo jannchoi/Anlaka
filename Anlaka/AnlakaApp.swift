@@ -8,6 +8,7 @@
 import SwiftUI
 import KakaoSDKCommon
 import KakaoSDKAuth
+import KakaoMapsSDK
 
 @main
 struct AnlakaApp: App {
@@ -16,6 +17,7 @@ struct AnlakaApp: App {
     
     init() {
         KakaoSDK.initSDK(appKey: Environment.kakaoNativeKey)
+        SDKInitializer.InitSDK(appKey: Environment.kakaoNativeKey)
     }
     
     var body: some Scene {
@@ -25,7 +27,7 @@ struct AnlakaApp: App {
                                 if (AuthApi.isKakaoTalkLoginUrl(url)) {
                                     AuthController.handleOpenUrl(url: url)
                                 }
-                            })
+            })
         }
     }
 }
