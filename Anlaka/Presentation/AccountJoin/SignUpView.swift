@@ -40,7 +40,6 @@ struct SignUpView: View {
                 }
             }
         }
-        .navigationBarHidden(true)
         .alert(item: Binding(
             get: { container.model.errorMessage.map { Message(text: $0) } },
             set: { _ in container.model.errorMessage = nil })
