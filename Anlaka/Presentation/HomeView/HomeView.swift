@@ -78,17 +78,17 @@ struct HomeView: View {
             .navigationDestination(for: HomeRoute.self) { route in
                 switch route {
                 case .detail(let estateId):
-                    EstateDetailView(estateId: estateId)
+                    LazyView(content: EstateDetailView(estateId: estateId))
                         .onAppear {
                             container.resetNavigation()
                         }
                 case .category(let categoryType):
-                    CategoryDetailView(categoryType: categoryType)
+                    LazyView(content: CategoryDetailView(categoryType: categoryType))
                         .onAppear {
                             container.resetNavigation()
                         }
                 case .estatesAll(let type):
-                    EstatesAllView(listType: type)
+                    LazyView(content: EstatesAllView(listType: type))
                         .onAppear {
                             container.resetNavigation()
                         }
@@ -96,7 +96,7 @@ struct HomeView: View {
                     // This is handled by the sheet, not navigation
                     EmptyView()
                 case .search:
-                    SearchMapView(di: di)
+                    LazyView(content: SearchMapView(di: di))
                         .onAppear {
                             container.resetNavigation()
                         }
@@ -165,7 +165,6 @@ struct TodayEstateView: View {
                 TabView(selection: $currentPage) {
                     ForEach(Array(entity.enumerated()), id: \.offset) { index, item in
                         ZStack(alignment: .bottom) {
-                            // 배경 이미지 (캐싱된 이미지 사용)
                             if let cachedImage = preloadedImages[index] {
                                 Image(uiImage: cachedImage)
                                     .resizable()
