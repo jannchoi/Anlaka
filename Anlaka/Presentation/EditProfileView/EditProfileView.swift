@@ -147,7 +147,7 @@ struct ProfileImageView: View {
         } else if let uploadedImagePath = uploadedImagePath,
                   !uploadedImagePath.isEmpty {
             // 업로드 완료된 이미지 (CustomAsyncImage로 표시)
-            CustomAsyncImage(imagePath: uploadedImagePath)
+            CustomAsyncImage.profile(imagePath: uploadedImagePath)
                 .frame(width: 100, height: 100)
                 .clipShape(Circle())
                 .overlay(Circle().stroke(Color.gray.opacity(0.3), lineWidth: 1))
@@ -155,7 +155,7 @@ struct ProfileImageView: View {
                   let profileImage = profileInfo.profileImage,
                   !profileImage.isEmpty {
             // UserDefaults에 저장된 기존 이미지 (CustomAsyncImage로 표시)
-            CustomAsyncImage(imagePath: profileImage)
+            CustomAsyncImage.profile(imagePath: profileImage)
                 .frame(width: 100, height: 100)
                 .clipShape(Circle())
                 .overlay(Circle().stroke(Color.gray.opacity(0.3), lineWidth: 1))
