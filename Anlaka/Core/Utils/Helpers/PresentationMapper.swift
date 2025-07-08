@@ -157,6 +157,41 @@ enum PresentationMapper {
         
         return Date()
     }
+    /// ISO8601 형식의 String을 String으로 변환 (한국 시간)
+    /// 현재 시간으로부터 24시간 ~ 1시간 사이 이면 '~시간전'(현재 시간으로부터 2시간 30분 전 이라면 '2시간전'), 현재 시간으로부터 1시간 이내이면 '~분전'(현재 시간으로부터 15분 전 이라면 '15분전'), 현재 시간으로부터 24시간 보다 오래되었으면 'yyyy.MM.dd'
+    /// 만약 날짜를 특정할 수 없으면 "알 수 없음"
+    static func formatRelativeTime(_ dateString: String?) -> String {
+        guard let dateString = dateString else { return "알 수 없음" }
+        
+        // ISO8601 형식의 String을 Date로 변환
+        guard let date = formatISO8601ToDate(dateString) else { return "알 수 없음" }
+        
+        let now = Date()
+        let timeInterval = now.timeIntervalSince(date)
+        
+        // 24시간 이상 (86400초)
+        if timeInterval >= 86400 {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy.MM.dd"
+            formatter.locale = Locale(identifier: "ko_KR")
+            formatter.timeZone = TimeZone(identifier: "Asia/Seoul")
+            return formatter.string(from: date)
+        }
+        // 1시간 이상 24시간 미만 (3600초 ~ 86399초)
+        else if timeInterval >= 3600 {
+            let hours = Int(timeInterval / 3600)
+            return "\(hours)시간전"
+        }
+        // 1시간 미만 (0초 ~ 3599초)
+        else if timeInterval >= 60 {
+            let minutes = Int(timeInterval / 60)
+            return "\(minutes)분전"
+        }
+        // 1분 미만
+        else {
+            return "방금전"
+        }
+    }
 
 
 //    static func formatOrderDateTOString(_ dateString: String?) -> String {
