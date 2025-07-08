@@ -31,6 +31,7 @@ struct HotSummaryEntity {
     let geolocation: GeolocationEntity
     let area: Double?
     let likeCount: Int?
+    let isRecommended: Bool?
 }
 struct HotSummaryPresentation {
     let estateId: String
@@ -41,6 +42,7 @@ struct HotSummaryPresentation {
     let monthlyRent: String
     let area: String
     let likeCount: String
+    let isRecommended: Bool
 }
 struct HotEstatePresentation  {
     let data : [HotSummaryPresentation]
@@ -56,6 +58,6 @@ extension HotEstateEntity {
 }
 extension HotSummaryEntity {
     func toPresentation () -> HotSummaryPresentation {
-        return HotSummaryPresentation(estateId: estateId, category: category, title: title, thumbnail: thumbnail, deposit: PresentationMapper.formatToShortUnitString(deposit), monthlyRent: PresentationMapper.formatToShortUnitString(monthlyRent), area: PresentationMapper.formatArea(area), likeCount: PresentationMapper.formatCount(likeCount))
+        return HotSummaryPresentation(estateId: estateId, category: category, title: title, thumbnail: thumbnail, deposit: PresentationMapper.formatToShortUnitString(deposit), monthlyRent: PresentationMapper.formatToShortUnitString(monthlyRent), area: PresentationMapper.formatArea(area), likeCount: PresentationMapper.formatCount(likeCount), isRecommended: isRecommended ?? false)
     }
 }

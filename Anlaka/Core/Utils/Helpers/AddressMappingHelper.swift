@@ -12,7 +12,37 @@ struct AddressMappingResult<T> {
 }
 
 struct AddressMappingHelper {
-    
+    static func mapLikeSummariesWithAddress(_ summaries: [LikeSummaryEntity],_ repository: NetworkRepository) async -> AddressMappingResult<LikeEstateWithAddress> {
+        await withTaskGroup(of: Result<LikeEstateWithAddress?, Error>.self) { group in
+            for summary in summaries {
+                group.addTask {
+                    let geo = summary.geolocation
+                    do {
+                        let address = try await repository.getAddressFromGeo(geo).toShortAddress()
+                        return .success(LikeEstateWithAddress(summary: summary.toPresentation(), address: address))
+                    } catch {
+                        return .success(nil) // 앱은 돌아가게
+                            .flatMapError { _ in .failure(error) }
+                    }
+                }
+            }
+
+            var estates: [LikeEstateWithAddress?] = []
+            var errors: [Error] = []
+
+            for await result in group {
+                switch result {
+                case .success(let estate):
+                    estates.append(estate)
+                case .failure(let error):
+                    errors.append(error)
+                }
+            }
+            
+            return AddressMappingResult(estates: Array(estates.compactMap{$0}.prefix(7)), errors: errors)
+        }
+    }
+        
     static func mapHotSummariesWithAddress(
            _ summaries: [HotSummaryEntity],
            repository: NetworkRepository
@@ -26,7 +56,7 @@ struct AddressMappingHelper {
                            let address = try await repository.getAddressFromGeo(geo).toShortAddress()
                            return .success(HotEstateWithAddress(summary: summary.toPresentation(), address: address))
                        } catch {
-                           let message = (error as? NetworkError)?.errorDescription ?? error.localizedDescription
+
                            return .success(nil) // 앱은 돌아가게
                                .flatMapError { _ in .failure(error) }
                        }
