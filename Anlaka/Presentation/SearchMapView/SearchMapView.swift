@@ -27,14 +27,18 @@ struct SearchMapView: View {
                 KakaoMapView(
                     draw: $draw,
                     centerCoordinate: container.model.centerCoordinate,
-                    isInteractive: !isSearchBarEditing, // 검색 중이면 지도 상호작용 비활성화
-                    pinInfoList: container.model.pinInfoList, // 핀 정보 전달
+                    isInteractive: !isSearchBarEditing,
+                    pinInfoList: container.model.pinInfoList,
                     onCenterChanged: { newCenter in
                         container.handle(.updateCenterCoordinate(newCenter))
                     },
                     onMapReady: { maxDistance in
-                        // 지도가 준비되고 maxDistance가 계산되면 호출
                         container.handle(.mapDidStopMoving(center: container.model.centerCoordinate, maxDistance: maxDistance))
+                    },
+                    // 새로운 콜백 추가 - 지도 변화 시 즉시 호출
+                    onMapChanged: { center, maxDistance in
+                        // 즉시 getGeoEstates 호출
+                        container.handle(.mapDidStopMoving(center: center, maxDistance: maxDistance))
                     }
                 )
             } else {
