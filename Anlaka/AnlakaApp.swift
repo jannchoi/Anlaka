@@ -13,7 +13,7 @@ import KakaoMapsSDK
 @main
 struct AnlakaApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
-    @StateObject private var di = DIContainer(networkRepository: NetworkRepositoryImp())
+    @StateObject private var di = DIContainer(networkRepository: NetworkRepositoryImp(), databaseRepository: try! DatabaseRepositoryImp())
     @AppStorage(TextResource.Global.isLoggedIn.text) private var isLoggedIn: Bool = false
     
     
