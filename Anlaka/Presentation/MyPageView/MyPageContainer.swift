@@ -13,11 +13,14 @@ struct MyPageModel {
     var backToLogin: Bool = false
     var errorMessage: String? = nil
     var updatedRoomIds: Set<String> = []
+    var isInitialized: Bool = false
 }
 
 enum MyPageIntent {
     case initialRequest
+    case refreshData
     case addMyEstate
+    case logout
 }
 
 @MainActor
@@ -34,12 +37,31 @@ final class MyPageContainer: ObservableObject {
     func handle(_ intent: MyPageIntent) {
         switch intent {
         case .initialRequest:
-           
-                 getMyProfileInfo()
-                 getChatRoomList()
+            // 이미 초기화된 경우 중복 로드 방지
+            guard !model.isInitialized else { return }
+            
+            getMyProfileInfo()
+            getChatRoomList()
+            
+            model.isInitialized = true
+            
+        case .refreshData:
+            // 기존 데이터를 초기화한 후 다시 로드
+            model.profileInfo = nil
+            model.chatRoomList = []
+            model.updatedRoomIds = []
+            model.isInitialized = false
+            
+            getMyProfileInfo()
+            getChatRoomList()
+            
+            model.isInitialized = true
             
         case .addMyEstate:
             uploadAdminRequest()
+        case .logout:
+            // 로그아웃 처리
+            logout()
         }
     }
     private func uploadAdminRequest() {
@@ -62,24 +84,22 @@ final class MyPageContainer: ObservableObject {
     }
     
     private func getMyProfileInfo() {
-        guard let myProfile = UserDefaultsManager.shared.getObject(forKey: .profileData, as: MyProfileInfoEntity.self) else {
-            Task {
-                do {
-                    let myProfile = try await repository.getMyProfileInfo()
-                    model.profileInfo = myProfile
-                } catch {
-                    print("❌ Failed to get my profile info: \(error)")
-                    if let netError = error as? NetworkError, netError == .expiredRefreshToken {
-                        model.backToLogin = true
-                    } else {
-                        let message = (error as? NetworkError)?.errorDescription ?? error.localizedDescription
-                        model.errorMessage = message
-                    }
+        Task {
+            do {
+                let myProfile = try await repository.getMyProfileInfo()
+                // 서버에서 받은 최신 프로필 정보를 UserDefaults에 저장
+                UserDefaultsManager.shared.setObject(myProfile, forKey: .profileData)
+                model.profileInfo = myProfile
+            } catch {
+                print("❌ Failed to get my profile info: \(error)")
+                if let netError = error as? NetworkError, netError == .expiredRefreshToken {
+                    model.backToLogin = true
+                } else {
+                    let message = (error as? NetworkError)?.errorDescription ?? error.localizedDescription
+                    model.errorMessage = message
                 }
             }
-            return
         }
-        model.profileInfo = myProfile
     }
     
     private func getChatRoomList() {
@@ -106,13 +126,33 @@ final class MyPageContainer: ObservableObject {
                 for serverRoom in serverRooms.rooms {
                     if let localRoom = localRooms.first(where: { $0.roomId == serverRoom.roomId }) {
                         // 기존 방이 있는 경우
+                        var shouldUpdate = false
+                        
+                        // 1) 채팅 메시지 업데이트 확인 (서버 가이드에 따름)
+                        // 서버의 updatedAt이 로컬DB의 updatedAt보다 크면 새로운 채팅이 있음을 의미
                         if serverRoom.updatedAt > localRoom.updatedAt {
-                            updatedRoomIds.insert(serverRoom.roomId)
+                            shouldUpdate = true
+                            updatedRoomIds.insert(serverRoom.roomId) // hasNewChat 표시용
+                            print("🆕 새로운 채팅 발견: \(serverRoom.roomId), 서버: \(serverRoom.updatedAt), 로컬: \(localRoom.updatedAt)")
                         }
-                        roomsToUpdate.append(serverRoom)
+                        
+                        // 2) 프로필 정보 변경 확인 (채팅 메시지는 없지만 프로필이 변경된 경우)
+                        let profileChanged = hasProfileChanged(serverRoom: serverRoom, localRoom: localRoom)
+                        if profileChanged {
+                            shouldUpdate = true
+                            print("👤 프로필 정보 변경: \(serverRoom.roomId)")
+                        }
+                        
+                        if shouldUpdate {
+                            roomsToUpdate.append(serverRoom)
+                        } else {
+                            // 업데이트가 필요없으면 기존 로컬 데이터 사용
+                            roomsToUpdate.append(localRoom)
+                        }
                     } else {
                         // 새로운 방인 경우
                         roomsToUpdate.append(serverRoom)
+                        print("🆕 새로운 채팅방: \(serverRoom.roomId)")
                     }
                 }
                 
@@ -129,7 +169,9 @@ final class MyPageContainer: ObservableObject {
                 
                 // 5. UI 갱신
                 model.chatRoomList = roomsToUpdate
-                model.updatedRoomIds = updatedRoomIds
+                model.updatedRoomIds = updatedRoomIds // hasNewChat 표시할 채팅방 ID들
+                
+                print("📱 UI 업데이트 완료 - 새로운 채팅이 있는 방: \(updatedRoomIds)")
                 
             } catch {
                 print("❌ Failed to get chat room list: \(error)")
@@ -141,6 +183,38 @@ final class MyPageContainer: ObservableObject {
                 }
             }
         }
+    }
+    
+    // 프로필 정보 변경 확인 헬퍼 메서드
+    private func hasProfileChanged(serverRoom: ChatRoomEntity, localRoom: ChatRoomEntity) -> Bool {
+        // 서버와 로컬의 participants 수가 다르면 변경된 것으로 간주
+        if serverRoom.participants.count != localRoom.participants.count {
+            return true
+        }
+        
+        // 각 participant의 프로필 정보 비교
+        for serverParticipant in serverRoom.participants {
+            if let localParticipant = localRoom.participants.first(where: { $0.userId == serverParticipant.userId }) {
+                // 프로필 정보가 다르면 변경된 것으로 간주
+                if serverParticipant.nick != localParticipant.nick ||
+                   serverParticipant.introduction != localParticipant.introduction ||
+                   serverParticipant.profileImage != localParticipant.profileImage {
+                    return true
+                }
+            } else {
+                // 새로운 참여자가 추가된 경우
+                return true
+            }
+        }
+        
+        return false
+    }
+
+    private func logout() {
+        UserDefaultsManager.shared.removeObject(forKey: .accessToken)
+        UserDefaultsManager.shared.removeObject(forKey: .refreshToken)
+        UserDefaultsManager.shared.removeObject(forKey: .profileData)
+        model.backToLogin = true
     }
 }
     

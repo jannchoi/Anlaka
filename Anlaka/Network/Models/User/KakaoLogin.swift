@@ -8,14 +8,15 @@
 import Foundation
 struct KakaoLoginRequestDTO: Encodable {
     let oauthToken: String
-    let deviceToken: String
+    let deviceToken: String?
 }
 struct KakaoLoginRequestEntity {
-    let oauthToken: String
-    let deviceToken: String
+    let oauthToken: String?
+    let deviceToken: String?
 }
 extension KakaoLoginRequestEntity {
-    func toDTO() -> KakaoLoginRequestDTO {
+    func toDTO() -> KakaoLoginRequestDTO? {
+        guard let oauthToken = oauthToken else {return nil}
         return KakaoLoginRequestDTO(
             oauthToken: oauthToken,
             deviceToken: deviceToken

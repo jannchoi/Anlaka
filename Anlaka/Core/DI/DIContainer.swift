@@ -9,12 +9,20 @@ import Foundation
 
 @MainActor
 final class DIContainer: ObservableObject {
-    let networkRepository: NetworkRepository
+    private let networkRepository: NetworkRepository
     private let databaseRepository: DatabaseRepository
-    init(networkRepository: NetworkRepository, databaseRepository: DatabaseRepository) {
-        self.networkRepository = networkRepository
-        self.databaseRepository = databaseRepository
+    
+    init() throws {
+        self.networkRepository = NetworkRepositoryFactory.create()
+        self.databaseRepository = try DatabaseRepositoryFactory.create()
     }
+    
+    // MARK: - Static Factory Method
+    static func create() throws -> DIContainer {
+        return try DIContainer()
+    }
+    
+    // MARK: - Container Factory Methods
     func makeLoginContainer() -> LoginContainer {
         LoginContainer(repository: networkRepository)
     }
@@ -38,5 +46,18 @@ final class DIContainer: ObservableObject {
     }
     func makeChattingContainer(roomId: String) -> ChattingContainer {
         ChattingContainer(repository: networkRepository, databaseRepository: databaseRepository, roomId: roomId)
+    }
+    func makeEditProfieContainer() -> EditProfileContainer {
+        EditProfileContainer(repository: networkRepository)
+    }
+    
+    func makeEstateDetailContainer(estateId: String) -> EstateDetailContainer {
+        EstateDetailContainer(repository: networkRepository, estateId: estateId)
+    }
+    func makeEstateDetailContainer(estate: DetailEstateEntity) -> EstateDetailContainer {
+        EstateDetailContainer(repository: networkRepository, estate: estate)
+    }
+    func makePaymentContainer(iamportPayment: IamportPaymentEntity) -> PaymentContainer {
+        PaymentContainer(repository: networkRepository, iamportPayment: iamportPayment)
     }
 }
