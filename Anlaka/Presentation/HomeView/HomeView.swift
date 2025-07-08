@@ -73,6 +73,10 @@ struct HomeView: View {
                     }
                     .padding(.bottom)
                 }
+                .refreshable {
+                    // 사용자가 스크롤을 당겨서 새로고침할 때
+                    container.handle(.refreshData)
+                }
             }
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarHidden(true) // 네비게이션 바 완전히 숨김
