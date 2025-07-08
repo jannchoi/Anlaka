@@ -16,7 +16,6 @@ class Coordinator: NSObject, MapControllerDelegate, KakaoMapEventDelegate {
     var isViewAdded = false
     var onMapReady: ((Double) -> Void)?
     var onMapChanged: ((CLLocationCoordinate2D, Double) -> Void)?
-    var isInteractive: Bool
     var longitude: Double
     var latitude: Double
     
@@ -45,7 +44,6 @@ class Coordinator: NSObject, MapControllerDelegate, KakaoMapEventDelegate {
     
     init(
         centerCoordinate: CLLocationCoordinate2D,
-        isInteractive: Bool,
         onMapReady: ((Double) -> Void)? = nil,
         onMapChanged: ((CLLocationCoordinate2D, Double) -> Void)? = nil
     ) {
@@ -53,7 +51,6 @@ class Coordinator: NSObject, MapControllerDelegate, KakaoMapEventDelegate {
         self.latitude = centerCoordinate.latitude
         self.onMapReady = onMapReady
         self.onMapChanged = onMapChanged
-        self.isInteractive = isInteractive
         super.init()
     }
     
@@ -137,8 +134,6 @@ class Coordinator: NSObject, MapControllerDelegate, KakaoMapEventDelegate {
     }
     
     func cameraDidStopped(kakaoMap: KakaoMap, by: MoveBy) {
-        guard isInteractive else { return }
-        
         // 현재 줌 레벨과 좌표 정보 출력
         let currentZoomLevel = kakaoMap.zoomLevel
 
@@ -288,14 +283,13 @@ extension Coordinator {
     // 초기화 메서드 수정 (기존 init에 추가)
     convenience init(
         centerCoordinate: CLLocationCoordinate2D,
-        isInteractive: Bool,
         onMapReady: ((Double) -> Void)? = nil,
         onMapChanged: ((CLLocationCoordinate2D, Double) -> Void)? = nil,
         onClusterTap: ((ClusterInfo) -> Void)? = nil,
         onPOITap: ((String) -> Void)? = nil,
         onPOIGroupTap: (([String]) -> Void)? = nil
     ) {
-        self.init(centerCoordinate: centerCoordinate, isInteractive: isInteractive, onMapReady: onMapReady, onMapChanged: onMapChanged)
+        self.init(centerCoordinate: centerCoordinate,onMapReady: onMapReady, onMapChanged: onMapChanged)
         self.onClusterTap = onClusterTap
         self.onPOITap = onPOITap
         self.onPOIGroupTap = onPOIGroupTap
