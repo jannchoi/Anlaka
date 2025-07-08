@@ -31,7 +31,7 @@ struct MyPageView: View {
                         showLogoutAlert = true
                     }) {
                         Text("로그아웃")
-                            .font(.system(size: 14))
+                            .font(.pretendardCaption)
                             .foregroundColor(Color.MainTextColor)
                     }
                 }
@@ -90,7 +90,8 @@ struct MyPageView: View {
                 container.handle(.logout)
             }
         } message: {
-            Text("정말 로그아웃하시겠습니까?")
+                            Text("정말 로그아웃하시겠습니까?")
+                    .font(.pretendardBody)
         }
     }
 }
@@ -190,7 +191,7 @@ struct AddEstateButton: View {
     var body: some View {
         Button(action: onAddEstate) {
             Text("매물 추가하기")
-                .font(.system(size: 11))
+                .font(.pretendardCaption2)
                 .foregroundColor(Color.MainTextColor)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
@@ -223,15 +224,14 @@ struct ProfileInfoView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text(profileInfo.nick)
-                    .font(.title2)
-                    .fontWeight(.semibold)
+                    .font(.soyoTitle2)
                 Spacer()
             }
             
             if let phone = profileInfo.phoneNum {
                 HStack {
                     Text(phone)
-                        .font(.subheadline)
+                        .font(.pretendardSubheadline)
                         .foregroundColor(.gray)
                     Spacer()
                 }
@@ -246,7 +246,7 @@ struct ProfileErrorView: View {
         VStack {
             Text("프로필 데이터를 찾을 수 없습니다.")
                 .foregroundColor(.white)
-                .font(.headline)
+                .font(.soyoHeadline)
         }
         .frame(maxWidth: .infinity)
         .frame(height: 200)
@@ -263,11 +263,10 @@ struct IntroductionView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Introduction")
-                .font(.headline)
-                .fontWeight(.medium)
+                .font(.soyoHeadline)
             
             Text(introduction ?? "I am a good person")
-                .font(.body)
+                .font(.pretendardBody)
                 .foregroundColor(Color.MainTextColor)
                 .multilineTextAlignment(.leading)
         }
@@ -363,13 +362,11 @@ struct ChatInfoView: View {
                 // 상대방의 닉네임 사용
                 if let opponent = getOpponent(room: room) {
                     Text(opponent.nick)
-                        .font(.body)
-                        .fontWeight(.medium)
+                        .font(.pretendardBody)
                         .foregroundColor(Color.MainTextColor)
                 } else {
                     Text("사용자")
-                        .font(.body)
-                        .fontWeight(.medium)
+                        .font(.pretendardBody)
                         .foregroundColor(Color.MainTextColor)
                 }
                 
@@ -381,7 +378,7 @@ struct ChatInfoView: View {
             }
             
             Text(room.lastChat?.content ?? "")
-                .font(.caption)
+                .font(.pretendardCaption)
                 .foregroundColor(.gray)
                 .lineLimit(1)
         }
