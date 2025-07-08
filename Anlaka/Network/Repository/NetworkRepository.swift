@@ -41,4 +41,8 @@ protocol NetworkRepository {
     func getOrders() async throws -> GetOrdersResponseEntity
     func validatePayment(payment: ReceiptPaymentRequestDTO) async throws -> ReceiptOrderResponseEntity
     func getPayment(orderCode: String) async throws -> PaymentResponseEntity
+    func editProfile(editProfile: EditProfileRequestEntity) async throws -> MyProfileInfoEntity
+    func uploadProfileImage(image: Data) async throws -> ProfileImageEntity
+    func getOtherProfileInfo(userId: String) async throws -> OtherProfileInfoEntity
+    func searchUser(nick: String) async throws -> SearchUserEntity
 }
