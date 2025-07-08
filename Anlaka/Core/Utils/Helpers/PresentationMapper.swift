@@ -132,7 +132,7 @@ enum PresentationMapper {
     }
     
     /// ISO8601 형식의 String을 Date로 변환 (한국 시간)
-    static func formatISO8601ToDate(_ dateString: String?) -> Date {
+    static func formatISO8601ToDate(_ dateString: String?) -> Date? {
         guard let dateString = dateString else { return Date() }
         
         let formatter = ISO8601DateFormatter()
@@ -157,4 +157,17 @@ enum PresentationMapper {
         
         return Date()
     }
+
+
+//    static func formatOrderDateTOString(_ dateString: String?) -> String {
+//        guard let dateString = dateString else { return "알 수 없음" }
+//        
+//        let date = parseISO8601ToDate(dateString)
+//        let formatter = DateFormatter()
+//        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+//        formatter.locale = Locale(identifier: "ko_KR")
+//        formatter.timeZone = TimeZone(identifier: "Asia/Seoul") // 한국 시간대로 변경
+//        
+//        return formatter.string(from: date)
+//    }
 }
