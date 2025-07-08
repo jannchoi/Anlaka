@@ -289,7 +289,7 @@ extension Coordinator {
         }
         
         if addedCount > 0 {
-            print("✅ POI \(addedCount)개 추가 완료")
+            // print("✅ POI \(addedCount)개 추가 완료")
         }
     }
 
@@ -471,16 +471,19 @@ extension Coordinator {
     
     // MARK: - 원형 이미지 생성 (매물 수 표시용)
     private func createCircleImage(count: Int, poiSize: CGFloat?) -> UIImage {
-        //print(#function)
+        //print("🔍 createCircleImage - 시작: count=\(count), poiSize=\(String(describing: poiSize))")
         let size = CGSize(width: poiSize ?? 50, height: poiSize ?? 50)
         let renderer = UIGraphicsImageRenderer(size: size)
 
-        return renderer.image { context in
+        let image = renderer.image { context in
             let rect = CGRect(origin: .zero, size: size)
 
             // Assets의 원형 배경 이미지
             if let backgroundImage = UIImage(named: "Ellipse") {
+                //print("✅ Ellipse 이미지 로드 성공")
                 backgroundImage.draw(in: rect)
+            } else {
+                print("❌ Ellipse 이미지 로드 실패")
             }
 
             // 텍스트
@@ -498,6 +501,9 @@ extension Coordinator {
             )
             text.draw(in: textRect, withAttributes: attributes)
         }
+        
+        //print("✅ createCircleImage - 이미지 생성 완료: size=\(image.size), scale=\(image.scale)")
+        return image
     }
 
     
@@ -520,15 +526,14 @@ extension Coordinator {
     
     // MARK: - 배지 이미지 생성
     private func createBadgeImage(count: Int) -> UIImage {
-        //print(#function)
+        //print("🔍 createBadgeImage - 시작: count=\(count)")
         let size = CGSize(width: 13, height: 13)
         let renderer = UIGraphicsImageRenderer(size: size)
         
-        return renderer.image { context in
+        let image = renderer.image { context in
             let rect = CGRect(origin: .zero, size: size)
             let cgContext = context.cgContext
             
-
             cgContext.setFillColor(UIColor.softSage.cgColor)
             cgContext.fillEllipse(in: rect)
             
@@ -549,6 +554,9 @@ extension Coordinator {
             
             text.draw(in: textRect, withAttributes: attributes)
         }
+        
+        //print("✅ createBadgeImage - 이미지 생성 완료: size=\(image.size), scale=\(image.scale)")
+        return image
     }
 }
 
@@ -618,7 +626,7 @@ extension Coordinator {
     
     @MainActor
     private func createClusterPOIsForLowZoom(_ clusterInfos: [ClusterInfo], maxPoiSize: CGFloat?) {
-        print(#function)
+        //print(#function)
         guard let kakaoMap = controller?.getView("mapview") as? KakaoMap,
               let layer = kakaoMap.getLabelManager().getLabelLayer(layerID: layerID),
               let maxPoiSize = maxPoiSize else {
@@ -629,11 +637,16 @@ extension Coordinator {
         //clusters.removeAll()
         
         // 최소, 최대 count 계산
+        // clusterInfos가 빈 배열일 때 counts.min()과 counts.max()가 nil이 됨
         let counts = clusterInfos.map { $0.count }
-        guard let minCount = counts.min(), let maxCount = counts.max() else {
-            print("❌ 클러스터 count 추출 실패")
+        guard !clusterInfos.isEmpty else {
+            print("❌ 클러스터가 비어있음")
             return
         }
+        
+        // clusterInfos가 비어있지 않으면 min/max는 항상 존재
+        let minCount = counts.min()!
+        let maxCount = counts.max()!
         
         for (index, cluster) in clusterInfos.enumerated() {
             // poiSize 계산 (루트 보간)
@@ -770,37 +783,74 @@ extension Coordinator {
     
     // 이미지 처리 (zoomLevel 17 이상)
     private func processEstateImage(for pinInfo: PinInfo) async -> UIImage {
-        //print(#function)
         let size = CGSize(width: 40, height: 40)
 
         if let imagePath = pinInfo.image {
-
             if let cachedImage = ImageCache.shared.image(forKey: imagePath) {
-                
-                return applyStyle(to: cachedImage, size: size)
+                do {
+                    let processedImage = try applyStyle(to: cachedImage, size: size)
+                    return processedImage
+                } catch {
+                    print("❌ 캐시 이미지 처리 실패: \(error.localizedDescription)")
+                    return createDefaultEstateImage(size: size)
+                }
             }
             
-            if let downloadedImage = await ImageDownsampler.downloadAndDownsample(
-                imagePath: imagePath,
-                to: size
-            ) {
-                
-                ImageCache.shared.setImage(downloadedImage, forKey: imagePath)
-                let processedImage = applyStyle(to: downloadedImage, size: size)
-                return processedImage
+            do {
+                if let downloadedImage = try await ImageDownsampler.downloadAndDownsample(
+                    imagePath: imagePath,
+                    to: size
+                ) {
+                    // 이미지 포맷 검증
+                    guard let cgImage = downloadedImage.cgImage else {
+                        print("❌ CGImage 변환 실패")
+                        return createDefaultEstateImage(size: size)
+                    }
+                    
+                    // 이미지 포맷 검사
+                    let bitsPerComponent = cgImage.bitsPerComponent
+                    let bitsPerPixel = cgImage.bitsPerPixel
+                    
+                    // 이미지 포맷이 유효한지 검사
+                    guard bitsPerComponent == 8 && bitsPerPixel == 32 else {
+                        print("❌ 지원하지 않는 이미지 포맷: bitsPerComponent=\(bitsPerComponent), bitsPerPixel=\(bitsPerPixel)")
+                        return createDefaultEstateImage(size: size)
+                    }
+                    
+                    ImageCache.shared.setImage(downloadedImage, forKey: imagePath)
+                    let processedImage = try applyStyle(to: downloadedImage, size: size)
+                    return processedImage
+                } else {
+                    print("❌ 이미지 다운로드 실패")
+                    return createDefaultEstateImage(size: size)
+                }
+            } catch {
+                print("❌ 이미지 처리 중 에러 발생: \(error.localizedDescription)")
+                return createDefaultEstateImage(size: size)
             }
+        } else {
+            print("❌ 이미지 경로 없음")
+            return createDefaultEstateImage(size: size)
         }
-        
-        return createDefaultEstateImage(size: size)
     }
     
-    private func applyStyle(to image: UIImage,
-                            size: CGSize) -> UIImage {
-        //print(#function)
+    private func applyStyle(to image: UIImage, size: CGSize) throws -> UIImage {
+        // 이미지 유효성 검사
+        guard let cgImage = image.cgImage else {
+            throw ImageError.invalidImageFormat("CGImage 변환 실패")
+        }
+        
+        // 이미지 포맷 검사
+        let bitsPerComponent = cgImage.bitsPerComponent
+        let bitsPerPixel = cgImage.bitsPerPixel
+        
+        guard bitsPerComponent == 8 && bitsPerPixel == 32 else {
+            throw ImageError.invalidImageFormat("지원하지 않는 이미지 포맷: bitsPerComponent=\(bitsPerComponent), bitsPerPixel=\(bitsPerPixel)")
+        }
+        
         // 1️⃣ 배경 이미지 로드
         guard let bubbleImage = UIImage(named: "MapBubbleButton") else {
-            print("❌ 'MapBubbleButton' 이미지 없음")
-            return createDefaultEstateImage(size: size)
+            throw ImageError.missingAsset("MapBubbleButton 이미지 없음")
         }
 
         // 2️⃣ MapBubbleButton의 원본 비율 계산
@@ -813,14 +863,14 @@ extension Coordinator {
         // 4️⃣ 전체 배경 사이즈 계산
         let bubbleWidth = imageSize + 8
         let bubbleHeight = bubbleWidth * bubbleAspectRatio - 10
-        let finalSize = CGSize(width: bubbleWidth + 6, height: bubbleHeight + 6) // 그림자 공간 포함
+        let finalSize = CGSize(width: bubbleWidth + 6, height: bubbleHeight + 6)
 
         // 5️⃣ 렌더링 시작
         let renderer = UIGraphicsImageRenderer(size: finalSize)
-        return renderer.image { context in
+        let resultImage = renderer.image { context in
             let ctx = context.cgContext
 
-            // 6️⃣ 그림자 설정 (bubbleImage 전용)
+            // 6️⃣ 그림자 설정
             ctx.setShadow(offset: CGSize(width: 0, height: 2),
                           blur: 4,
                           color: UIColor.black.withAlphaComponent(0.3).cgColor)
@@ -840,9 +890,11 @@ extension Coordinator {
                 size: size
             )
 
-            // 🔟 내부 이미지 그리기 (그림자 없음)
+            // 🔟 내부 이미지 그리기
             image.draw(in: imageRect)
         }
+        
+        return resultImage
     }
 
     
@@ -969,5 +1021,23 @@ extension GeoCoordinate {
     var clLocationCoordinate: CLLocationCoordinate2D {
         //print(#function)
         return CLLocationCoordinate2D(latitude: self.latitude, longitude: self.longitude)
+    }
+}
+
+// 이미지 에러 타입 정의
+enum ImageError: Error {
+    case invalidImageFormat(String)
+    case missingAsset(String)
+    case processingError(String)
+    
+    var localizedDescription: String {
+        switch self {
+        case .invalidImageFormat(let message):
+            return "이미지 포맷 오류: \(message)"
+        case .missingAsset(let message):
+            return "에셋 누락: \(message)"
+        case .processingError(let message):
+            return "이미지 처리 오류: \(message)"
+        }
     }
 }
