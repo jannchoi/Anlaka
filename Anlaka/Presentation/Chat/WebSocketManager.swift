@@ -122,7 +122,9 @@ class WebSocketManager {
                     do {
                         let jsonData = try JSONSerialization.data(withJSONObject: data)
                         let message = try JSONDecoder().decode(ChatMessageDTO.self, from: jsonData)
-                        let entity = message.toEntity()
+                        guard let entity = message.toEntity() else {
+                            throw CustomError.nilResponse
+                        }
                         print("✅ 메시지 변환 성공:", entity)
                         DispatchQueue.main.async {
                             self?.onMessage?(entity)
