@@ -141,6 +141,19 @@ final class ChattingContainer: ObservableObject {
                 let opponentProfile = try await repository.getOtherProfileInfo(userId: opponent_id)
                     model.opponentProfile = opponentProfile
                     print("👤 상대방 프로필 정보 로드 완료: \(opponentProfile)")
+            } else {
+                // roomId로 초기화된 경우, 채팅방 정보를 가져와서 상대방 프로필 정보 찾기
+                // 1. 채팅방 정보 가져오기 (서버에서)
+                let chatRooms = try await repository.getChatRooms()
+                if let chatRoom = chatRooms.rooms.first(where: { $0.roomId == model.roomId }) {
+                    // 2. participants에서 상대방 찾기
+                    if let opponent = chatRoom.participants.first(where: { $0.userId != userInfo.userid }) {
+                        // 3. 상대방 프로필 정보 가져오기
+                        let opponentProfile = try await repository.getOtherProfileInfo(userId: opponent.userId)
+                        model.opponentProfile = opponentProfile
+                        print("👤 상대방 프로필 정보 로드 완료 (roomId): \(opponentProfile)")
+                    }
+                }
             }
             
             // 3. 현재 사용자가 해당 채팅방에 존재하는지 확인
