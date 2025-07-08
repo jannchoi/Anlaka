@@ -5,6 +5,7 @@ struct EditProfileModel {
     var profileImage: ProfileImageEntity? = nil
     var profile: MyProfileInfoEntity? = nil
     var isLoading: Bool = false
+    var showSuccessToast: Bool = false
     
     // View에서 사용할 필드 데이터
     var nick: String = ""
@@ -78,6 +79,14 @@ final class EditProfileContainer: ObservableObject {
             model.nick = profile.nick
             model.introduction = profile.introduction ?? ""
             model.phoneNum = profile.phoneNum ?? ""
+            
+            // 성공 토스트 메시지 표시
+            model.showSuccessToast = true
+            
+            // 3초 후 토스트 메시지 숨기기
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+                self.model.showSuccessToast = false
+            }
         } catch {
             model.errorMessage = error.localizedDescription
         }
