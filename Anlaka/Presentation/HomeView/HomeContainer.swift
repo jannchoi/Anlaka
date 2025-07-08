@@ -13,7 +13,7 @@ struct HomeModel {
     var hotEstate: Loadable<[HotEstateWithAddress]> = .idle
     var topicEstate: Loadable<TopicEstateEntity> = .idle
     var address = AddressResponseEntity(roadAddressName: "", roadRegion1: "", roadRegion2: "", roadRegion3: "")
-    
+    var likeLists: Loadable<[LikeEstateWithAddress]> = .idle
     // Navigation state
     var navigationDestination: HomeRoute? = nil
     var showSafariSheet: Bool = false
@@ -40,8 +40,8 @@ final class HomeContainer: ObservableObject {
     func handle(_ intent: HomeIntent) {
         switch intent {
         case .initialRequest:
-            
             Task { await getTodayEstate() }
+            Task { await getLikeLists() }
             Task { await getHotEstate() }
             Task { await getTopicEstate() }
             
@@ -60,17 +60,35 @@ final class HomeContainer: ObservableObject {
             model.showSafariSheet = true
         case .goToSearch:
             model.navigationDestination = .search
+            
         }
     }
     func resetNavigation() {
         model.navigationDestination = nil
     }
-
-    func closeSafariSheet() {
-         model.showSafariSheet = false
-         model.safariURL = nil
-     }
     
+    func closeSafariSheet() {
+        model.showSafariSheet = false
+        model.safariURL = nil
+    }
+    
+    private func getLikeLists() async {
+        model.likeLists = .loading
+        do {
+            let likeLists = try await repository.getLikeLists(category: nil, next: nil)
+
+            let result = await AddressMappingHelper.mapLikeSummariesWithAddress(likeLists.data, repository)
+
+            model.likeLists = .success(result.estates)
+        } catch {
+            if let netError = error as? NetworkError, netError == .expiredRefreshToken {
+                model.likeLists = .requiresLogin
+            } else {
+                let message = (error as? NetworkError)?.errorDescription ?? error.localizedDescription
+                model.likeLists = .failure(message)
+            }
+        }
+    }
     private func getTodayEstate() async {
         
         model.todayEstate = .loading
