@@ -12,6 +12,9 @@ struct EstateDetailModel {
     var detailEstate: Loadable<DetailEstateWithAddrerss> = .idle
     var similarEstates: Loadable<[SimilarEstateWithAddress]> = .idle
     var selectedEstateId: IdentifiableString? = nil
+    var order: CreateOrderRequestDTO? = nil
+    var iamportPayment: IamportPaymentEntity? = nil
+    var estateTitle: String? = nil
     var isReserved = false
     var isLiked = false
     var backToLogin: Bool = false
@@ -24,6 +27,8 @@ enum EstateDetailIntent {
     case reserveButtonTapped
     case likeButtonTapped
     case chatButtonTapped
+    case resetPayment
+    case resetReservation
 }
 
 // MARK: - EstateDetailContainer 초기화 메서드 수정
@@ -63,8 +68,11 @@ final class EstateDetailContainer: ObservableObject {
         case .similarEstateSelected(let estateId):
             model.selectedEstateId = IdentifiableString(id: estateId)
         case .reserveButtonTapped:
-            model.isReserved.toggle()
-            print("isReserved: \(model.isReserved)")
+            if !model.isReserved && model.iamportPayment == nil {
+                Task {
+                    await createOrder()
+                }
+            }
         case .likeButtonTapped:
             model.isLiked.toggle()
             print("isLiked: \(model.isLiked)")
@@ -76,9 +84,26 @@ final class EstateDetailContainer: ObservableObject {
                     self.model.opponent_id = data.detail.creator.userId
                 }
             }
+        case .resetPayment:
+            model.iamportPayment = nil
+        case .resetReservation:
+            model.isReserved = false
+            model.iamportPayment = nil
         }
     }
-    
+    private func createOrder() async {
+        guard let order = model.order, let estateTitle = model.estateTitle , let savedProfile = UserDefaultsManager.shared.getObject(forKey: .profileData, as: MyProfileInfoEntity.self) else {
+            return
+        }
+        do {
+            let result = try await repository.createOrder(order: order)
+            model.iamportPayment = IamportPaymentEntity(orderCode: result.orderCode, amount: String(result.totalPrice), title: estateTitle, buyerName: savedProfile.nick)
+            model.isReserved = true
+        } catch {
+            print("error: \(error)")
+        }
+
+    }
     private func mapToEstateDetailWithAddress(estate: DetailEstateEntity) async {
         model.detailEstate = .loading
         let result = await AddressMappingHelper.mapDetailEstateWithAddress(estate, repository: repository)
@@ -100,12 +125,17 @@ final class EstateDetailContainer: ObservableObject {
         model.detailEstate = .loading
         do {
             let detailEstate = try await repository.getDetailEstate(estateId)
+            if let reservationPrice = detailEstate.reservationPrice {
+                model.order = CreateOrderRequestDTO(estateId: estateId, totalPrice: reservationPrice)
+            }
             let result = await AddressMappingHelper.mapDetailEstateWithAddress(detailEstate, repository: repository)
             switch result {
             case .success(let value):
                 model.isLiked = value.detail.isLiked
                 model.isReserved = value.detail.isReserved
                 model.detailEstate = .success(value)
+                model.estateTitle = value.detail.title
+                print(value.detail.reservationPrice)
             case .failure(let error):
                 if let netError = error as? NetworkError, netError == .expiredRefreshToken {
                     model.detailEstate = .requiresLogin
