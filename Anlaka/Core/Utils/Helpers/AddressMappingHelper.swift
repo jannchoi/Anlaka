@@ -12,14 +12,16 @@ struct AddressMappingResult<T> {
 }
 
 struct AddressMappingHelper {
+    private static let addressRepository = AddressNetworkRepositoryFactory.create()
     
-    static func mapLikeSummariesWithAddress(_ summaries: [LikeSummaryEntity],_ repository: NetworkRepository) async -> AddressMappingResult<LikeEstateWithAddress> {
+    static func mapLikeSummariesWithAddress(_ summaries: [LikeSummaryEntity]) async -> AddressMappingResult<LikeEstateWithAddress> {
+        
         await withTaskGroup(of: Result<LikeEstateWithAddress?, Error>.self) { group in
             for summary in summaries {
                 group.addTask {
                     let geo = summary.geolocation
                     do {
-                        let address = try await repository.getAddressFromGeo(geo).toShortAddress()
+                        let address = try await addressRepository.getAddressFromGeo(geo).toShortAddress()
                         return .success(LikeEstateWithAddress(summary: summary.toPresentation(), address: address))
                     } catch {
                         return .success(nil) // 앱은 돌아가게
@@ -45,8 +47,7 @@ struct AddressMappingHelper {
     }
         
     static func mapHotSummariesWithAddress(
-           _ summaries: [HotSummaryEntity],
-           repository: NetworkRepository
+           _ summaries: [HotSummaryEntity]
        ) async -> AddressMappingResult<HotEstateWithAddress> {
 
            await withTaskGroup(of: Result<HotEstateWithAddress?, Error>.self) { group in
@@ -54,7 +55,7 @@ struct AddressMappingHelper {
                    group.addTask {
                        let geo = summary.geolocation
                        do {
-                           let address = try await repository.getAddressFromGeo(geo).toShortAddress()
+                           let address = try await addressRepository.getAddressFromGeo(geo).toShortAddress()
                            return .success(HotEstateWithAddress(summary: summary.toPresentation(), address: address))
                        } catch {
 
@@ -84,8 +85,7 @@ struct AddressMappingHelper {
 extension AddressMappingHelper {
 
     static func mapSimilarSummariesWithAddress(
-        _ summaries: [SimilarSummaryEntity],
-        repository: NetworkRepository
+        _ summaries: [SimilarSummaryEntity]
     ) async -> AddressMappingResult<SimilarEstateWithAddress> {
 
         await withTaskGroup(of: Result<SimilarEstateWithAddress?, Error>.self) { group in
@@ -93,7 +93,7 @@ extension AddressMappingHelper {
                 group.addTask {
                     let geo = summary.geolocation
                     do {
-                        let address = try await repository.getAddressFromGeo(geo).toShortAddress()
+                        let address = try await addressRepository.getAddressFromGeo(geo).toShortAddress()
                         return .success(SimilarEstateWithAddress(summary: summary.toPresentation(), address: address))
                     } catch {
                         return .success(nil)
@@ -121,8 +121,7 @@ extension AddressMappingHelper {
 extension AddressMappingHelper {
 
     static func mapTodaySummariesWithAddress(
-        _ summaries: [TodaySummaryEntity],
-        repository: NetworkRepository
+        _ summaries: [TodaySummaryEntity]
     ) async -> AddressMappingResult<TodayEstateWithAddress> {
 
         await withTaskGroup(of: Result<TodayEstateWithAddress?, Error>.self) { group in
@@ -130,7 +129,7 @@ extension AddressMappingHelper {
                 group.addTask {
                     let geo = summary.geolocation
                     do {
-                        let address = try await repository.getAddressFromGeo(geo).toShortAddress()
+                        let address = try await addressRepository.getAddressFromGeo(geo).toShortAddress()
                         return .success(TodayEstateWithAddress(summary: summary.toPresentation(), address: address))
                     } catch {
                         return .success(nil)
@@ -158,8 +157,7 @@ extension AddressMappingHelper {
 
 extension AddressMappingHelper {
     static func mapDetailEstateWithAddress(
-        _ detail: DetailEstateEntity,
-        repository: NetworkRepository
+        _ detail: DetailEstateEntity
     ) async -> Result<DetailEstateWithAddrerss, Error> {
         
         guard let geo = detail.geolocation else {
@@ -167,7 +165,7 @@ extension AddressMappingHelper {
         }
         
         do {
-            let address = try await repository.getAddressFromGeo(geo).roadAddressName
+            let address = try await addressRepository.getAddressFromGeo(geo).roadAddressName
             let mapped = DetailEstateWithAddrerss(
                 detail: detail.toPresentationModel(),
                 address: address
@@ -179,18 +177,34 @@ extension AddressMappingHelper {
     }
 }
 
+
+
 extension AddressMappingHelper {
     static func mapPostSummariesWithAddress(
-        _ summaries: [PostSummaryResponseEntity],
-        repository: NetworkRepository
-    ) async -> AddressMappingResult<PostSummaryResponseWithAddress> {
-        await withTaskGroup(of: Result<PostSummaryResponseWithAddress?, Error>.self) { group in
+        _ summaries: [PostSummaryResponseEntity]
+    ) async -> AddressMappingResult<PostSummaryResponseEntity> {
+        await withTaskGroup(of: Result<PostSummaryResponseEntity?, Error>.self) { group in
             for summary in summaries {
                 group.addTask {
                     let geo = summary.geolocation
                     do {
-                        let address = try await repository.getAddressFromGeo(geo).toShortAddress()
-                        return .success(PostSummaryResponseWithAddress(summary: summary.toPresentation(), address: address))
+                        let address = try await addressRepository.getAddressFromGeo(geo).toShortAddress()
+                        // address가 이미 있는 경우 업데이트
+                        let updatedSummary = PostSummaryResponseEntity(
+                            postId: summary.postId,
+                            category: summary.category,
+                            title: summary.title,
+                            content: summary.content,
+                            geolocation: summary.geolocation,
+                            creator: summary.creator,
+                            files: summary.files,
+                            isLike: summary.isLike,
+                            likeCount: summary.likeCount,
+                            createdAt: summary.createdAt,
+                            updatedAt: summary.updatedAt,
+                            address: address
+                        )
+                        return .success(updatedSummary)
                     } catch {
                         return .success(nil)
                             .flatMapError { _ in .failure(error) }
@@ -198,7 +212,7 @@ extension AddressMappingHelper {
                 }
             }
 
-            var posts: [PostSummaryResponseWithAddress?] = []
+            var posts: [PostSummaryResponseEntity?] = []
             var errors: [Error] = []
 
             for await result in group {
@@ -213,14 +227,12 @@ extension AddressMappingHelper {
             return AddressMappingResult(estates: posts.compactMap{$0}, errors: errors)
         }
     }
-}
-
-extension AddressMappingHelper {
-    static func getSingleAddress(longitude: Double, latitude: Double, repository: NetworkRepository) async -> String {
+    
+    static func getSingleAddress(longitude: Double, latitude: Double) async -> String {
         let geo = GeolocationEntity(longitude: longitude, latitude: latitude)
         
         do {
-            let address = try await repository.getAddressFromGeo(geo).toRoadRegion2()
+            let address = try await addressRepository.getAddressFromGeo(geo).toRoadRegion2()
             return address
         } catch {
             return "알 수 없음"

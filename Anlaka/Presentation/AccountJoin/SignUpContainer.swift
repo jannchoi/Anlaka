@@ -131,7 +131,7 @@ final class SignUpContainer: ObservableObject {
             model.isEmailValidServer = true
         } catch {
             model.isEmailValidServer = false
-            model.errorMessage = (error as? NetworkError)?.errorDescription ?? "알 수 없는 에러: \(error.localizedDescription)"
+            model.errorMessage = (error as? CustomError)?.errorDescription ?? "알 수 없는 에러: \(error.localizedDescription)"
         }
     }
 
@@ -151,7 +151,7 @@ final class SignUpContainer: ObservableObject {
             model.goToLoginView = true
             model.isLoading = false
         } catch {
-            model.errorMessage = (error as? NetworkError)?.errorDescription ?? "알 수 없는 에러: \(error.localizedDescription)"
+            model.errorMessage = (error as? CustomError)?.errorDescription ?? "알 수 없는 에러: \(error.localizedDescription)"
         }
     }
 
