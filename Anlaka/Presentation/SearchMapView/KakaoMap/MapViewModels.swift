@@ -15,9 +15,8 @@ struct ClusterInfo {
 }
 
 enum ClusteringType {
-    case zoomLevel6to14(radius: Double)  // 원형 + 숫자
-    case zoomLevel15to16(radius: Double)     // 대표 이미지 + 배지
-    case zoomLevel17Plus                 // 개별 매물
+    case zoomLevel6to16  // 원형 + 숫자
+    case zoomLevel17Plus   // 대표 이미지 + 배지
 }
 
 // MARK: - POI 차분 구조체
