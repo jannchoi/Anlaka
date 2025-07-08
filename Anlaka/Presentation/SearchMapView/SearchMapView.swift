@@ -37,9 +37,8 @@ struct SearchMapView: View {
                         path.removeLast()
                     }) {
                         HStack(spacing: 4) {
-                            Image(systemName: "chevron.left")
-                                .foregroundColor(.MainTextColor)
-                            Text("뒤로")
+                            Image("chevron")
+                                .font(.headline)
                                 .foregroundColor(.MainTextColor)
                         }
                         .padding(.leading, 8)

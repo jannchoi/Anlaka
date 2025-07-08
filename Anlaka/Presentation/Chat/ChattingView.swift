@@ -269,9 +269,10 @@ struct ChattingView: View {
                         path.removeLast()
                     }) {
                         HStack(spacing: 4) {
-                            Image(systemName: "chevron.left")
+                            Image("chevron")
+                                .font(.headline)
                                 .foregroundColor(.MainTextColor)
-                                                    Text("뒤로")
+                            Text("뒤로")
                             .font(.pretendardBody)
                             .foregroundColor(.MainTextColor)
                         }

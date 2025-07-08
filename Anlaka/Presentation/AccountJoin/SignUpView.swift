@@ -24,8 +24,9 @@ struct SignUpView: View {
                 Button(action: {
                     onComplete()
                 }) {
-                    Image(systemName: "chevron.left")
-                        .foregroundColor(Color.MainTextColor)
+                    Image("chevron")
+                        .font(.headline)
+                        .foregroundColor(.MainTextColor)
                 }
             })
             

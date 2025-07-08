@@ -128,6 +128,7 @@ extension EstateDetailView {
         }
         .padding(.horizontal)
         .padding(.vertical, 8)
+        .background(.white)
     }
 }
 
