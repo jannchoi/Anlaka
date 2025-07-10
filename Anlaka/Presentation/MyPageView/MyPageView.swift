@@ -35,7 +35,7 @@ struct MyPageView: View {
                             showLogoutAlert = true
                         }) {
                             Text("로그아웃")
-                                .font(.pretendardCaption)
+                                .font(.pretendardFootnote)
                                 .foregroundColor(Color.MainTextColor)
                         }
                     }
@@ -367,11 +367,11 @@ struct ChatInfoView: View {
                 // 상대방의 닉네임 사용
                 if let opponent = getOpponent(room: room) {
                     Text(opponent.nick)
-                        .font(.pretendardBody)
+                        .font(.soyoHeadline)
                         .foregroundColor(Color.MainTextColor)
                 } else {
                     Text("사용자")
-                        .font(.pretendardBody)
+                        .font(.soyoHeadline)
                         .foregroundColor(Color.MainTextColor)
                 }
                 
