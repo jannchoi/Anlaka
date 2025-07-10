@@ -47,7 +47,6 @@ struct EditProfileView: View {
                 }
             }
         }
-        .navigationBarHidden(true)
         .onAppear {
             container.handle(.initialRequest)
         }
