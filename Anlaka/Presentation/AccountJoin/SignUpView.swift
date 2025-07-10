@@ -132,7 +132,7 @@ private struct SignUpIntroductionView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("자기소개")
-                .font(.headline)
+                .font(.soyoHeadline)
                 .foregroundColor(Color.MainTextColor)
             TextEditor(text: $container.model.introduction)
                 .onChange(of: container.model.introduction) { container.handle(.introChanged($0)) }
@@ -156,9 +156,9 @@ private struct SignUpButtonView: View {
         Button(action: {
             container.handle(.SignUpButtonTapped)
         }) {
-            Text("완료")
-                .font(.headline)
-                .foregroundColor(.white)
+                                    Text("완료")
+                            .font(.soyoHeadline)
+                            .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
                 .padding()
                 .background(container.model.isSignUpButtonEnabled ? Color.oliveMist : Color.Deselected)

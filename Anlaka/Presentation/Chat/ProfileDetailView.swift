@@ -15,13 +15,15 @@ struct ProfileDetailView: View {
                 .shadow(radius: 5)
             
             // 닉네임
-            Text(nick)
+                            Text(nick)
+                    .font(.soyoHeadline)
                 .font(.headline)
                 .fontWeight(.semibold)
                 .foregroundColor(.MainTextColor)
             
             // 자기소개
-            Text(introduction.isEmpty ? "자기소개가 없습니다." : introduction)
+                            Text(introduction.isEmpty ? "자기소개가 없습니다." : introduction)
+                    .font(.pretendardBody)
                 .font(.subheadline)
                 .foregroundColor(.SubText)
                 .multilineTextAlignment(.center)
