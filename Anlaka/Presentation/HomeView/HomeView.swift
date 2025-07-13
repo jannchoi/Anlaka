@@ -11,12 +11,13 @@ import SwiftUI
 struct HomeView: View {
     let di: DIContainer
     @StateObject private var container: HomeContainer
-    @State private var path = NavigationPath()
+    @Binding var path: NavigationPath
     @AppStorage(TextResource.Global.isLoggedIn.text) private var isLoggedIn: Bool = true
     @State private var searchText = ""
     
-    init(di: DIContainer) {
+    init(di: DIContainer, path: Binding<NavigationPath>) {
         self.di = di
+        self._path = path
         _container = StateObject(wrappedValue: di.makeHomeContainer())
         
         // 네비게이션 바 투명하게 설정
@@ -29,7 +30,7 @@ struct HomeView: View {
     }
     
     var body: some View {
-        NavigationStack(path: $path) {
+        
             ZStack(alignment: .top) {
                 // 컨텐츠 스크롤뷰
                 ScrollView {
@@ -113,7 +114,7 @@ struct HomeView: View {
                     SafariWebView(url: url)
                 }
             }
-        }
+        
         .onAppear {
             container.handle(.initialRequest)
         }

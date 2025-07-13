@@ -8,10 +8,13 @@
 import SwiftUI
 
 struct FavoriteEstatesView: View {
-     let di: DIContainer
-     init(di: DIContainer) {
+    let di: DIContainer
+    @Binding var path: NavigationPath
+    
+    init(di: DIContainer, path: Binding<NavigationPath>) {
         self.di = di
-     }
+        self._path = path
+    }
     var body: some View {
         Text(/*@START_MENU_TOKEN@*/"Hello, World!"/*@END_MENU_TOKEN@*/)
     }
