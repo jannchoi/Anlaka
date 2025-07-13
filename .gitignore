@@ -64,11 +64,5 @@ GoogleService-Info.plist
 # Other
 *.orig
 
-# API Key
-APIKey.swift
-
-# Request
-URLRequest.swift
-
 # SecretKey
 SecretKey.swift
