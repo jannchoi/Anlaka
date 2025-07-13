@@ -8,6 +8,47 @@
 import Foundation
 
 final class NetworkRepositoryImp: NetworkRepository {
+    func createOrder(order: CreateOrderRequestDTO) async throws -> CreateOrderEntity {
+        do {
+            let response = try await NetworkManager.shared.callRequest(target: OrderRouter.createOrder(orderRequestDTO: order), model: CreateOrderResponseDTO.self)
+            guard let entity = response.toEntity() else {
+                throw CustomError.nilResponse
+            }
+            return entity
+        } catch {
+            throw error
+        }
+    }
+    func getOrders() async throws -> GetOrdersResponseEntity {
+        do {
+            let response = try await NetworkManager.shared.callRequest(target: OrderRouter.getOrders, model: GetOrdersResponseDTO.self)
+            return response.toEntity()
+        } catch {
+            throw error
+        }
+    }
+    func validatePayment(payment: ReceiptPaymentRequestDTO) async throws -> ReceiptOrderResponseEntity {
+        do {
+            let response = try await NetworkManager.shared.callRequest(target: PaymentRouter.validatePayment(paymentRequestDTO: payment), model: ReceiptOrderResponseDTO.self)
+            guard let entity = response.toEntity() else {
+                throw CustomError.nilResponse
+            }
+            return entity
+        } catch {
+            throw error
+        }
+    }
+    func getPayment(orderCode: String) async throws -> PaymentResponseEntity {
+        do {
+            let response = try await NetworkManager.shared.callRequest(target: PaymentRouter.getPayment(orderCode: orderCode), model: PaymentResponseDTO.self)
+            guard let entity = response.toEntity() else {
+                throw CustomError.nilResponse
+            }
+            return entity
+        } catch {
+            throw error
+        }
+    }
     // MARK: - Private Methods
     private func saveTokens(accessToken: String, refreshToken: String) {
         UserDefaultsManager.shared.set(accessToken, forKey: .accessToken)
