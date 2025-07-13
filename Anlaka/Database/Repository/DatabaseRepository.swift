@@ -19,6 +19,7 @@ protocol DatabaseRepository {
     // MARK: - User
     func updateUserId(oldUserId: String, newUserId: String) async throws
     func isUserExists(userId: String) async throws -> Bool
+    func getOpponentProfile(roomId: String, opponentId: String) async throws -> OpponentEntity?
     
     // MARK: - Database
     func resetDatabase() async throws

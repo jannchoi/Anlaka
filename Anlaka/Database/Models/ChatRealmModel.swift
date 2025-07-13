@@ -37,9 +37,9 @@ class UserInfoRealmModel: Object {
 class ChatListRealmModel: Object {
     @Persisted(primaryKey: true) var roomId: String
     @Persisted var chats: List<ChatRealmModel>
-    @Persisted var participants: List<UserInfoRealmModel>
+    @Persisted var participants: List<String>
     
-    convenience init(roomId: String, chats: [ChatRealmModel], participants: [UserInfoRealmModel]) {
+    convenience init(roomId: String, chats: [ChatRealmModel], participants: [String]) {
         self.init()
         self.roomId = roomId
         self.chats.append(objectsIn: chats)
