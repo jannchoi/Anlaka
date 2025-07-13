@@ -1,45 +1,76 @@
 import SwiftUI
 import PhotosUI
 
+// MARK: - KeyboardResponder
+final class KeyboardResponder: ObservableObject {
+    private var notificationCenter: NotificationCenter
+    @Published private(set) var currentHeight: CGFloat = 0
+    
+    init(center: NotificationCenter = .default) {
+        notificationCenter = center
+        notificationCenter.addObserver(self, selector: #selector(keyBoardWillShow(notification:)), name: UIResponder.keyboardWillShowNotification, object: nil)
+        notificationCenter.addObserver(self, selector: #selector(keyBoardWillHide(notification:)), name: UIResponder.keyboardWillHideNotification, object: nil)
+    }
+    
+    deinit {
+        notificationCenter.removeObserver(self)
+    }
+    
+    @objc func keyBoardWillShow(notification: Notification) {
+        if let keyboardSize = (notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue)?.cgRectValue {
+            currentHeight = keyboardSize.height
+        }
+    }
+    
+    @objc func keyBoardWillHide(notification: Notification) {
+        currentHeight = 0
+    }
+}
+
 // MARK: - ChatMessagesView
 struct ChatMessagesView: View {
     let messagesGroupedByDate: [(String, [ChatEntity])]
     @Binding var scrollProxy: ScrollViewProxy?
     let onScrollToBottom: () -> Void
+    var bottom1: Namespace.ID
+    var inputViewHeight: CGFloat
+    @ObservedObject var keyboard: KeyboardResponder
     
     var body: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(spacing: 12) {
-                    ForEach(messagesGroupedByDate, id: \.0) { date, messages in
-                        VStack(spacing: 12) {
-                            DateDivider(dateString: date)
-                            
-                            ForEach(Array(messages.enumerated()), id: \.offset) { index, message in
-                                ChatMessageCell(
-                                    message: message,
-                                    isSending: message.chatId.hasPrefix("temp_")
-                                )
+        GeometryReader { geometry in
+            
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(spacing: 12) {
+                        ForEach(messagesGroupedByDate, id: \.0) { date, messages in
+                            VStack(spacing: 8) {
+                                DateDivider(dateString: date)
+                                
+                                ForEach(Array(messages.enumerated()), id: \.offset) { index, message in
+                                    ChatMessageCell(
+                                        message: message,
+                                        isSending: message.chatId.hasPrefix("temp_")
+                                    )
+                                }
                             }
                         }
+                        // 키보드가 올라올 때 추가 여백을 제공하여 스크롤 영역 제한
+                        Color.clear
+                            .frame(height: 1)
+                            .id(bottom1)
                     }
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    
+                }.background(Color.WarmLinen)
+                    .navigationBarHidden(true)
+                
+                    .onAppear {
+                        scrollProxy = proxy
+                        onScrollToBottom()
+                    }
             }
-            .navigationBarHidden(true)
-            .simultaneousGesture(
-                DragGesture().onChanged { _ in
-                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-                }
-            )
-            .onAppear {
-                scrollProxy = proxy
-                onScrollToBottom()
-            }
-            .onChange(of: messagesGroupedByDate.flatMap { $0.1 }.count) { _ in
-                onScrollToBottom()
-            }
+            
         }
     }
 }
@@ -67,10 +98,116 @@ struct DateDivider: View {
     }
 }
 
+struct MainContentView: View {
+    @ObservedObject var container: ChattingContainer
+    @Binding var messageText: String
+    @Binding var selectedFiles: [GalleryImage]
+    @Binding var isShowingImagePicker: Bool
+    @Binding var scrollProxy: ScrollViewProxy?
+    @Binding var isShowingProfileDetail: Bool
+    @Binding var profileDetailOffset: CGSize
+    @Binding var path: NavigationPath
+    @Binding var inputViewHeight: CGFloat
+    @Binding var didInitialScroll: Bool
+    let bottom1: Namespace.ID
+    
+    @ObservedObject var keyboard: KeyboardResponder
+    
+    let sendMessage: () -> Void
+    let scrollToBottom: () -> Void
+    
+    var body: some View {
+        GeometryReader { mainGeometry in
+            ZStack {
+                // 키보드 offset을 적용할 컨텐츠 영역 (맨 뒤에 배치)
+                VStack(spacing: 0) {
+                    if container.model.isLoading {
+                        VStack {
+                            Spacer()
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle())
+                            Text("채팅방을 불러오는 중...")
+                                .foregroundColor(.gray)
+                                .padding(.top, 8)
+                            Spacer()
+                        }
+                    } else {
+                        VStack(spacing: 0){
+                            // 채팅 메시지 목록
+                                                    ChatMessagesView(
+                            messagesGroupedByDate: container.model.messagesGroupedByDate,
+                            scrollProxy: $scrollProxy,
+                            onScrollToBottom: {
+                                if !didInitialScroll && !container.model.messages.isEmpty {
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                                        scrollToBottom()
+                                        didInitialScroll = true
+                                    }
+                                }
+                            },
+                            bottom1: bottom1,
+                            inputViewHeight: inputViewHeight,
+                            keyboard: keyboard
+                        )
+                            .background(Color.warmLinen)
+                            
+                            // 입력 영역
+                            ChatInputView(
+                                text: $messageText,
+                                selectedFiles: $selectedFiles,
+                                onSend: sendMessage,
+                                onImagePicker: { isShowingImagePicker = true },
+                                isSending: container.model.sendingMessageId != nil
+                            )
+                            .background(GeometryReader { geo in
+                                Color.clear
+                                    .onAppear { inputViewHeight = geo.size.height }
+                                    .onChange(of: geo.size.height) { newValue in
+                                        inputViewHeight = newValue
+                                    }
+                            })
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .padding(.bottom, keyboard.currentHeight > 0 ? 0 : 16)
+                            .disabled(container.model.sendingMessageId != nil)
+                            .background(Color.white)
+                            
+                        }
+                        .offset(y: keyboard.currentHeight > 0 ? -(keyboard.currentHeight - inputViewHeight - 2) : 0)
+                        .animation(.easeInOut(duration: 0.25), value: keyboard.currentHeight)
+                        .ignoresSafeArea(.keyboard)
+                    }
+                }
+                
+                // WiFi 상태 표시 (맨 앞에 배치, 키보드 영향 받지 않음)
+                VStack {
+                    if !container.model.isLoading && !container.model.isConnected {
+                        HStack {
+                            Image(systemName: "wifi.slash")
+                                .foregroundColor(.TomatoRed)
+                            Text(container.model.isReconnecting ? "재연결 시도 중..." : "연결이 끊어졌습니다")
+                                .foregroundColor(.TomatoRed)
+                            if container.model.isReconnecting {
+                                ProgressView()
+                                    .progressViewStyle(CircularProgressViewStyle())
+                                    .scaleEffect(0.7)
+                            }
+                        }
+                        .padding(8)
+                        .background(Color.TomatoRed.opacity(0.1))
+                        Spacer()
+                    }
+                }
+            }
+        }
+    }
+}
+
 struct ChattingView: View {
     let di: DIContainer
     @AppStorage(TextResource.Global.isLoggedIn.text) private var isLoggedIn: Bool = true
     @StateObject private var container: ChattingContainer
+    @StateObject private var keyboard = KeyboardResponder()
     @State private var messageText: String = ""
     @State private var selectedFiles: [GalleryImage] = []
     @State private var isShowingImagePicker = false
@@ -78,6 +215,12 @@ struct ChattingView: View {
     @State private var isShowingProfileDetail = false
     @State private var profileDetailOffset: CGSize = .zero
     @Binding var path: NavigationPath
+    
+    // 스크롤/키보드/입력창 상태 관리
+    @State private var inputViewHeight: CGFloat = 0
+    @State private var didInitialScroll: Bool = false
+    @Namespace var bottom1
+    
     
     init(opponent_id: String, di: DIContainer, path: Binding<NavigationPath>) {
         self.di = di
@@ -92,103 +235,66 @@ struct ChattingView: View {
     }
     
     var body: some View {
-        // 메인 컨텐츠 뷰
-        let mainContent = VStack(spacing: 0) {
-            if container.model.isLoading {
-                // 로딩 인디케이터
-                VStack {
-                    Spacer()
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle())
-                    Text("채팅방을 불러오는 중...")
-                        .foregroundColor(.gray)
-                        .padding(.top, 8)
-                    Spacer()
-                }
-            } else {
-                // 연결 상태 배너
-                if !container.model.isConnected {
-                    HStack {
-                        Image(systemName: "wifi.slash")
-                            .foregroundColor(.TomatoRed)
-                        Text(container.model.isReconnecting ? "재연결 시도 중..." : "연결이 끊어졌습니다")
-                            .foregroundColor(.TomatoRed)
-                        if container.model.isReconnecting {
-                            ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle())
-                                .scaleEffect(0.7)
+        ZStack {
+            // MainContentView를 뒤로 보내서 키보드 영향을 받지 않도록 함
+            MainContentView(
+                container: container,
+                messageText: $messageText,
+                selectedFiles: $selectedFiles,
+                isShowingImagePicker: $isShowingImagePicker,
+                scrollProxy: $scrollProxy,
+                isShowingProfileDetail: $isShowingProfileDetail,
+                profileDetailOffset: $profileDetailOffset,
+                path: $path,
+                inputViewHeight: $inputViewHeight,
+                didInitialScroll: $didInitialScroll,
+                bottom1: bottom1,
+                keyboard: keyboard,
+                sendMessage: sendMessage,
+                scrollToBottom: scrollToBottom
+            )
+            .padding(.top, 25) // CustomNavigationBar 높이만큼 상단 여백 추가
+            
+            // CustomNavigationBar를 앞으로 보내서 항상 보이도록 함
+            VStack {
+                CustomNavigationBar(title: container.model.opponentProfile?.nick ?? "채팅") {
+                    Button(action: {
+                        path.removeLast()
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "chevron.left")
+                                .foregroundColor(.MainTextColor)
+                            Text("뒤로")
+                                .foregroundColor(.MainTextColor)
                         }
                     }
-                    .padding(8)
-                    .background(Color.TomatoRed.opacity(0.1))
+                } rightButton: {
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            isShowingProfileDetail = true
+                        }
+                    }) {
+                        if let profileImage = container.model.opponentProfile?.profileImage {
+                            CustomAsyncImage(imagePath: profileImage)
+                                .frame(width: 32, height: 32)
+                                .clipShape(Circle())
+                        } else {
+                            Image(systemName: "person.circle.fill")
+                                .font(.system(size: 32))
+                                .foregroundColor(.gray)
+                        }
+                    }
                 }
-                
-                // 채팅 메시지 목록
-                ChatMessagesView(
-                    messagesGroupedByDate: container.model.messagesGroupedByDate,
-                    scrollProxy: $scrollProxy,
-                    onScrollToBottom: scrollToBottom
-                )
-                
-                // 입력 영역 
-                ChatInputView(
-                    text: $messageText,
-                    selectedFiles: $selectedFiles,
-                    onSend: sendMessage,
-                    onImagePicker: { isShowingImagePicker = true },
-                    isSending: container.model.sendingMessageId != nil
-                )
-                .padding(.horizontal, 16)
-                .padding(.bottom, 8)
-                .disabled(container.model.sendingMessageId != nil)
-                .background(Color.white)
+                Spacer()
             }
         }
-
-        // 네비게이션 및 시트 수정자 적용
-        VStack(spacing: 0) {
-            // CustomNavigationBar 추가
-            CustomNavigationBar(title: container.model.opponentProfile?.nick ?? "채팅") {
-                // 뒤로가기 버튼
-                Button(action: {
-                    print("ChattingView - 뒤로가기 버튼 클릭, 현재 path.count: \(path.count)")
-                    path.removeLast()
-                    print("ChattingView - path.removeLast() 후 path.count: \(path.count)")
-                }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "chevron.left")
-                            .foregroundColor(.MainTextColor)
-                        Text("뒤로")
-                            .foregroundColor(.MainTextColor)
-                    }
-                }
-            } rightButton: {
-                // 상대방 프로필 이미지
-                Button(action: {
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        isShowingProfileDetail = true
-                    }
-                }) {
-                    if let profileImage = container.model.opponentProfile?.profileImage {
-                        CustomAsyncImage(imagePath: profileImage)
-                            .frame(width: 32, height: 32)
-                            .clipShape(Circle())
-                    } else {
-                        // 프로필 이미지가 없는 경우 기본 이미지
-                        Image(systemName: "person.circle.fill")
-                            .font(.system(size: 32))
-                            .foregroundColor(.gray)
-                    }
-                }
-            }
-            
-            mainContent
-        }
+        .background(Color.WarmLinen)
+        .dismissKeyboardToolbar()
         .onAppear {
             container.handle(.initialLoad)
+            didInitialScroll = false
         }
         .onDisappear {
-            print("ChattingView - onDisappear 호출됨")
             container.handle(.disconnectSocket)
         }
         .sheet(isPresented: $isShowingImagePicker) {
@@ -205,11 +311,9 @@ struct ChattingView: View {
             Text(container.model.error ?? "")
         }
         .overlay(
-            // ProfileDetailView Overlay
             Group {
                 if isShowingProfileDetail {
                     ZStack {
-                        // 배경 어둡게 처리
                         Color.black.opacity(0.5)
                             .ignoresSafeArea()
                             .onTapGesture {
@@ -217,8 +321,6 @@ struct ChattingView: View {
                                     isShowingProfileDetail = false
                                 }
                             }
-                        
-                        // ProfileDetailView
                         if let opponentProfile = container.model.opponentProfile {
                             ProfileDetailView(
                                 profileImage: opponentProfile.profileImage,
@@ -237,7 +339,7 @@ struct ChattingView: View {
             }
         )
     }
-
+    
     private func sendMessage() {
         guard !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !selectedFiles.isEmpty else { return }
         container.handle(.sendMessage(text: messageText, files: selectedFiles))
@@ -246,10 +348,23 @@ struct ChattingView: View {
     }
     
     private func scrollToBottom() {
-        withAnimation {
-            scrollProxy?.scrollTo(container.model.messages.last?.chatId, anchor: .bottom)
+        
+        // 키보드가 올라와 있으면 offset으로 처리, 아니면 scrollTo 사용
+        if keyboard.currentHeight > 0 {
+            
+            // 키보드가 올라와 있을 때는 offset이 이미 적용되어 있으므로 추가 작업 불필요
+            return
+        } else {
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    self.scrollProxy?.scrollTo(self.bottom1, anchor: .bottom)
+                }
+            }
         }
     }
+    
+    
 }
 
 // MARK: - ChatMessageCell
@@ -357,7 +472,7 @@ struct ChatInputView: View {
                 Button(action: onImagePicker) {
                     Image(systemName: "photo")
                         .font(.system(size: 20))
-                        .foregroundColor(.gray)
+                        .foregroundColor(Color.DeepForest)
                 }
                 .disabled(isSending)
                 
