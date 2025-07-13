@@ -18,7 +18,6 @@ struct PaymentStartView: View {
     _container = StateObject(
       wrappedValue: PaymentContainer(
         repository: di.networkRepository, iamportPayment: iamportPayment))
-    print("PaymentStartView 초기화됨")
   }
 
   var body: some View {
@@ -148,7 +147,6 @@ struct PaymentStartView: View {
           }
           .padding(.vertical, 24)
           .onAppear {
-            print("결제 완료 화면 표시됨")
             DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
               showPaymentStartView = false
             }
@@ -166,10 +164,8 @@ struct PaymentStartView: View {
           Divider()
           HStack(spacing: 0) {
             Button("결제 시작") {
-              print("결제 시작 버튼 클릭")
               container.handle(.createPayment)
               if container.model.paymentData != nil {
-                print("결제 데이터 생성됨, PaymentView로 이동")
                 showPaymentWebView = true
               }
             }
