@@ -27,7 +27,7 @@ struct LoginView: View {
                     Spacer().frame(height: 80)
                     
                     Text("안락한가")
-                        .font(.largeTitle)
+                        .font(.soyoLargeTitle)
                         .foregroundStyle(.mainText)
                         .frame(alignment: .center)
                         .padding()
@@ -63,6 +63,7 @@ struct LoginView: View {
                                 ProgressView()
                             } else {
                                 Text("로그인")
+                                    .font(.pretendardHeadline)
                                     .frame(maxWidth: .infinity)
                             }
                         }
@@ -98,12 +99,13 @@ struct LoginView: View {
                         Button("계정 만들기") {
                             container.handle(.signUpButtontTapped)
                         }
+                        .font(.pretendardBody)
                         .foregroundColor(.gray)
                         
                         if let error = container.model.errorMessage {
                             Text(error)
                                 .foregroundColor(.red)
-                                .font(.footnote)
+                                .font(.pretendardFootnote)
                         }
                     }
                     .padding(.horizontal, 32)

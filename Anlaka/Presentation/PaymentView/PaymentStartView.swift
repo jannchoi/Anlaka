@@ -48,7 +48,7 @@ struct PaymentStartView: View {
       Group {
         if container.model.isLoading {
           ProgressView("결제 처리 중...")
-            .font(.headline)
+            .font(.soyoHeadline)
             .foregroundColor(Color.MainTextColor)
             .multilineTextAlignment(.center)
             .frame(maxWidth: .infinity)
@@ -57,19 +57,19 @@ struct PaymentStartView: View {
           VStack(spacing: 8) {
             if container.model.errorType == .createPayment {
               Text("결제 준비 중 오류가 발생했습니다")
-                .font(.subheadline.weight(.semibold))
+                .font(.soyoHeadline)
                 .foregroundColor(Color.MainTextColor)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity)
             } else {
               Text("결제 처리 중 오류가 발생했습니다")
-                .font(.subheadline.weight(.semibold))
+                .font(.soyoHeadline)
                 .foregroundColor(Color.MainTextColor)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity)
             }
             Text(error.localizedDescription)
-              .font(.footnote)
+              .font(.pretendardFootnote)
               .foregroundColor(.red)
               .multilineTextAlignment(.center)
               .frame(maxWidth: .infinity)
@@ -86,7 +86,7 @@ struct PaymentStartView: View {
                   showPaymentWebView = true
                 }
               }
-              .font(.footnote.weight(.medium))
+              .font(.pretendardFootnote)
               .frame(maxWidth: .infinity, minHeight: 44)
               .background(Color.WarmLinen)
               .foregroundColor(Color.SteelBlue)
@@ -99,7 +99,7 @@ struct PaymentStartView: View {
                 onCancel?()
                 showPaymentStartView = false
               }
-              .font(.footnote.weight(.medium))
+              .font(.pretendardFootnote)
               .frame(maxWidth: .infinity, minHeight: 44)
               .background(Color.WarmLinen)
               .foregroundColor(Color.TomatoRed)
@@ -111,7 +111,7 @@ struct PaymentStartView: View {
                 onCancel?()
                 showPaymentStartView = false
               }
-              .font(.footnote.weight(.medium))
+              .font(.pretendardFootnote)
               .frame(maxWidth: .infinity, minHeight: 44)
               .background(Color.WarmLinen)
               .foregroundColor(Color.SteelBlue)
@@ -124,7 +124,7 @@ struct PaymentStartView: View {
                 onCancel?()
                 showPaymentStartView = false
               }
-              .font(.footnote.weight(.medium))
+              .font(.pretendardFootnote)
               .frame(maxWidth: .infinity, minHeight: 44)
               .background(Color.WarmLinen)
               .foregroundColor(Color.TomatoRed)
@@ -134,12 +134,12 @@ struct PaymentStartView: View {
         } else if container.model.isPaymentCompleted {
           VStack(spacing: 8) {
             Text("결제가 완료되었습니다")
-              .font(.subheadline.weight(.semibold))
+              .font(.soyoHeadline)
               .foregroundColor(Color.MainTextColor)
               .multilineTextAlignment(.center)
               .frame(maxWidth: .infinity)
             Text("잠시 후 이전 화면으로 이동합니다")
-              .font(.footnote)
+              .font(.pretendardFootnote)
               .foregroundColor(Color.MainTextColor)
               .multilineTextAlignment(.center)
               .frame(maxWidth: .infinity)
@@ -153,7 +153,7 @@ struct PaymentStartView: View {
         } else {
           VStack(spacing: 8) {
             Text("결제를 하시겠습니까?")
-              .font(.subheadline.weight(.semibold))
+              .font(.soyoHeadline)
               .foregroundColor(Color.MainTextColor)
               .multilineTextAlignment(.center)
               .frame(maxWidth: .infinity)
@@ -168,7 +168,7 @@ struct PaymentStartView: View {
                 showPaymentWebView = true
               }
             }
-            .font(.footnote.weight(.medium))
+            .font(.pretendardFootnote)
             .frame(maxWidth: .infinity, minHeight: 44)
             .background(Color.WarmLinen)
             .foregroundColor(Color.SteelBlue)
@@ -181,7 +181,7 @@ struct PaymentStartView: View {
               onCancel?()
               showPaymentStartView = false
             }
-            .font(.footnote.weight(.medium))
+            .font(.pretendardFootnote)
             .frame(maxWidth: .infinity, minHeight: 44)
             .background(Color.WarmLinen)
             .foregroundColor(Color.TomatoRed)
