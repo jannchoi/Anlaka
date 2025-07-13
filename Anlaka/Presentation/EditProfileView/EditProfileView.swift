@@ -26,8 +26,9 @@ struct EditProfileView: View {
                         path.removeLast()
                         print("EditProfileView - path.removeLast() 후 path.count: \(path.count)")
                     }) {
-                        Image(systemName: "chevron.left")
-                            .foregroundColor(Color.MainTextColor)
+                        Image("chevron")
+                            .font(.headline)
+                            .foregroundColor(.MainTextColor)
                     }
                 })
                 
