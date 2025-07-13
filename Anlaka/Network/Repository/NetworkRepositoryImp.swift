@@ -27,7 +27,7 @@ internal final class NetworkRepositoryImp: NetworkRepository {
             throw error
         }
     }
-    func uploadProfileImage(image: Data) async throws -> ProfileImageEntity {
+    func uploadProfileImage(image: FileData) async throws -> ProfileImageEntity {
 
         do {
             let response = try await NetworkManager.shared.callRequest(target: UserRouter.profileImageUpload(image), model: ProfileImageDTO.self)
@@ -174,7 +174,7 @@ internal final class NetworkRepositoryImp: NetworkRepository {
         }
     }
     
-    func uploadFiles(roomId: String, files: [ChatFile]) async throws -> ChatFileEntity {
+    func uploadFiles(roomId: String, files: [FileData]) async throws -> ChatFileEntity {
         //파일을 업로드함.
         let target = ChatFilesRequestDTO(files: files)
         do {
