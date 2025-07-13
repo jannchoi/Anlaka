@@ -8,16 +8,17 @@
 import Foundation
 struct AppleLoginRequestDTO: Encodable {
     let idToken: String
-    let deviceToken: String
-    let nick: String
+    let deviceToken: String?
+    let nick: String?
 }
 struct AppleLoginRequestEntity {
-    let idToken: String
-    let deviceToken: String
-    let nick: String
+    let idToken: String?
+    let deviceToken: String?
+    let nick: String?
 }
 extension AppleLoginRequestEntity {
-    func toDTO() -> AppleLoginRequestDTO {
+    func toDTO() -> AppleLoginRequestDTO? {
+        guard let idToken = idToken else {return nil}
         return AppleLoginRequestDTO(
             idToken: idToken,
             deviceToken: deviceToken,
