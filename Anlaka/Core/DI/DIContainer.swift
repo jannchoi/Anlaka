@@ -60,4 +60,7 @@ final class DIContainer: ObservableObject {
     func makePaymentContainer(iamportPayment: IamportPaymentEntity) -> PaymentContainer {
         PaymentContainer(repository: networkRepository, iamportPayment: iamportPayment)
     }
+    func makeCommunityContainer() -> CommunityContainer {
+        CommunityContainer(repository: CommunityNetworkRepositoryImp())
+    }
 }
