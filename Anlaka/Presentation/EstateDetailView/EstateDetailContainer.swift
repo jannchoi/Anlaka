@@ -80,13 +80,13 @@ final class EstateDetailContainer: ObservableObject {
             Task {
                 await toggleIsLiked()
             }
-case .chatButtonTapped:
-    if case .success(let data) = model.detailEstate {
-        // 이미 처리 중이면 무시
-        guard model.opponent_id == nil else { return }
-        
-        model.opponent_id = data.detail.creator.userId
-    }
+        case .chatButtonTapped:
+            if case .success(let data) = model.detailEstate {
+                // 이미 처리 중이면 무시
+                guard model.opponent_id == nil else { return }
+                
+                model.opponent_id = data.detail.creator.userId
+            }
         case .resetPayment:
             model.iamportPayment = nil
         case .resetReservation:
@@ -105,10 +105,10 @@ case .chatButtonTapped:
         } catch {
             print("error: \(error)")
         }
-
+        
     }
     private func toggleIsLiked() async {
-
+        
         do {
             let result = try await repository.postLikeEstate(model.curEstateid, LikeEstateEntity(likeStatus: !model.isLiked))
             model.isLiked = result.likeStatus
