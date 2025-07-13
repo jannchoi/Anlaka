@@ -14,7 +14,6 @@ struct SearchMapView: View {
     
     @AppStorage(TextResource.Global.isLoggedIn.text) private var isLoggedIn: Bool = true
     @State private var showSearchAddress = false
-    @State private var path = NavigationPath()
     init(di: DIContainer) {
         self.di = di
         _container = StateObject(wrappedValue: di.makeSearchMapContainer())
@@ -84,13 +83,12 @@ struct SearchMapView: View {
                 }
                 
                 Spacer()
-                
-                // EstateScrollView 추가
                 if container.model.showEstateScroll {
                     EstateScrollView(
                         estates: container.model.filteredEstates,
                         onEstateSelect: { estateId in
-                            path.append(SearchMapRoute.detail(estateId: estateId))
+                            // container를 통해 처리하도록 수정
+                            container.handle(.estateCardSelected(estateId))
                         },
                         onClose: {
                             container.handle(.hideEstateScroll)
@@ -99,6 +97,7 @@ struct SearchMapView: View {
                     .transition(.move(edge: .bottom))
                 }
             }
+            
             if container.model.isLoading {
                 ProgressView()
             }
@@ -111,38 +110,46 @@ struct SearchMapView: View {
                     .cornerRadius(8)
             }
         }
+        
         .navigationBarTitleDisplayMode(.inline)
-        .navigationDestination(for: SearchMapRoute.self) { route in // 추가
-            switch route {
-            case .detail(let estateId):
-                LazyView(content: EstateDetailView(estateId: estateId))
-            }}
-                .animation(.easeInOut(duration: 0.3), value: container.model.selectedFilterIndex) // 추가
-                .animation(.easeInOut(duration: 0.3), value: container.model.showEstateScroll) // 추가
-                .onAppear {
-                    container.handle(.requestLocationPermission)
+        .fullScreenCover(item: Binding(
+            get: { container.model.selectedEstate },
+            set: { container.model.selectedEstate = $0 }
+        )) { estate in
+            EstateDetailView(estate: estate)
+        }
+        .fullScreenCover(item: Binding(
+            get: { container.model.selectedEstateId },
+            set: { container.model.selectedEstateId = $0 }
+        )) { identifiableString in
+            EstateDetailView(estateId: identifiableString.id)
+        }
+        .animation(.easeInOut(duration: 0.3), value: container.model.selectedFilterIndex)
+        .animation(.easeInOut(duration: 0.3), value: container.model.showEstateScroll)
+        .onAppear {
+            container.handle(.requestLocationPermission)
+        }
+        .onChange(of: container.model.backToLogin) { needsLogin in
+            if needsLogin {
+                isLoggedIn = false
+            }
+        }
+        .fullScreenCover(isPresented: $showSearchAddress) {
+            SearchAddressView(
+                di: di,
+                isPresented: $showSearchAddress,
+                onAddressSelected: { selectedAddress in
+                    
+                    container.handle(.searchBarSubmitted(selectedAddress))
+                    
+                },
+                onDismiss: {
+                    print("onDismiss")
                 }
-                .onChange(of: container.model.backToLogin) { needsLogin in
-                    if needsLogin {
-                        isLoggedIn = false
-                    }
-                }
-                .fullScreenCover(isPresented: $showSearchAddress) {
-                    SearchAddressView(
-                        di: di,
-                        isPresented: $showSearchAddress,
-                        onAddressSelected: { selectedAddress in
-                            
-                            container.handle(.searchBarSubmitted(selectedAddress))
-                            
-                        },
-                        onDismiss: {
-                            print("onDismiss")
-                        }
-                    )
-                }
+            )
         }
     }
+}
 
 struct SearchBar: View {
     @Binding var searchBarTapped: Bool
@@ -245,33 +252,33 @@ struct SliderView: View {
     
     var body: some View {
         VStack(spacing: 12) {
-  // 평수: 0~200, 월세: 0~5000, 보증금: 0~50000
-switch filterType {
-case 1:
-    sliderContent(
-        title: "평수",
-        range: 0...200,
-        values: $areaValues,
-        unit: "평",
-        onChange: onAreaRangeChange
-    )
-case 2:
-    sliderContent(
-        title: "월세",
-        range: 0...5000,
-        values: $monthlyRentValues,
-        unit: "만원",
-        onChange: onMonthlyRentChange
-    )
-case 3:
-    sliderContent(
-        title: "보증금",
-        range: 0...50000,
-        values: $depositValues,
-        unit: "만원",
-        onChange: onDepositChange
-    )
-
+            // 평수: 0~200, 월세: 0~5000, 보증금: 0~50000
+            switch filterType {
+            case 1:
+                sliderContent(
+                    title: "평수",
+                    range: 1...200,
+                    values: $areaValues,
+                    unit: "평",
+                    onChange: onAreaRangeChange
+                )
+            case 2:
+                sliderContent(
+                    title: "월세",
+                    range: 1...5000,
+                    values: $monthlyRentValues,
+                    unit: "만원",
+                    onChange: onMonthlyRentChange
+                )
+            case 3:
+                sliderContent(
+                    title: "보증금",
+                    range: 0...50000,
+                    values: $depositValues,
+                    unit: "만원",
+                    onChange: onDepositChange
+                )
+                
             default:
                 EmptyView()
             }
@@ -284,37 +291,37 @@ case 3:
     }
     
     private func sliderContent(
-    title: String,
-    range: ClosedRange<Double>,
-    values: Binding<ClosedRange<Double>>,
-    unit: String,
-    onChange: @escaping (ClosedRange<Double>) -> Void
-) -> some View {
-    VStack(spacing: 16) {
-        // 제목 및 범위 표시
-        HStack {
-            Text(title)
-                .font(.system(size: 16, weight: .medium))
-            Spacer()
-            Text("\(formatValue(values.wrappedValue.lowerBound, unit: unit)) ~ \(formatValue(values.wrappedValue.upperBound, unit: unit))")
-                .font(.system(size: 14))
-                .foregroundColor(.gray)
+        title: String,
+        range: ClosedRange<Double>,
+        values: Binding<ClosedRange<Double>>,
+        unit: String,
+        onChange: @escaping (ClosedRange<Double>) -> Void
+    ) -> some View {
+        VStack(spacing: 16) {
+            // 제목 및 범위 표시
+            HStack {
+                Text(title)
+                    .font(.system(size: 16, weight: .medium))
+                Spacer()
+                Text("\(formatValue(values.wrappedValue.lowerBound, unit: unit)) ~ \(formatValue(values.wrappedValue.upperBound, unit: unit))")
+                    .font(.system(size: 14))
+                    .foregroundColor(.gray)
+            }
+            
+            // 커스텀 Range Slider
+            CustomRangeSlider(
+                range: range,
+                values: values,
+                unit: unit,
+                onChange: onChange,
+                filterType: filterType
+            )
+            .frame(height: 40)
+            
+            // 하단 눈금 - filterType별로 다르게 표시
+            bottomLabels(for: filterType)
         }
-        //백억
-        // 커스텀 Range Slider
-        CustomRangeSlider(
-            range: range,
-            values: values,
-            unit: unit,
-            onChange: onChange,
-            filterType: filterType
-        )
-        .frame(height: 40)
-        
-        // 하단 눈금 - filterType별로 다르게 표시
-        bottomLabels(for: filterType)
     }
-}
 }
 struct CustomRangeSlider: View {
     let range: ClosedRange<Double>
@@ -329,23 +336,79 @@ struct CustomRangeSlider: View {
     @State private var dragStartLower: CGFloat = 0
     @State private var dragStartUpper: CGFloat = 0
     
-
+    
     
     // 눈금 값에 따른 슬라이더 위치를 계산하는 함수
     private func calculatePosition(for value: Double, in range: ClosedRange<Double>, sliderWidth: CGFloat) -> CGFloat {
         let totalRange = range.upperBound - range.lowerBound
         return CGFloat((value - range.lowerBound) / totalRange) * sliderWidth
     }
+    // 필터 타입별 구간 정보를 반환하는 메서드
+    private func getSegmentInfo(for filterType: Int) -> (segments: [Double], deltas: [Double]) {
+        switch filterType {
+        case 1: // 평수
+            return (segments: [1, 5, 100, 200], deltas: [1, 1, 10])
+        case 2: // 월세
+            return (segments: [1, 30, 300, 5000], deltas: [1, 5, 10])
+        case 3: // 보증금
+            return (segments: [0, 200, 10000, 50000], deltas: [10, 50, 100])
+        default:
+            return (segments: [], deltas: [])
+        }
+    }
+    
+    // 값을 델타에 맞춰 스냅하는 메서드
+    private func snapToSegment(_ value: Double) -> Double {
+        let segmentInfo = getSegmentInfo(for: filterType)
+        let segments = segmentInfo.segments
+        let deltas = segmentInfo.deltas
+        
+        // 어느 구간에 속하는지 찾기
+        for i in 0..<(segments.count - 1) {
+            let segmentStart = segments[i]
+            let segmentEnd = segments[i + 1]
+            
+            if value >= segmentStart && value <= segmentEnd {
+                let delta = deltas[i]
+                let relativeValue = value - segmentStart
+                let snappedRelative = round(relativeValue / delta) * delta
+                return segmentStart + snappedRelative
+            }
+        }
+        
+        return value
+    }
+    
+    // 스냅된 값의 슬라이더 위치를 계산하는 메서드
+    private func calculateSnappedPosition(for value: Double, sliderWidth: CGFloat) -> CGFloat {
+        let segmentInfo = getSegmentInfo(for: filterType)
+        let segments = segmentInfo.segments
+        let deltas = segmentInfo.deltas
+        
+        // 전체 구간을 4등분으로 나눔 (3개 구간)
+        let segmentWidth = sliderWidth / CGFloat(segments.count - 1)
+        
+        // 어느 구간에 속하는지 찾기
+        for i in 0..<(segments.count - 1) {
+            let segmentStart = segments[i]
+            let segmentEnd = segments[i + 1]
+            
+            if value >= segmentStart && value <= segmentEnd {
+                let progress = (value - segmentStart) / (segmentEnd - segmentStart)
+                return CGFloat(i) * segmentWidth + CGFloat(progress) * segmentWidth
+            }
+        }
+        
+        return 0
+    }
     
     var body: some View {
         GeometryReader { geometry in
             let sliderWidth = geometry.size.width
-            let totalRange = range.upperBound - range.lowerBound
             
-            // 낮은 값의 위치 계산
-            let lowerPosition = calculatePosition(for: values.lowerBound, in: range, sliderWidth: sliderWidth)
-            // 높은 값의 위치 계산
-            let upperPosition = calculatePosition(for: values.upperBound, in: range, sliderWidth: sliderWidth)
+            // 스냅된 값의 위치 계산
+            let lowerPosition = calculateSnappedPosition(for: values.lowerBound, sliderWidth: sliderWidth)
+            let upperPosition = calculateSnappedPosition(for: values.upperBound, sliderWidth: sliderWidth)
             
             ZStack {
                 // 배경 슬라이더 라인
@@ -378,8 +441,20 @@ struct CustomRangeSlider: View {
                                 }
                                 let delta = value.translation.width
                                 let newPosition = max(0, min(sliderWidth, dragStartLower + delta))
-                                let newValue = range.lowerBound + (Double(newPosition) / Double(sliderWidth)) * totalRange
-                                let clampedValue = max(range.lowerBound, min(values.upperBound, newValue))
+                                
+                                // 위치를 값으로 변환 (역계산)
+                                let segmentInfo = getSegmentInfo(for: filterType)
+                                let segments = segmentInfo.segments
+                                let segmentWidth = sliderWidth / CGFloat(segments.count - 1)
+                                let segmentIndex = min(Int(newPosition / segmentWidth), segments.count - 2)
+                                let segmentProgress = min(1.0, (newPosition - CGFloat(segmentIndex) * segmentWidth) / segmentWidth)
+                                
+                                let segmentStart = segments[segmentIndex]
+                                let segmentEnd = segments[segmentIndex + 1]
+                                let rawValue = segmentStart + Double(segmentProgress) * (segmentEnd - segmentStart)
+                                
+                                let snappedValue = snapToSegment(rawValue)
+                                let clampedValue = max(range.lowerBound, min(values.upperBound, snappedValue))
                                 values = clampedValue...values.upperBound
                                 onChange(values)
                             }
@@ -407,8 +482,20 @@ struct CustomRangeSlider: View {
                                 }
                                 let delta = value.translation.width
                                 let newPosition = max(0, min(sliderWidth, dragStartUpper + delta))
-                                let newValue = range.lowerBound + (Double(newPosition) / Double(sliderWidth)) * totalRange
-                                let clampedValue = max(values.lowerBound, min(range.upperBound, newValue))
+                                
+                                // 위치를 값으로 변환 (역계산)
+                                let segmentInfo = getSegmentInfo(for: filterType)
+                                let segments = segmentInfo.segments
+                                let segmentWidth = sliderWidth / CGFloat(segments.count - 1)
+                                let segmentIndex = min(Int(newPosition / segmentWidth), segments.count - 2)
+                                let segmentProgress = min(1.0, (newPosition - CGFloat(segmentIndex) * segmentWidth) / segmentWidth)
+                                
+                                let segmentStart = segments[segmentIndex]
+                                let segmentEnd = segments[segmentIndex + 1]
+                                let rawValue = segmentStart + Double(segmentProgress) * (segmentEnd - segmentStart)
+                                
+                                let snappedValue = snapToSegment(rawValue)
+                                let clampedValue = max(values.lowerBound, min(range.upperBound, snappedValue))
                                 values = values.lowerBound...clampedValue
                                 onChange(values)
                             }
@@ -467,27 +554,27 @@ private func bottomLabels(for filterType: Int) -> some View {
         switch filterType {
         case 1: // 평수
             Text("최소")
-            Spacer()
+            Spacer() //1평
             Text("5평")
-            Spacer()
+            Spacer() // 1평
             Text("100평")
-            Spacer()
+            Spacer() //10평
             Text("최대")
         case 2: // 월세
             Text("최소")
-            Spacer()
+            Spacer() //1만원씩 증가
             Text("30만")
-            Spacer()
+            Spacer() //5만원씩 증가
             Text("300만")
-            Spacer()
+            Spacer()// 10만원씩 증가
             Text("최대")
         case 3: // 보증금
             Text("최소")
-            Spacer()
+            Spacer() // 10만원씩 증가
             Text("200만")
-            Spacer()
+            Spacer() //50만
             Text("1억")
-            Spacer()
+            Spacer() // 100만
             Text("최대")
         default:
             EmptyView()
@@ -546,7 +633,7 @@ struct CategoryOptionView: View {
 
 // MARK: - EstateScrollView
 struct EstateScrollView: View {
-    let estates: [DetailEstateEntity]
+    let estates: [DetailEstatePresentation]
     let onEstateSelect: (String) -> Void
     let onClose: () -> Void
     
@@ -586,21 +673,16 @@ struct EstateScrollView: View {
 
 // MARK: - EstateCardView
 struct EstateCardView: View {
-    let estate: DetailEstateEntity
+    let estate: DetailEstatePresentation
     let onTap: () -> Void
     
     var body: some View {
         Button(action: onTap) {
             VStack(alignment: .leading, spacing: 8) {
                 // 썸네일 (실제로는 이미지 로딩 필요)
-                Rectangle()
-                    .fill(Color.gray.opacity(0.3))
+                CustomAsyncImage(imagePath: estate.thumbnails.first)
                     .frame(width: 150, height: 100)
                     .cornerRadius(8)
-                    .overlay(
-                        Text("이미지")
-                            .foregroundColor(.gray)
-                    )
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(estate.category)
@@ -611,11 +693,11 @@ struct EstateCardView: View {
                         .font(.system(size: 14, weight: .medium))
                         .lineLimit(1)
                     
-                    Text("보증금 \(Int(estate.deposit))/월세 \(Int(estate.monthlyRent))")
+                    Text("보증금 \(estate.deposit)/월세 \(estate.monthlyRent)")
                         .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(.red)
+                        .foregroundColor(.gray)
                     
-                    Text("\(Int(estate.area))평 · \(estate.floors)층")
+                    Text("\(estate.area) · \(estate.floors)")
                         .font(.caption)
                         .foregroundColor(.gray)
                     
