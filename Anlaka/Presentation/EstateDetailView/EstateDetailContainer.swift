@@ -80,14 +80,13 @@ final class EstateDetailContainer: ObservableObject {
             Task {
                 await toggleIsLiked()
             }
-        case .chatButtonTapped:
-            if case .success(let data) = model.detailEstate {
-                // opponent_id를 초기화한 후 다시 설정
-                model.opponent_id = nil
-                DispatchQueue.main.async {
-                    self.model.opponent_id = data.detail.creator.userId
-                }
-            }
+case .chatButtonTapped:
+    if case .success(let data) = model.detailEstate {
+        // 이미 처리 중이면 무시
+        guard model.opponent_id == nil else { return }
+        
+        model.opponent_id = data.detail.creator.userId
+    }
         case .resetPayment:
             model.iamportPayment = nil
         case .resetReservation:

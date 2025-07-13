@@ -16,8 +16,7 @@ struct PaymentStartView: View {
     self._showPaymentStartView = showPaymentStartView
     self.onCancel = onCancel
     _container = StateObject(
-      wrappedValue: PaymentContainer(
-        repository: di.networkRepository, iamportPayment: iamportPayment))
+        wrappedValue: di.makePaymentContainer(iamportPayment: iamportPayment))
   }
 
   var body: some View {
