@@ -16,7 +16,7 @@ extension UIFont {
         case .black:
             weightString = "Black"
         case .bold:
-            weightString = "Bold" // "Blod" 오타 수정
+            weightString = "Bold"
         case .heavy:
             weightString = "ExtraBold"
         case .ultraLight:
