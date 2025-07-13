@@ -131,7 +131,7 @@ struct SearchMapView: View {
                 if let filterIndex = container.model.selectedFilterIndex {
                     if filterIndex == 0 {
                         CategoryOptionView(
-                            selectedCategories: container.model.selectedCategories,
+                            selectedCategory: container.model.selectedCategory,
                             onCategorySelect: { category in
                                 container.handle(.selectCategory(category))
                             }
@@ -617,10 +617,16 @@ private func bottomLabels(for filterType: Int) -> some View {
 }
 // MARK: - CategoryOptionView
 struct CategoryOptionView: View {
-    let selectedCategories: [String]
+    let selectedCategory: String?
     let onCategorySelect: (String?) -> Void
     
-    private let categories = ["원룸", "오피스텔", "아파트", "빌라", "상가"]
+    private let categories = [
+        TextResource.Categories.OneRoom,
+        TextResource.Categories.Officetel,
+        TextResource.Categories.Apartment,
+        TextResource.Categories.Villa,
+        TextResource.Categories.Storefront
+    ]
     
     var body: some View {
         VStack(spacing: 12) {
@@ -628,7 +634,7 @@ struct CategoryOptionView: View {
                 Text("카테고리 선택")
                     .font(.system(size: 14, weight: .medium))
                 Spacer()
-                if !selectedCategories.isEmpty {
+                if selectedCategory != nil {
                     Button(action: {
                         onCategorySelect(nil)
                     }) {
@@ -640,16 +646,16 @@ struct CategoryOptionView: View {
             }
             
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 8) {
-                ForEach(categories, id: \.self) { category in
+                ForEach(categories, id: \.text) { category in
                     Button(action: {
-                        onCategorySelect(category)
+                        onCategorySelect(category.text)
                     }) {
-                        Text(category)
+                        Text(category.text)
                             .font(.system(size: 13, weight: .medium))
                             .padding(.horizontal, 13)
                             .padding(.vertical, 8)
-                            .background(selectedCategories.contains(category) ? Color.oliveMist : Color.gray.opacity(0.1))
-                            .foregroundColor(selectedCategories.contains(category) ? .white : .black)
+                            .background(selectedCategory == category.text ? Color.oliveMist : Color.gray.opacity(0.1))
+                            .foregroundColor(selectedCategory == category.text ? .white : .black)
                             .cornerRadius(8)
                     }
                 }
