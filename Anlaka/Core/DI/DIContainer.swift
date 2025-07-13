@@ -10,10 +10,14 @@ import Foundation
 @MainActor
 final class DIContainer: ObservableObject {
     private let networkRepository: NetworkRepository
+    private let addressNetworkRepository: AddressNetworkRepository
+    private let communityNetworkRepository: CommunityNetworkRepository
     private let databaseRepository: DatabaseRepository
     
     init() throws {
         self.networkRepository = NetworkRepositoryFactory.create()
+        self.addressNetworkRepository = AddressNetworkRepositoryFactory.create()
+        self.communityNetworkRepository = CommunityNetworkRepositoryFactory.create()
         self.databaseRepository = try DatabaseRepositoryFactory.create()
     }
     
@@ -61,6 +65,10 @@ final class DIContainer: ObservableObject {
         PaymentContainer(repository: networkRepository, iamportPayment: iamportPayment)
     }
     func makeCommunityContainer() -> CommunityContainer {
-        CommunityContainer(repository: CommunityNetworkRepositoryImp())
+        let postSummaryUseCase = PostSummaryUseCase(
+            communityRepository: communityNetworkRepository,
+            addressRepository: addressNetworkRepository
+        )
+        return CommunityContainer(repository: communityNetworkRepository, useCase: postSummaryUseCase)
     }
 }

@@ -100,7 +100,7 @@ struct DateDivider: View {
 struct MainContentView: View {
     @ObservedObject var container: ChattingContainer
     @Binding var messageText: String
-    @Binding var selectedFiles: [GalleryImage]
+    @Binding var selectedFiles: [SelectedFile]
     @Binding var isShowingImagePicker: Bool
     @Binding var scrollProxy: ScrollViewProxy?
     @Binding var isShowingProfileDetail: Bool
@@ -108,6 +108,7 @@ struct MainContentView: View {
     @Binding var path: NavigationPath
     @Binding var inputViewHeight: CGFloat
     @Binding var didInitialScroll: Bool
+    @Binding var isShowingDocumentPicker: Bool
     let bottom1: Namespace.ID
     
     @ObservedObject var keyboard: KeyboardResponder
@@ -126,29 +127,30 @@ struct MainContentView: View {
                             ProgressView()
                                 .progressViewStyle(CircularProgressViewStyle())
                             Text("채팅방을 불러오는 중...")
-                    .font(.pretendardBody)
+                                .font(.pretendardBody)
                                 .foregroundColor(.gray)
                                 .padding(.top, 8)
                             Spacer()
                         }
-                    } else {
+                    }
+                    else {
                         VStack(spacing: 0){
                             // 채팅 메시지 목록
-                                                    ChatMessagesView(
-                            messagesGroupedByDate: container.model.messagesGroupedByDate,
-                            scrollProxy: $scrollProxy,
-                            onScrollToBottom: {
-                                if !didInitialScroll && !container.model.messages.isEmpty {
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                                        scrollToBottom()
-                                        didInitialScroll = true
+                            ChatMessagesView(
+                                messagesGroupedByDate: container.model.messagesGroupedByDate,
+                                scrollProxy: $scrollProxy,
+                                onScrollToBottom: {
+                                    if !didInitialScroll && !container.model.messages.isEmpty {
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                                            scrollToBottom()
+                                            didInitialScroll = true
+                                        }
                                     }
-                                }
-                            },
-                            bottom1: bottom1,
-                            inputViewHeight: inputViewHeight,
-                            keyboard: keyboard
-                        )
+                                },
+                                bottom1: bottom1,
+                                inputViewHeight: inputViewHeight,
+                                keyboard: keyboard
+                            )
                             .background(Color.warmLinen)
                             
                             // 입력 영역
@@ -188,7 +190,7 @@ struct MainContentView: View {
                             Image(systemName: "wifi.slash")
                                 .foregroundColor(.TomatoRed)
                             Text(container.model.isReconnecting ? "재연결 시도 중..." : "연결이 끊어졌습니다")
-                    .font(.pretendardBody)
+                                .font(.pretendardBody)
                                 .foregroundColor(.TomatoRed)
                             if container.model.isReconnecting {
                                 ProgressView()
@@ -223,7 +225,7 @@ struct ChattingView: View {
     // 스크롤/키보드/입력창 상태 관리
     @State private var inputViewHeight: CGFloat = 0
     @State private var didInitialScroll: Bool = false
-
+    
     @Namespace var bottom1
     
     // 닉네임 길이 제한을 위한 computed property
@@ -258,7 +260,7 @@ struct ChattingView: View {
                 profileDetailOffset: $profileDetailOffset,
                 path: $path,
                 inputViewHeight: $inputViewHeight,
-                didInitialScroll: $didInitialScroll,
+                didInitialScroll: $didInitialScroll, isShowingDocumentPicker: $isShowingDocumentPicker,
                 bottom1: bottom1,
                 keyboard: keyboard,
                 sendMessage: sendMessage,
@@ -309,7 +311,7 @@ struct ChattingView: View {
         }
         .sheet(isPresented: $isShowingImagePicker) {
             FilePicker(
-                selectedFiles: $selectedFiles, 
+                selectedFiles: $selectedFiles,
                 pickerType: .chat
             )
             .onChange(of: selectedFiles) { files in
@@ -333,8 +335,8 @@ struct ChattingView: View {
                 container.handle(.initialLoad)
             }
         } message: {
-                            Text(container.model.error ?? "")
-                    .font(.pretendardBody)
+            Text(container.model.error ?? "")
+                .font(.pretendardBody)
         }
         .overlay(
             Group {
@@ -365,13 +367,9 @@ struct ChattingView: View {
             }
         )
         .toastView(toast: $container.model.toast)
-                
-
-            }
-        )
+        
+        
     }
-    
-
     
     private func sendMessage() {
         guard !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !selectedFiles.isEmpty else { return }
@@ -396,10 +394,7 @@ struct ChattingView: View {
             }
         }
     }
-    
-    
 }
-
 // MARK: - ChatMessageCell
 struct ChatMessageCell: View {
     let message: ChatEntity
@@ -505,8 +500,8 @@ struct ChatInputView: View {
                         ForEach(selectedFiles.indices, id: \.self) { index in
                             FileThumbnailView(
                                 file: selectedFiles[index],
-                                isInvalid: container.model.invalidFileIndices.contains(index),
-                                invalidReason: container.model.invalidFileReasons[index]
+                                isInvalid: invalidFileIndices.contains(index),
+                                invalidReason: nil
                             ) {
                                 selectedFiles.remove(at: index)
                             }

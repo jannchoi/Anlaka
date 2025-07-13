@@ -6,20 +6,122 @@
 //
 
 import SwiftUI
+
+// MARK: - Server File Entity (서버에서 다운로드한 파일용)
+struct ServerFileEntity: Equatable {
+    let serverPath: String      // 서버 상대경로 (ex: "/data/posts/image_1712739634962.png")
+    var localPath: String?      // 로컬에 다운로드된 파일 경로 (다운로드 완료 후 설정)
+    let fileName: String        // 파일명
+    let fileExtension: String   // 파일 확장자
+    let mimeType: String        // MIME 타입
+    var isDownloaded: Bool      // 다운로드 완료 여부
+    var image: UIImage?         // 이미지인 경우 UIImage (메모리 효율을 위해 필요시에만 로드)
+    
+    init(serverPath: String) {
+        self.serverPath = serverPath
+        self.localPath = nil
+        self.fileName = (serverPath as NSString).lastPathComponent
+        self.fileExtension = (serverPath as NSString).pathExtension.lowercased()
+        self.mimeType = Self.getMimeType(for: self.fileExtension)
+        self.isDownloaded = false
+        self.image = nil
+    }
+    
+    // 다운로드 완료 후 호출
+    mutating func setDownloaded(localPath: String, image: UIImage? = nil) {
+        self.localPath = localPath
+        self.isDownloaded = true
+        self.image = image
+    }
+    
+    // MIME 타입 결정
+    private static func getMimeType(for fileExtension: String) -> String {
+        switch fileExtension.lowercased() {
+        case "jpg", "jpeg":
+            return "image/jpeg"
+        case "png":
+            return "image/png"
+        case "gif":
+            return "image/gif"
+        case "webp":
+            return "image/webp"
+        case "pdf":
+            return "application/pdf"
+        case "mp4":
+            return "video/mp4"
+        case "mov":
+            return "video/quicktime"
+        case "avi":
+            return "video/x-msvideo"
+        case "mkv":
+            return "video/x-matroska"
+        case "wmv":
+            return "video/x-ms-wmv"
+        default:
+            return "application/octet-stream"
+        }
+    }
+    
+    // Equatable 구현
+    static func == (lhs: ServerFileEntity, rhs: ServerFileEntity) -> Bool {
+        return lhs.serverPath == rhs.serverPath
+    }
+}
+
+// MARK: - ServerFileEntity Extensions
+extension ServerFileEntity {
+    // 파일 다운로드 상태
+    enum DownloadState {
+        case notStarted
+        case downloading
+        case downloaded
+        case failed(Error)
+    }
+    
+    // 다운로드 상태를 추적하는 래퍼
+    struct DownloadableFile {
+        var file: ServerFileEntity
+        var downloadState: DownloadState = .notStarted
+        
+        init(serverPath: String) {
+            self.file = ServerFileEntity(serverPath: serverPath)
+        }
+        
+        mutating func setDownloading() {
+            downloadState = .downloading
+        }
+        
+        mutating func setDownloaded(localPath: String, image: UIImage? = nil) {
+            file.setDownloaded(localPath: localPath, image: image)
+            downloadState = .downloaded
+        }
+        
+        mutating func setFailed(_ error: Error) {
+            downloadState = .failed(error)
+        }
+    }
+}
+
 // MARK: - Gallery Image (갤러리에서 선택한 이미지)
-struct GalleryImage {
+struct GalleryImage: Equatable {
     let image: UIImage
     let fileName: String
+    
+    // Equatable 구현
+    static func == (lhs: GalleryImage, rhs: GalleryImage) -> Bool {
+        return lhs.fileName == rhs.fileName
+        // UIImage는 비교하지 않음 (성능상의 이유)
+    }
 }
 
 // MARK: - Selected File (FilePicker에서 선택된 파일)
-enum FileType {
+enum FileType: Equatable {
     case image
     case video
     case pdf
 }
 
-struct SelectedFile {
+struct SelectedFile: Equatable {
     let fileName: String
     let fileType: FileType
     let image: UIImage?     // 이미지용
@@ -78,6 +180,15 @@ extension SelectedFile {
             )
         }
     }
+    
+    // Equatable 구현
+    static func == (lhs: SelectedFile, rhs: SelectedFile) -> Bool {
+        return lhs.fileName == rhs.fileName &&
+               lhs.fileType == rhs.fileType &&
+               lhs.fileExtension == rhs.fileExtension &&
+               lhs.mimeType == rhs.mimeType
+        // UIImage와 Data는 비교하지 않음 (성능상의 이유)
+    }
 }
 
 extension GalleryImage {
@@ -89,7 +200,7 @@ extension GalleryImage {
 }
 
 // MARK: - DTO (서버 통신용)
-struct FileDTO {
+struct FileDTO: Decodable {
     let files: [String]?
     
     init(files: [String]? = nil) {
@@ -114,10 +225,15 @@ extension FileDTO {
 }
 
 // MARK: - Entity (UI 표시용)
-struct FileEntity {
+struct FileEntity: Equatable {
     let previewImage: UIImage
     let path: String
     
+    // Equatable 구현
+    static func == (lhs: FileEntity, rhs: FileEntity) -> Bool {
+        return lhs.path == rhs.path
+        // UIImage는 비교하지 않음 (성능상의 이유)
+    }
 }
 
 extension FileEntity {
@@ -131,7 +247,7 @@ extension FileEntity {
 }
 
 // MARK: - DB (데이터베이스 저장용)
-struct FileDB {
+struct FileDB: Equatable {
     let files: [String]
 }
 

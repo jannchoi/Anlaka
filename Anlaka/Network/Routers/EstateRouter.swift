@@ -65,7 +65,7 @@ enum EstateRouter: AuthorizedTarget {
         ]
     }
 
-    var parameters: [String: Any] {
+    var parameters: [String: Any?] {
         switch self {
         case .geoEstate(let category, let lon, let lat, let maxD):
             var params: [String: Any] = [

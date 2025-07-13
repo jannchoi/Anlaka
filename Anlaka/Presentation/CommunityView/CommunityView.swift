@@ -18,34 +18,78 @@ struct CommunityView: View {
     }
     
     var body: some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                CustomNavigationBar(title: container.model.currentLocation, leftButton: {
-                    // 뒤로가기 버튼
-                    Button(action: {
-                        path.removeLast()
-                    }) {
-                        Image("chevron")
-                            .font(.headline)
-                            .foregroundColor(.MainTextColor)
+        ZStack {
+            ScrollView {
+                VStack(spacing: 0) {
+                    CustomNavigationBar(
+                        title: container.model.currentLocation,
+                        leftButton: {
+                            // 뒤로가기 버튼
+                            Button(action: {
+                                path.removeLast()
+                            }) {
+                                Image("chevron")
+                                    .font(.headline)
+                                    .foregroundColor(.MainTextColor)
+                            }
+                        },
+                        rightButton: {
+                            // 위치 찾기 버튼
+                            Button(action: {
+                                container.handle(.showLocationSearch)
+                            }) {
+                                Text("위치 찾기")
+                                    .font(.pretendardSubheadline)
+                                    .foregroundColor(.MainTextColor)
+                            }
+                        }
+                    )
+                    searchBar
+                    
+                    HStack(spacing: 12) {
+                        sortView
+                        categoryView
                     }
-                })
-                searchBar
-                
-                HStack(spacing: 12) {
-                    sortView
-                    categoryView
+                    .padding(.horizontal, 16)
+                    .padding(.top, 16)
+                    
+                    boardView
                 }
-                .padding(.horizontal, 16)
-                .padding(.top, 16)
-                
-                boardView
             }
-        }
-        .background(Color.WarmLinen)
-        .navigationBarHidden(true)
-        .onAppear {
-            container.handle(.onAppear)
+            .background(Color.WarmLinen)
+            .navigationBarHidden(true)
+            .onAppear {
+                container.handle(.onAppear)
+            }
+            
+            // SearchAddressView 오버레이
+            if container.model.showSearchAddressView {
+                Color.black.opacity(0.3)
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        container.handle(.dismissLocationSearch)
+                    }
+                
+                SearchAddressView(
+                    di: DIContainer(),
+                    isPresented: $container.model.showSearchAddressView,
+                    onAddressSelected: { searchData in
+                        // SearchAddressView에서 선택된 위치 정보를 CommunityContainer로 전달
+                        let coordinate = CLLocationCoordinate2D(
+                            latitude: searchData.latitude,
+                            longitude: searchData.longitude
+                        )
+                        container.handle(.locationSelected(coordinate, searchData.title))
+                    },
+                    onDismiss: {
+                        container.handle(.dismissLocationSearch)
+                    }
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color.Alabaster)
+                .cornerRadius(12)
+                .padding()
+            }
         }
     }
     
@@ -61,7 +105,18 @@ struct CommunityView: View {
                 .font(.pretendardBody)
                 .foregroundColor(Color.MainTextColor)
                 .onSubmit {
-                    container.handle(.searchPosts(container.model.searchText))
+                    if container.model.searchText.isEmpty {
+                        // 검색어가 비어있으면 현재 위치로 다시 로드
+                        container.handle(.searchPosts(""))
+                    } else {
+                        container.handle(.searchPosts(container.model.searchText))
+                    }
+                }
+                .onChange(of: container.model.searchText) { newValue in
+                    if newValue.isEmpty {
+                        // 검색어가 비어있으면 현재 위치로 다시 로드
+                        container.handle(.searchPosts(""))
+                    }
                 }
         }
         .padding(.horizontal, 16)
@@ -161,8 +216,10 @@ struct CommunityView: View {
                                 .padding(.horizontal, 16)
                         }
                         
-                        // Load more when reaching the last item
-                        if index == posts.count - 1 && container.model.nextCursor != nil {
+                        // Load more when reaching the last item (위치 검색 모드에서만)
+                        if index == posts.count - 1 && 
+                           !container.model.isSearchMode && 
+                           container.model.nextCursor != nil {
                             Color.clear
                                 .frame(height: 1)
                                 .onAppear {
@@ -195,11 +252,11 @@ struct CommunityView: View {
     }
     
     // MARK: - Post Cell
-    private func postCell(for post: AddressMappingResult<PostSummaryResponseWithAddress>) -> some View {
+    private func postCell(for post: PostSummaryResponseEntity) -> some View {
         HStack(alignment: .top, spacing: 12) {
             VStack(alignment: .leading, spacing: 8) {
                 // Category Tag
-                Text(post.summary.category)
+                Text(post.category)
                     .font(.soyoCaption2)
                     .foregroundColor(Color.Gray60)
                     .padding(.horizontal, 6)
@@ -208,14 +265,14 @@ struct CommunityView: View {
                     .cornerRadius(4)
                 
                 // Title
-                Text(post.summary.title)
+                Text(post.title)
                     .font(.pretendardSubheadline)
                     .foregroundColor(Color.MainTextColor)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
                 
                 // Content
-                Text(post.summary.content)
+                Text(post.content)
                     .font(.soyoBody)
                     .foregroundColor(Color.Gray60)
                     .lineLimit(2)
@@ -223,21 +280,21 @@ struct CommunityView: View {
                 
                 // Address, CreatedAt, Like Count
                 HStack(spacing: 8) {
-                    Text(post.address)
+                    Text(post.address ?? "알 수 없음")
                         .font(.soyoCaption)
                         .foregroundColor(Color.Gray60)
                     
-                    Text(post.summary.createdAt)
+                    Text(PresentationMapper.formatRelativeTime(post.createdAt))
                         .font(.soyoCaption)
                         .foregroundColor(Color.Gray60)
                     
                     HStack(spacing: 4) {
-                        Image(post.summary.isLike ? "Like_Fill" : "Like_Empty")
+                        Image(post.isLike ? "Like_Fill" : "Like_Empty")
                             .resizable()
                             .frame(width: 15, height: 15)
-                            .foregroundColor(post.summary.isLike ? Color.TomatoRed : Color.Gray60)
+                            .foregroundColor(post.isLike ? Color.TomatoRed : Color.Gray60)
                         
-                        Text(post.summary.likeCount)
+                        Text(PresentationMapper.mapInt(post.likeCount))
                             .font(.soyoCaption)
                             .foregroundColor(Color.Gray60)
                     }
@@ -247,9 +304,9 @@ struct CommunityView: View {
             Spacer()
             
             // Image Section
-            if !post.summary.files.isEmpty {
+            if !post.files.isEmpty {
                 ZStack(alignment: .topTrailing) {
-                    AsyncImage(url: URL(string: post.summary.files[0] ?? "")) { image in
+                    AsyncImage(url: URL(string: post.files[0] ?? "")) { image in
                         image
                             .resizable()
                             .aspectRatio(contentMode: .fill)
@@ -261,8 +318,8 @@ struct CommunityView: View {
                     .cornerRadius(6)
                     
                     // Image Count Badge
-                    if post.summary.files.count > 1 {
-                        Text("\(post.summary.files.count)")
+                    if post.files.count > 1 {
+                        Text("\(post.files.count)")
                             .font(.soyoCaption2)
                             .foregroundColor(Color.Alabaster)
                             .padding(.horizontal, 4)
@@ -277,7 +334,7 @@ struct CommunityView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
         .onTapGesture {
-            container.handle(.navigateToPostDetail(post.summary.postId))
+            container.handle(.navigateToPostDetail(post.postId))
         }
     }
 }
