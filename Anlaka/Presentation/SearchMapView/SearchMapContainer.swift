@@ -23,6 +23,7 @@ struct SearchMapModel {
     var isLocationPermissionGranted: Bool = false
     var isLoading: Bool = false
     var shouldDrawMap: Bool = false
+    var backToLogin: Bool = false
 }
 enum SearchMapIntent {
     case loadDefaultLocation
@@ -156,8 +157,13 @@ final class SearchMapContainer: NSObject, ObservableObject {
             model.errorMessage = nil
             await getGeoEstates(lon: response.longitude, lat: response.latitude, maxD: model.maxDistance)
         } catch {
-            model.errorMessage = error.localizedDescription
             model.pinInfoList = []
+            if let netError = error as? NetworkError, netError == .expiredRefreshToken {
+                model.backToLogin = true // 🔥 로그인 필요 상태로 업데이트
+            } else {
+                let message = (error as? NetworkError)?.errorDescription ?? error.localizedDescription
+                model.errorMessage = message
+            }
         }
         model.isLoading = false
     }
