@@ -26,8 +26,27 @@ struct SearchMapView: View {
     
     var body: some View {
         mainContent
+            .navigationTitle("매물 찾기 ")
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarBackground(Color.white, for: .navigationBar)
+            .navigationBarTitleDisplayMode(.inline)
             .navigationBarBackButtonHidden(true)
-            .navigationBarItems(leading: backButton)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button(action: {
+                        path.removeLast()
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "chevron.left")
+                                .foregroundColor(.MainTextColor)
+                            Text("뒤로")
+                                .foregroundColor(.MainTextColor)
+                        }
+                        .padding(.leading, 8)
+                    }
+                }
+            }
+            
             .fullScreenCover(item: Binding(
                 get: { container.model.selectedEstate },
                 set: { container.model.selectedEstate = $0 }
@@ -166,15 +185,7 @@ struct SearchMapView: View {
             }
         }
     }
-    
-    private var backButton: some View {
-        Button(action: {
-            path.removeLast()
-        }) {
-            Image(systemName: "chevron.left")
-                .foregroundColor(Color.DustyLake)
-        }
-    }
+
 }
 
 struct SearchBar: View {
@@ -227,7 +238,7 @@ struct FilterButtonView: View {
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
                         .background(selectedIndex == index ? Color.oliveMist : Color.white)
-                        .foregroundColor(selectedIndex == index ? .white : .black)
+                        .foregroundColor(selectedIndex == index ? .white : Color.MainTextColor)
                         .overlay(
                             RoundedRectangle(cornerRadius: 16)
                                 .stroke(Color.gray.opacity(0.3), lineWidth: 1)
@@ -696,14 +707,22 @@ struct EstateScrollView: View {
 struct EstateCardView: View {
     let estate: DetailEstatePresentation
     let onTap: () -> Void
+    @State private var imageLoadError: Bool = false
     
     var body: some View {
         Button(action: onTap) {
             VStack(alignment: .leading, spacing: 8) {
-                // 썸네일 (실제로는 이미지 로딩 필요)
-                CustomAsyncImage(imagePath: estate.thumbnails.first)
-                    .frame(width: 150, height: 100)
-                    .cornerRadius(8)
+                // 썸네일
+                if let firstThumbnail = estate.thumbnails.first {
+                    CustomAsyncImage(imagePath: firstThumbnail)
+                        .frame(width: 150, height: 100)
+                        .cornerRadius(8)
+                } else {
+                    Rectangle()
+                        .fill(Color.gray.opacity(0.2))
+                        .frame(width: 150, height: 100)
+                        .cornerRadius(8)
+                }
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(estate.category)

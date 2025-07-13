@@ -8,7 +8,6 @@
 import Foundation
 
 enum LoginRoute: Hashable {
-    case home
     case signUp
 }
 
@@ -31,4 +30,32 @@ enum CategoryType: String, Hashable,CaseIterable {
 }
 enum SearchMapRoute: Hashable {
     case detail(estateId: String)
+}
+
+// MARK: - Route Definition
+enum MyPageRoute: Hashable {
+    case chatRoom(roomId: String, di: DIContainer)
+    case editProfile(di: DIContainer)
+    
+    // Hashable conformance
+    func hash(into hasher: inout Hasher) {
+        switch self {
+        case .chatRoom(let roomId, _):
+            hasher.combine("chatRoom")
+            hasher.combine(roomId)
+        case .editProfile:
+            hasher.combine("editProfile")
+        }
+    }
+    
+    static func == (lhs: MyPageRoute, rhs: MyPageRoute) -> Bool {
+        switch (lhs, rhs) {
+        case (.chatRoom(let lRoomId, _), .chatRoom(let rRoomId, _)):
+            return lRoomId == rRoomId
+        case (.editProfile, .editProfile):
+            return true
+        default:
+            return false
+        }
+    }
 }
