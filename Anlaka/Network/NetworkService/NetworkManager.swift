@@ -24,11 +24,12 @@ final class NetworkManager {
 
         // ✅ 상태 코드 검사
         guard 200..<300 ~= httpResponse.statusCode else {
+            print(httpResponse.statusCode)
             throw NetworkError.from(code: httpResponse.statusCode, router: target)
         }
 
         if let rawJSON = String(data: data, encoding: .utf8) {
-            print("📦 Raw Response:\n\(rawJSON)")
+            //print("📦 Raw Response:\n\(rawJSON)")
         } else {
             print("⚠️ Raw 데이터 UTF-8 디코딩 실패")
         }

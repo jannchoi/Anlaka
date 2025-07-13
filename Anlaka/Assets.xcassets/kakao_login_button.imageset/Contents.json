@@ -6,12 +6,12 @@
       "scale" : "1x"
     },
     {
-      "filename" : "kakao_login_button 1.png",
+      "filename" : "kakao_login_button@2x.png",
       "idiom" : "universal",
       "scale" : "2x"
     },
     {
-      "filename" : "kakao_login_button 2.png",
+      "filename" : "kakao_login_button@3x.png",
       "idiom" : "universal",
       "scale" : "3x"
     }
