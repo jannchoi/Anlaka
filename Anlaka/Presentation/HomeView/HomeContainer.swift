@@ -80,6 +80,9 @@ final class HomeContainer: ObservableObject {
             let result = await AddressMappingHelper.mapLikeSummariesWithAddress(likeLists.data, repository)
 
             model.likeLists = .success(result.estates)
+
+           
+
         } catch {
             if let netError = error as? NetworkError, netError == .expiredRefreshToken {
                 model.likeLists = .requiresLogin

@@ -11,20 +11,19 @@ struct ChattingModel {
     var lastMessageDate: Date? = nil
     var isConnected: Bool = false
     var sendingMessageId: String? = nil  // 전송 중인 메시지 ID
-    var tempMessage: ChatEntity? = nil   // 임시 메시지
     var messagesGroupedByDate: [(String, [ChatEntity])] = []  // 일반 프로퍼티로 변경
     var currentUserId: String? = nil  // 현재 로그인한 사용자의 ID
     
     // 시간순으로 정렬된 메시지 반환
     var sortedMessages: [ChatEntity] {
-        var allMessages = messages
-        if let temp = tempMessage {
-            // tempMessage가 messages에 없는 경우에만 추가
-            if !allMessages.contains(where: { $0.chatId == temp.chatId }) {
-                allMessages.append(temp)
-            }
+        // 중복 제거 (chatId 기준) - Dictionary 사용
+        var uniqueMessagesDict: [String: ChatEntity] = [:]
+        for message in messages {
+            uniqueMessagesDict[message.chatId] = message
         }
-        return allMessages.sorted(by: { 
+        let uniqueMessages = Array(uniqueMessagesDict.values)
+        
+        return uniqueMessages.sorted(by: { 
             PresentationMapper.parseISO8601ToDate($0.createdAt) < PresentationMapper.parseISO8601ToDate($1.createdAt)
         })
     }
@@ -188,6 +187,7 @@ final class ChattingContainer: ObservableObject {
             model.error = "사용자 정보를 찾을 수 없습니다."
             return
         }
+        
         // 임시 메시지 생성
         let tempMessage = ChatEntity(
             chatId: tempMessageId,
@@ -196,7 +196,7 @@ final class ChattingContainer: ObservableObject {
             createdAt: PresentationMapper.formatDateToISO8601(Date()),
             updatedAt: PresentationMapper.formatDateToISO8601(Date()),
             sender: UserInfoEntity(
-                userId: userInfo.userid,  // 현재 로그인한 사용자의 ID 사용
+                userId: userInfo.userid,
                 nick: userInfo.nick,
                 introduction: userInfo.introduction ?? "",
                 profileImage: userInfo.profileImage ?? ""
@@ -204,9 +204,10 @@ final class ChattingContainer: ObservableObject {
             files: []
         )
         
-        // 임시 메시지 추가 및 그룹화 업데이트
-        model.tempMessage = tempMessage
+        // 임시 메시지를 즉시 UI에 추가
+        model.messages.append(tempMessage)
         model.updateMessagesGroupedByDate()
+        print("📝 임시 메시지 추가: \(tempMessageId)")
         
         do {
             // 1. GalleryImage를 ChatFile로 변환
@@ -235,13 +236,7 @@ final class ChattingContainer: ObservableObject {
                 print("✅ 파일 업로드 성공 - 업로드된 파일 URL: \(uploadedFiles)")
             }
             
-            // 3. 메시지 전송
-            let chatRequest = ChatRequestEntity(
-                content: text,
-                files: uploadedFiles
-            )
-            
-            // Socket.IO를 통한 메시지 전송
+            // 3. Socket.IO를 통한 메시지 전송
             let messageData: [String: Any] = [
                 "content": text,
                 "files": uploadedFiles,
@@ -252,35 +247,46 @@ final class ChattingContainer: ObservableObject {
                 // 메시지 전송 완료 후 처리
                 Task {
                     do {
-                        // 서버에서 메시지 ID를 받아와서 저장
+                        // Socket.IO 전송 완료 후 HTTP로 실제 메시지 ID 받아오기
+                        let chatRequest = ChatRequestEntity(
+                            content: text,
+                            files: uploadedFiles
+                        )
+                        
                         let message = try await self?.repository.sendMessage(
                             roomId: self?.model.roomId ?? "",
                             target: chatRequest
                         )
                         
                         if let message = message {
-                            // DB 저장 및 UI 업데이트
-                            if !(self?.model.messages.contains(where: { $0.chatId == message.chatId }) ?? false) {
-                                try await self?.databaseRepository.saveMessage(message)
-                                self?.model.messages.append(message)
-                                self?.model.updateMessagesGroupedByDate()  // 그룹화 업데이트
+                            // 임시 메시지를 실제 메시지로 교체
+                            if let tempIndex = self?.model.messages.firstIndex(where: { $0.chatId == tempMessageId }) {
+                                self?.model.messages[tempIndex] = message
+                                print("🔄 임시 메시지를 실제 메시지로 교체: \(message.chatId)")
                             }
+                            
+                            // DB 저장
+                            try await self?.databaseRepository.saveMessage(message)
+                            
+                            // 전송 상태 업데이트
+                            self?.model.sendingMessageId = nil
+                            self?.model.updateMessagesGroupedByDate()
+                            print("✅ 메시지 전송 및 저장 완료: \(message.chatId)")
                         } else {
                             print("❌ 메시지 전송 실패: 응답이 없음")
                             self?.model.error = "메시지 전송에 실패했습니다."
+                            // 에러 발생 시 임시 메시지 제거
+                            self?.model.messages.removeAll { $0.chatId == tempMessageId }
+                            self?.model.sendingMessageId = nil
+                            self?.model.updateMessagesGroupedByDate()
                         }
-                        
-                        // 임시 메시지 제거 및 전송 완료 처리
-                        self?.model.tempMessage = nil
-                        self?.model.sendingMessageId = nil
-                        self?.model.updateMessagesGroupedByDate()  // 임시 메시지 제거 후 그룹화 업데이트
                     } catch {
                         print("❌ 메시지 전송 실패: \(error.localizedDescription)")
                         self?.model.error = error.localizedDescription
-                        // 임시 메시지 제거 및 전송 완료 처리
-                        self?.model.tempMessage = nil
+                        // 에러 발생 시 임시 메시지 제거
+                        self?.model.messages.removeAll { $0.chatId == tempMessageId }
                         self?.model.sendingMessageId = nil
-                        self?.model.updateMessagesGroupedByDate()  // 임시 메시지 제거 후 그룹화 업데이트
+                        self?.model.updateMessagesGroupedByDate()
                     }
                 }
             }
@@ -288,10 +294,10 @@ final class ChattingContainer: ObservableObject {
         } catch {
             print("❌ 메시지 전송 실패: \(error.localizedDescription)")
             model.error = error.localizedDescription
-            // 임시 메시지 제거 및 전송 완료 처리
-            model.tempMessage = nil
+            // 에러 발생 시 임시 메시지 제거
+            model.messages.removeAll { $0.chatId == tempMessageId }
             model.sendingMessageId = nil
-            model.updateMessagesGroupedByDate()  // 임시 메시지 제거 후 그룹화 업데이트
+            model.updateMessagesGroupedByDate()
         }
     }
     
@@ -336,8 +342,16 @@ final class ChattingContainer: ObservableObject {
     private func handleIncomingMessage(_ message: ChatMessageEntity) {
         Task {
             do {
-                // 이미 존재하는 메시지인지 확인
+                // 이미 존재하는 메시지인지 확인 (UI 레벨)
                 if model.messages.contains(where: { $0.chatId == message.chatID }) {
+                    print("⚠️ 이미 UI에 존재하는 메시지 무시: \(message.chatID)")
+                    return
+                }
+                
+                // DB에서도 중복 체크
+                let existingMessages = try await databaseRepository.getMessages(roomId: message.roomID)
+                if existingMessages.contains(where: { $0.chatId == message.chatID }) {
+                    print("⚠️ 이미 DB에 존재하는 메시지 무시: \(message.chatID)")
                     return
                 }
                 
@@ -359,8 +373,10 @@ final class ChattingContainer: ObservableObject {
                 // DB 저장 및 UI 업데이트
                 try await databaseRepository.saveMessage(chatEntity)
                 model.messages.append(chatEntity)
-                model.updateMessagesGroupedByDate()  // 메시지 그룹화 업데이트
+                model.updateMessagesGroupedByDate()
+                print("✅ 새 메시지 저장 완료: \(message.chatID)")
             } catch {
+                print("❌ 메시지 저장 실패: \(error.localizedDescription)")
                 model.error = error.localizedDescription
             }
         }
