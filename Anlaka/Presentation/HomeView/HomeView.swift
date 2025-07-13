@@ -30,7 +30,10 @@ struct HomeView: View {
     }
     
     var body: some View {
-        
+        ZStack {
+            Color.WarmLinen
+                .ignoresSafeArea()
+            
             ZStack(alignment: .top) {
                 // 컨텐츠 스크롤뷰
                 ScrollView {
@@ -42,7 +45,7 @@ struct HomeView: View {
                         // 검색바를 오늘의 부동산 위에 배치
                         searchBar
                             .padding(.horizontal)
-                            .padding(.top, 60) // 상단 영역에 충분한 여백
+                            .padding(.top, 80) // 상단 영역에 충분한 여백
                     }
                     
                     VStack(spacing: 24) {
@@ -73,9 +76,13 @@ struct HomeView: View {
                     }
                     .padding(.bottom)
                 }
+                .refreshable {
+                    // 사용자가 스크롤을 당겨서 새로고침할 때
+                    container.handle(.refreshData)
+                }
             }
+        }
             .navigationBarTitleDisplayMode(.inline)
-            .navigationBarHidden(true) // 네비게이션 바 완전히 숨김
             .navigationDestination(for: HomeRoute.self) { route in
                 switch route {
                 case .category(let categoryType):
@@ -107,6 +114,7 @@ struct HomeView: View {
                 get: { container.model.selectedEstateId},
                 set: { container.model.selectedEstateId = $0 }
             )) { identifiableString in
+
                 LazyView(content: EstateDetailView(di: di,estateId: identifiableString.id))
             }
             .sheet(isPresented: $container.model.showSafariSheet) {
@@ -131,7 +139,7 @@ struct HomeView: View {
                 .disabled(true) // 입력은 불가능
         }
         .padding(8)
-        .background(Color.white.opacity(0.9))
+        .background(Color.Alabaster.opacity(0.9))
         .cornerRadius(10)
         .contentShape(Rectangle()) // 전체 영역을 탭 가능하게 설정
         .onTapGesture {
@@ -148,59 +156,112 @@ struct TodayEstateView: View {
     let onTap: () -> Void
     
     @State private var currentPage: Int = 0
+    @State private var imageBrightness: [Int: Bool] = [:] // 각 페이지별 밝기 상태 저장
     
-    var body: some View {
-        GeometryReader { geometry in
-            ZStack(alignment: .bottom) {
-                // TabView로 페이지 처리
-                TabView(selection: $currentPage) {
-                    ForEach(Array(entity.enumerated()), id: \.offset) { index, item in
-                        ZStack(alignment: .bottom) {
-                            CustomAsyncImage(imagePath: item.summary.thumbnail)
-                                .frame(width: geometry.size.width, height: geometry.size.height)
-                                .clipped()
-                            
-                            // 텍스트 콘텐츠
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text(item.address)
-                                    .font(.subheadline)
-                                    .foregroundColor(.white.opacity(0.9))
-                                
-                                Text(item.summary.title)
-                                    .font(.title)
-                                    .fontWeight(.bold)
-                                    .foregroundColor(.white)
-                                    .multilineTextAlignment(.leading)
-                                
-                                Text(item.summary.introduction)
-                                    .font(.body)
-                                    .foregroundColor(.white.opacity(0.9))
-                                    .multilineTextAlignment(.leading)
-                                    .lineLimit(2)
+var body: some View {
+    GeometryReader { geometry in
+        ZStack(alignment: .bottom) {
+            // TabView로 페이지 처리
+            TabView(selection: $currentPage) {
+                ForEach(Array(entity.enumerated()), id: \.offset) { index, item in
+                    ZStack(alignment: .bottom) {
+                        CustomAsyncImage.detail(
+                            imagePath: item.summary.thumbnail
+                        ) { image in
+                            // 이미지 로드 완료 시 밝기 확인
+                            if let image = image {
+                                checkImageBrightness(for: index, image: image)
                             }
-                            .padding(20)
-                            .padding(.bottom, 40)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(
-                                LinearGradient(
-                                    gradient: Gradient(colors: [Color.black.opacity(0.7), Color.black.opacity(0)]),
-                                    startPoint: .bottom,
-                                    endPoint: .top
-                                )
-                            )
                         }
                         .frame(width: geometry.size.width, height: geometry.size.height)
-                        .contentShape(Rectangle()) // 전체 영역을 탭 가능하게
-                        .onTapGesture {
-                            onTap()
+                        .clipped()
+                        
+                        // 텍스트 콘텐츠
+                        VStack(alignment: .leading, spacing: 8) {
+                            // 주소 캡슐 - HStack에 직접 배경 적용
+                            HStack {
+                                HStack(spacing: 4) {
+                                    Image("Location")
+                                        .resizable()
+                                        .scaledToFit()
+                                        .frame(width: 12, height: 12)
+                                        .foregroundColor(getTextColor(for: index))
+                                    
+                                    Text(item.address)
+                                        .font(.pretendardFootnote)
+                                        .foregroundColor(getTextColor(for: index))
+                                        .lineLimit(1)
+                                }
+                                .padding(.horizontal, 11)
+                                .padding(.vertical, 4)
+                                .background(
+                                    Capsule()
+                                        .fill(getTextColor(for: index) == .Alabaster ? Color.black.opacity(0.4) : Color.Alabaster.opacity(0.6))
+                                )
+                                
+                                Spacer() // 나머지 공간을 차지
+                            }
+                            
+                            Text(item.summary.title)
+                                .font(.soyoTitle2)
+                                .foregroundColor(getTextColor(for: index))
+                                .multilineTextAlignment(.leading)
+                            
+                            Text(item.summary.introduction)
+                                .font(.pretendardBody)
+                                .foregroundColor(getTextColor(for: index))
+                                .multilineTextAlignment(.leading)
+                                .lineLimit(2)
                         }
-                        .tag(index)
+                        .padding(20)
+                        .padding(.bottom, 40)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(
+                            LinearGradient(
+                                gradient: Gradient(colors: getGradientColors(for: index)),
+                                startPoint: .bottom,
+                                endPoint: .top
+                            )
+                        )
                     }
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+                    .contentShape(Rectangle()) // 전체 영역을 탭 가능하게
+                    .onTapGesture {
+                        onTap()
+                    }
+                    .tag(index)
                 }
-                .tabViewStyle(PageTabViewStyle(indexDisplayMode: .automatic))
+            }
+            .tabViewStyle(PageTabViewStyle(indexDisplayMode: .automatic))
+        }
+    }
+    .ignoresSafeArea() // 전체 영역을 무시
+}
+    
+    // 이미지 밝기 확인 함수
+    private func checkImageBrightness(for index: Int, image: UIImage) {
+        if let brightness = image.averageBrightness() {
+            let isBright = brightness > 0.7
+            DispatchQueue.main.async {
+                imageBrightness[index] = isBright
             }
         }
-        .ignoresSafeArea() // 전체 영역을 무시
+    }
+    
+    // 텍스트 색상 결정 함수
+    private func getTextColor(for index: Int) -> Color {
+        let isBright = imageBrightness[index] ?? false
+        return isBright ? Color.black : Color.Alabaster
+    }
+    
+    // 그라데이션 색상 결정 함수
+    private func getGradientColors(for index: Int) -> [Color] {
+        let isBright = imageBrightness[index] ?? false
+        if isBright {
+            return [Color.Alabaster.opacity(0.7), Color.Alabaster.opacity(0)]
+        } else {
+            return [Color.black.opacity(0.7), Color.black.opacity(0)]
+        }
     }
 }
 
@@ -228,7 +289,7 @@ struct CategoryEstateView: View {
                         }
                         
                         Text(titles[index].rawValue)
-                            .font(.caption)
+                            .font(.pretendardCaption)
                             .foregroundColor(Color.MainTextColor)
                     }
                     .onTapGesture {
@@ -250,8 +311,7 @@ struct SectionTitleView: View {
     var body: some View {
         HStack {
             Text(title)
-                .font(.title3)
-                .fontWeight(.bold)
+                .font(.soyoTitle3)
                 .foregroundColor(Color.MainTextColor)
             
             Spacer()
@@ -261,7 +321,7 @@ struct SectionTitleView: View {
                     onViewAllTapped?()
                 }) {
                     Text("View All")
-                        .font(.subheadline)
+                        .font(.pretendardSubheadline)
                         .foregroundColor(Color.OliveMist)
                 }
             }
@@ -280,53 +340,62 @@ struct FavoriteView: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 16) {
                 ForEach(0..<entity.count, id: \.self) { index in
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 0) {
                         // 썸네일 이미지
-                        CustomAsyncImage(imagePath: entity[index].summary.thumbnail
+                        CustomAsyncImage.thumbnail(
+                            imagePath: entity[index].summary.thumbnail
                         )
-                        .frame(width: 200, height: 140)
+                        .frame(width: 166, height: 130) // width를 200에서 176으로 줄임 (좌우 패딩 12씩 고려)
                         .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .padding(.top, 12) // 상단 패딩 추가
+                        .frame(maxWidth: .infinity, alignment: .center) // 가운데 정렬
 
                         // 정보
                         VStack(alignment: .leading, spacing: 4) {
+                            Spacer()
+                                .frame(height: 4) // 썸네일과 텍스트 사이 일정한 간격 유지
                             HStack {
                                 Text(entity[index].summary.category)
-                                    .font(.caption)
+                                    .font(.pretendardCaption)
                                     .foregroundColor(.secondary)
                                 
                                 Spacer()
                                 
                                 Text("\(entity[index].summary.area)")
-                                    .font(.caption)
+                                    .font(.pretendardCaption)
                                     .foregroundColor(.secondary)
                             }
                             
                             HStack(spacing: 4) {
                                 Text("월세")
-                                    .font(.caption)
+                                    .font(.pretendardCaption)
                                     .foregroundColor(.secondary)
                                 
                                 Text("\(entity[index].summary.deposit)/\(entity[index].summary.monthlyRent)")
-                                    .font(.subheadline)
+                                    .font(.pretendardSubheadline)
                                     .fontWeight(.bold)
                                     .foregroundColor(Color.MainTextColor)
                             }
                             
                             Text(entity[index].address)
-                                .font(.caption)
+                                .font(.pretendardCaption)
                                 .foregroundColor(.secondary)
                                 .lineLimit(1)
                         }
+                        .padding(.horizontal, 12) // 좌우 패딩 추가
+                        .padding(.bottom, 12) // 하단 패딩 추가
                     }
-                    .frame(width: 200)
-                    .background(Color.white)
+                    .frame(width: 190)
+                    .background(Color.Alabaster)
                     .cornerRadius(12)
+                    .shadow(color: .gray.opacity(0.2), radius: 4, x: 0, y: 2)
                     .onTapGesture {
                          onTap(entity[index].summary.estateId)
                      }
                 }
             }
             .padding(.horizontal)
+            .padding(.bottom, 8) // shadow가 잘리지 않도록 하단 패딩 추가
         }
     }
 
@@ -338,33 +407,76 @@ struct HotEstateItemView: View {
     let onTap: (String) -> Void
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            // 썸네일 이미지
-            CustomAsyncImage(imagePath: item.summary.thumbnail)
-                .frame(width: 200, height: 140)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-                .overlay(
-                    item.summary.isRecommended ?
-                    Text("추천")
-                        .font(.caption2)
-                        .fontWeight(.bold)
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.OliveMist)
-                        .cornerRadius(4)
-                        .padding(6)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                    : nil
+        VStack(alignment: .leading, spacing: 0) {
+            // 썸네일 이미지 with overlays
+            ZStack {
+                CustomAsyncImage.detail(
+                    imagePath: item.summary.thumbnail
                 )
+                    .frame(width: 235, height: 130)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
                 
+                // 검은색 오버레이로 어둡게 만들기
+                Rectangle()
+                    .fill(Color.black.opacity(0.3))
+                    .frame(width: 235, height: 130)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                
+                // 오버레이 컨텐츠
+                VStack(alignment: .leading, spacing: 0) {
+                    // 상단 오버레이 (Fire 이미지, 추천 텍스트)
+                    HStack {
+                        // Leading: Fire 이미지 (항상 표시)
+                        Image("Fire")
+                            .resizable()
+                            .foregroundColor(.Alabaster)
+                            .frame(width: 23, height: 23)
+                        
+                        Spacer()
+                        
+                        // Trailing: 추천 텍스트
+                        if item.summary.isRecommended {
+                            Text("추천")
+                                .font(.pretendardCaption2)
+                                .fontWeight(.bold)
+                                .foregroundColor(.Alabaster)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.OliveMist)
+                                .cornerRadius(4)
+                        }
+                    }
+                    .padding(.top, 12)
+                    .padding(.horizontal, 12)
+                    
+                    Spacer()
+                    
+                    // 우측 하단: 제목
+                    HStack {
+                        Spacer()
+                        
+                        Text(item.summary.title)
+                            .font(.soyoTitle3)
+                            .foregroundColor(.Alabaster)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.trailing)
+                            .padding(.horizontal, 12)
+                            .padding(.bottom, 12)
+                    }
+                }
+            }
+            .frame(width: 235, height: 130)
+            .padding(.top, 12)
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.bottom, 4)
             
             // 정보 섹션
             itemInfoSection
         }
-        .frame(width: 200)
-        .background(Color.white)
+        .frame(width: 259)
+        .background(Color.Alabaster)
         .cornerRadius(12)
+        .shadow(color: .gray.opacity(0.2), radius: 4, x: 0, y: 2)
         .onTapGesture {
             onTap(item.summary.estateId)
         }
@@ -372,56 +484,51 @@ struct HotEstateItemView: View {
     
     private var itemInfoSection: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(item.summary.title)
-                .font(.headline)
-                .fontWeight(.medium)
-                .foregroundColor(Color.MainTextColor)
-                .lineLimit(1)
-            
             priceInfoView
-            addressAndAreaView
-            likesView
+            
+            HStack {
+                addressView
+                
+                Spacer()
+                
+                likesView
+            }
         }
+        .padding(.horizontal, 12)
+        .padding(.bottom, 12)
     }
     
     private var priceInfoView: some View {
         HStack {
             Text("월세")
-                .font(.caption)
+                .font(.pretendardCaption)
                 .foregroundColor(.secondary)
             
             Text("\(item.summary.deposit)/\(item.summary.monthlyRent)")
-                .font(.subheadline)
+                .font(.pretendardSubheadline)
                 .fontWeight(.bold)
         }
     }
     
-    private var addressAndAreaView: some View {
-        HStack {
-            Text(item.address)
-                .font(.caption)
-                .foregroundColor(.secondary)
-            
-            Spacer()
-            
-            Text("\(item.summary.area)")
-                .font(.caption)
-                .foregroundColor(.secondary)
-        }
+    private var addressView: some View {
+        Text(item.address)
+            .font(.pretendardCaption)
+            .foregroundColor(.secondary)
     }
     
     private var likesView: some View {
-        HStack {
-            Image(systemName: "heart.fill")
-                .foregroundColor(.red)
-                .font(.caption)
-            
-            Text("\(item.summary.likeCount)")
-                .font(.caption)
-                .foregroundColor(.secondary)
-        }
+        Text("\(item.summary.likeCount)명이 보는 중")
+            .font(.pretendardCaption)
+            .foregroundColor(Color.Alabaster)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color.SubText)
+            )
     }
 }
+
 
 struct HotEstateView: View {
     let entity: [HotEstateWithAddress]
@@ -435,6 +542,7 @@ struct HotEstateView: View {
                 }
             }
             .padding(.horizontal)
+            .padding(.bottom, 8) // shadow가 잘리지 않도록 하단 패딩 추가
         }
     }
 }
@@ -444,7 +552,7 @@ struct TopicEstateView: View {
     let onTap: (URL?) -> Void
     
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 0) {
             ForEach(0..<entity.items.count, id: \.self) { index in
                 Button(action: {
                     if let linkString = entity.items[index].link, let url = URL(string: linkString) {
@@ -460,30 +568,35 @@ struct TopicEstateView: View {
                 
                 if index < entity.items.count - 1 {
                     Divider()
+                        .padding(.horizontal, 16)
                 }
             }
         }
+        //.background(Color.white)
+        .cornerRadius(12)
+        .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 1)
         .padding(.horizontal)
     }
     
     private func topicCell(for index: Int) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(entity.items[index].title)
-                .font(.headline)
-                .fontWeight(.bold)
+                .font(.soyoHeadline)
                 .foregroundColor(Color.MainTextColor)
             
             Text(entity.items[index].content)
-                .font(.subheadline)
+                .font(.pretendardSubheadline)
                 .foregroundColor(Color.SubText)
                 .lineLimit(2)
             
             Text(entity.items[index].date)
-                .font(.caption)
+                .font(.pretendardCaption)
                 .foregroundColor(Color.SubText)
                 .frame(maxWidth: .infinity, alignment: .trailing)
         }
-        .padding(.vertical, 8)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 16)
+        .background(Color.Alabaster)
     }
 }
 
@@ -502,6 +615,11 @@ extension HomeView {
                     container.handle(.goToDetail(estateId: firstItem.summary.estateId))
                 }
             })
+            .onAppear {
+                // 이미지 프리로딩
+                let imagePaths = data.map { $0.summary.thumbnail }
+                CustomAsyncImage.preloadImages(imagePaths)
+            }
         case .failure(let message):
             Text("에러: \(message)")
                 .foregroundColor(Color.TomatoRed)
@@ -521,19 +639,24 @@ extension HomeView {
         switch container.model.hotEstate {
         case .idle, .loading:
             ProgressView("Hot 매물 로딩 중…")
-                .frame(height: 200)
+                .frame(height: 190)
         case .success(let data):
             HotEstateView(entity: data, onTap: { estateId in
                 container.handle(.goToDetail(estateId: estateId))
             })
+            .onAppear {
+                // 이미지 프리로딩
+                let imagePaths = data.map { $0.summary.thumbnail }
+                CustomAsyncImage.preloadImages(imagePaths)
+            }
         case .failure(let message):
             Text("에러: \(message)")
                 .foregroundColor(Color.TomatoRed)
-                .frame(height: 200)
+                .frame(height: 190)
         case .requiresLogin:
             Text("세션이 만료되어 로그아웃되었습니다.")
                 .foregroundColor(Color.TomatoRed)
-                .frame(height: 400)
+                .frame(height: 190)
                 .task {
                     isLoggedIn = false
                 }
@@ -579,6 +702,11 @@ extension HomeView {
             FavoriteView(entity: data, onTap: { estateId in
                 container.handle(.goToDetail(estateId: estateId))
             })
+            .onAppear {
+                // 이미지 프리로딩
+                let imagePaths = data.map { $0.summary.thumbnail }
+                CustomAsyncImage.preloadImages(imagePaths)
+            }
         case .failure(let message):
             Text("에러: \(message)")
                 .foregroundColor(Color.TomatoRed)

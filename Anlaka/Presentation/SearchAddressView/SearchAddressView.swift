@@ -52,9 +52,9 @@ struct SearchAddressView: View {
                 onDismiss()
                 isPresented = false
             } label: {
-                Image(systemName: "chevron.left")
-                    .font(.title2)
-                    .foregroundColor(.primary)
+                Image("chevron")
+                    .font(.headline)
+                    .foregroundColor(.MainTextColor)
             }
             
             TextField("주소를 입력하세요", text: $container.model.query)
