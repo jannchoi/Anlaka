@@ -373,6 +373,7 @@ struct HotEstateItemView: View {
             Text(item.summary.title)
                 .font(.headline)
                 .fontWeight(.medium)
+                .foregroundColor(Color.MainTextColor)
                 .lineLimit(1)
             
             priceInfoView
