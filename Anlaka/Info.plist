@@ -19,6 +19,8 @@
 	</array>
 	<key>KAKAO_NATIVE_KEY</key>
 	<string>$(KAKAO_NATIVE_KEY)</string>
+	<key>KAKAO_REST_KEY</key>
+	<string>$(KAKAO_REST_KEY)</string>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>kakaolink</string>
