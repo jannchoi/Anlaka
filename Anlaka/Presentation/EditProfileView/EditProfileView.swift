@@ -25,8 +25,10 @@ struct EditProfileView: View {
                     // 뒤로가기 버튼
                     Button(action: {
                         print("EditProfileView - 뒤로가기 버튼 클릭, 현재 path.count: \(path.count)")
-                        path.removeLast()
-                        print("EditProfileView - path.removeLast() 후 path.count: \(path.count)")
+                        if !path.isEmpty {
+                            path.removeLast()
+                            print("EditProfileView - path.removeLast() 후 path.count: \(path.count)")
+                        }
                     }) {
                         Image("chevron")
                             .font(.headline)

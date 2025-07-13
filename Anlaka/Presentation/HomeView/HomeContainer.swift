@@ -12,12 +12,15 @@ struct HomeModel {
     var todayEstate: Loadable<[TodayEstateWithAddress]> = .idle
     var hotEstate: Loadable<[HotEstateWithAddress]> = .idle
     var topicEstate: Loadable<TopicEstateEntity> = .idle
+    var banners: Loadable<[BannerResponseEntity]> = .idle
     var address = AddressResponseEntity(roadAddressName: "", roadRegion1: "", roadRegion2: "", roadRegion3: "")
     var likeLists: Loadable<[LikeEstateWithAddress]> = .idle
     // Navigation state
     var navigationDestination: AppRoute.HomeRoute? = nil
     var showSafariSheet: Bool = false
     var safariURL: URL? = nil
+    var showBannerWebSheet: Bool = false
+    var bannerWebURL: URL? = nil
     var selectedEstateId: IdentifiableString? = nil
     // 초기화 상태 추적
     var isInitialized: Bool = false
@@ -29,6 +32,8 @@ enum HomeIntent {
     case goToCategory(categoryType: CategoryType)
     case goToEstatesAll(type: EstateListType)
     case goToTopicWeb(url: URL)
+    case goToBannerWeb(url: URL)
+    case dismissBannerWeb
     case goToSearch
 }
 @MainActor
@@ -50,6 +55,7 @@ final class HomeContainer: ObservableObject {
             Task { await getLikeLists() }
             Task { await getHotEstate() }
             Task { await getTopicEstate() }
+            Task { await getBanners() }
             
             model.isInitialized = true
             
@@ -58,12 +64,14 @@ final class HomeContainer: ObservableObject {
             model.todayEstate = .idle
             model.hotEstate = .idle
             model.topicEstate = .idle
+            model.banners = .idle
             model.likeLists = .idle
             
             Task { await getTodayEstate() }
             Task { await getLikeLists() }
             Task { await getHotEstate() }
             Task { await getTopicEstate() }
+            Task { await getBanners() }
             
         case .goToDetail(let estateId):
             model.selectedEstateId = IdentifiableString(id: estateId)
@@ -78,6 +86,14 @@ final class HomeContainer: ObservableObject {
             // For web URLs, we'll use a sheet presentation with SafariWebView
             model.safariURL = url
             model.showSafariSheet = true
+        case .goToBannerWeb(let url):
+            // For banner web URLs, we'll use a sheet presentation with BannerWebView
+            model.bannerWebURL = url
+            model.showBannerWebSheet = true
+        case .dismissBannerWeb:
+            // BannerWebView 닫기
+            model.showBannerWebSheet = false
+            model.bannerWebURL = nil
         case .goToSearch:
             model.navigationDestination = .search
             
@@ -91,6 +107,11 @@ final class HomeContainer: ObservableObject {
     func closeSafariSheet() {
         model.showSafariSheet = false
         model.safariURL = nil
+    }
+    
+    func closeBannerWebSheet() {
+        model.showBannerWebSheet = false
+        model.bannerWebURL = nil
     }
     
     private func getLikeLists() async {
@@ -167,6 +188,21 @@ final class HomeContainer: ObservableObject {
             } else {
                 let message = (error as? CustomError)?.errorDescription ?? error.localizedDescription
                 model.topicEstate = .failure(message)
+            }
+        }
+    }
+    
+    private func getBanners() async {
+        model.banners = .loading
+        do {
+            let response = try await repository.getBanners()
+            model.banners = .success(response.data)
+        } catch {
+            if let netError = error as? CustomError, netError == .expiredRefreshToken {
+                model.banners = .requiresLogin
+            } else {
+                let message = (error as? CustomError)?.errorDescription ?? error.localizedDescription
+                model.banners = .failure(message)
             }
         }
     }

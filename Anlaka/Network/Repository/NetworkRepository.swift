@@ -42,6 +42,9 @@ protocol NetworkRepository {
     func getOtherProfileInfo(userId: String) async throws -> OtherProfileInfoEntity
     func searchUser(nick: String) async throws -> SearchUserEntity
     
+    // MARK: - Banner Methods
+    func getBanners() async throws -> BannerListResponseEntity
+    
     // MARK: - File Download Methods
     func downloadFile(from serverPath: String) async throws -> ServerFileEntity
     func downloadFiles(from serverPaths: [String]) async throws -> [ServerFileEntity]

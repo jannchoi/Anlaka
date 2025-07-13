@@ -12,7 +12,7 @@ extension FancyToastStyle {
         switch self {
         case .error: return Color.TomatoRed
         case .warning: return Color.ToffeeWood
-        case .info: return Color.SteelBlue
+        case .info: return Color.OliveMist
         case .success: return Color.SteelBlue
         }
     }
