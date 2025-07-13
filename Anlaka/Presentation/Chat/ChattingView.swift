@@ -3,7 +3,7 @@ import PhotosUI
 
 // MARK: - ChatMessagesView
 struct ChatMessagesView: View {
-    let messages: [ChatEntity]
+    let messagesGroupedByDate: [(String, [ChatEntity])]
     @Binding var scrollProxy: ScrollViewProxy?
     let onScrollToBottom: () -> Void
     
@@ -11,24 +11,58 @@ struct ChatMessagesView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 12) {
-                    ForEach(messages) { message in
-                        ChatMessageCell(
-                            message: message,
-                            isSending: message.chatId.hasPrefix("temp_")
-                        )
+                    ForEach(messagesGroupedByDate, id: \.0) { date, messages in
+                        VStack(spacing: 12) {
+                            DateDivider(dateString: date)
+                            
+                            ForEach(messages, id: \.chatId) { message in
+                                ChatMessageCell(
+                                    message: message,
+                                    isSending: message.chatId.hasPrefix("temp_")
+                                )
+                            }
+                        }
                     }
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
             }
+            .simultaneousGesture(
+                DragGesture().onChanged { _ in
+                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                }
+            )
             .onAppear {
                 scrollProxy = proxy
                 onScrollToBottom()
             }
-            .onChange(of: messages.count) { _ in
+            .onChange(of: messagesGroupedByDate.flatMap { $0.1 }.count) { _ in
                 onScrollToBottom()
             }
         }
+    }
+}
+
+// MARK: - DateDivider
+struct DateDivider: View {
+    let dateString: String
+    
+    var body: some View {
+        HStack {
+            Rectangle()
+                .fill(Color.gray.opacity(0.3))
+                .frame(height: 1)
+            
+            Text(dateString)
+                .font(.caption)
+                .foregroundColor(.gray)
+                .padding(.horizontal, 8)
+            
+            Rectangle()
+                .fill(Color.gray.opacity(0.3))
+                .frame(height: 1)
+        }
+        .padding(.vertical, 8)
     }
 }
 
@@ -90,7 +124,7 @@ struct ChattingView: View {
                 
                 // 채팅 메시지 목록
                 ChatMessagesView(
-                    messages: container.model.sortedMessages,
+                    messagesGroupedByDate: container.model.messagesGroupedByDate,
                     scrollProxy: $scrollProxy,
                     onScrollToBottom: scrollToBottom
                 )
@@ -104,14 +138,17 @@ struct ChattingView: View {
                     isSending: container.model.sendingMessageId != nil
                 )
                 .padding(.horizontal, 16)
-                .padding(.vertical, 8)
+                .padding(.bottom, 8)
                 .disabled(container.model.sendingMessageId != nil)
+                .background(Color.white)
             }
         }
-        
+
         // 네비게이션 및 시트 수정자 적용
         mainContent
             .navigationTitle("채팅")
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarBackground(Color.white, for: .navigationBar)
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarBackButtonHidden(true)
             .toolbar {
