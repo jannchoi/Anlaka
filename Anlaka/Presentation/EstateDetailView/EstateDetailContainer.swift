@@ -118,15 +118,15 @@ final class EstateDetailContainer: ObservableObject {
     }
     private func mapToEstateDetailWithAddress(estate: DetailEstateEntity) async {
         model.detailEstate = .loading
-        let result = await AddressMappingHelper.mapDetailEstateWithAddress(estate, repository: repository)
+        let result = await AddressMappingHelper.mapDetailEstateWithAddress(estate)
         switch result {
         case .success(let value):
             model.detailEstate = .success(value)
         case .failure(let error):
-            if let netError = error as? NetworkError, netError == .expiredRefreshToken {
+            if let netError = error as? CustomError, netError == .expiredRefreshToken {
                 model.detailEstate = .requiresLogin
             } else {
-                let message = (error as? NetworkError)?.errorDescription ?? error.localizedDescription
+                let message = (error as? CustomError)?.errorDescription ?? error.localizedDescription
                 model.detailEstate = .failure(message)
                 model.errorMessage = message
             }
@@ -140,7 +140,7 @@ final class EstateDetailContainer: ObservableObject {
             if let reservationPrice = detailEstate.reservationPrice {
                 model.order = CreateOrderRequestDTO(estateId: estateId, totalPrice: reservationPrice)
             }
-            let result = await AddressMappingHelper.mapDetailEstateWithAddress(detailEstate, repository: repository)
+            let result = await AddressMappingHelper.mapDetailEstateWithAddress(detailEstate)
             switch result {
             case .success(let value):
                 model.isLiked = value.detail.isLiked
@@ -149,19 +149,19 @@ final class EstateDetailContainer: ObservableObject {
                 model.estateTitle = value.detail.title
                 print(value.detail.reservationPrice)
             case .failure(let error):
-                if let netError = error as? NetworkError, netError == .expiredRefreshToken {
+                if let netError = error as? CustomError, netError == .expiredRefreshToken {
                     model.detailEstate = .requiresLogin
                 } else {
-                    let message = (error as? NetworkError)?.errorDescription ?? error.localizedDescription
+                    let message = (error as? CustomError)?.errorDescription ?? error.localizedDescription
                     model.detailEstate = .failure(message)
                     model.errorMessage = message
                 }
             }
         } catch {
-            if let netError = error as? NetworkError, netError == .expiredRefreshToken {
+            if let netError = error as? CustomError, netError == .expiredRefreshToken {
                 model.detailEstate = .requiresLogin
             } else {
-                let message = (error as? NetworkError)?.errorDescription ?? error.localizedDescription
+                let message = (error as? CustomError)?.errorDescription ?? error.localizedDescription
                 model.detailEstate = .failure(message)
                 model.errorMessage = message
             }
@@ -172,18 +172,18 @@ final class EstateDetailContainer: ObservableObject {
         model.similarEstates = .loading
         do {
             let summaries = try await repository.getSimilarEstate()
-            let result = await AddressMappingHelper.mapSimilarSummariesWithAddress(summaries.data, repository: repository)
+            let result = await AddressMappingHelper.mapSimilarSummariesWithAddress(summaries.data)
             
             model.similarEstates = .success(result.estates)
             
             if let firstError = result.errors.first {
-                model.errorMessage = (firstError as? NetworkError)?.errorDescription ?? firstError.localizedDescription
+                model.errorMessage = (firstError as? CustomError)?.errorDescription ?? firstError.localizedDescription
             }
         } catch {
-            if let netError = error as? NetworkError, netError == .expiredRefreshToken {
+            if let netError = error as? CustomError, netError == .expiredRefreshToken {
                 model.similarEstates = .requiresLogin
             } else {
-                let message = (error as? NetworkError)?.errorDescription ?? error.localizedDescription
+                let message = (error as? CustomError)?.errorDescription ?? error.localizedDescription
                 model.similarEstates = .failure(message)
             }
         }

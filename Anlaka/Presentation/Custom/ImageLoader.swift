@@ -305,15 +305,33 @@ class ImageLoader {
             return nil
         }
         
-        // 11. CGImage 색상 공간 확인 (선택적)
+        // 11. 픽셀 포맷 검사 (확장된 지원 포맷)
+        let bitsPerComponent = cgImage.bitsPerComponent
+        let bitsPerPixel = cgImage.bitsPerPixel
+        
+        // 지원하는 픽셀 포맷 검사 (16비트 RGBA 포맷 추가)
+        let isValidFormat = (bitsPerComponent == 8 && bitsPerPixel == 32) ||   // 8비트 RGBA
+                           (bitsPerComponent == 8 && bitsPerPixel == 24) ||   // 8비트 RGB
+                           (bitsPerComponent == 8 && bitsPerPixel == 16) ||   // 8비트 Gray + Alpha
+                           (bitsPerComponent == 16 && bitsPerPixel == 64) ||  // 16비트 RGBA (고품질)
+                           (bitsPerComponent == 16 && bitsPerPixel == 48) ||  // 16비트 RGB (고품질)
+                           (bitsPerComponent == 16 && bitsPerPixel == 32) ||  // 16비트 Gray + Alpha
+                           (bitsPerComponent == 16 && bitsPerPixel == 16)     // 16비트 Gray
+        
+        if !isValidFormat {
+            print("⚠️ 지원하지 않는 픽셀 포맷 감지: bitsPerComponent=\(bitsPerComponent), bitsPerPixel=\(bitsPerPixel)")
+            // 포맷이 지원되지 않아도 계속 진행 (변환 시도)
+        }
+        
+        // 12. CGImage 색상 공간 확인 (선택적)
         if let colorSpace = cgImage.colorSpace {
             // 색상 공간 정보 사용 가능
         }
         
-        // 12. UIImage 생성 (명시적 포맷 지정) - 메모리 안전
+        // 13. UIImage 생성 (명시적 포맷 지정) - 메모리 안전
         let image = UIImage(cgImage: cgImage)
         
-        // 13. 최종 유효성 검사 (더 관대한 조건)
+        // 14. 최종 유효성 검사 (더 관대한 조건)
         guard image.size.width > 0 && image.size.height > 0 else {
             return nil
         }

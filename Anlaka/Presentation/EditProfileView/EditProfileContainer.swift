@@ -5,7 +5,6 @@ struct EditProfileModel {
     var profileImage: ProfileImageEntity? = nil
     var profile: MyProfileInfoEntity? = nil
     var isLoading: Bool = false
-    var showSuccessToast: Bool = false
     
     // View에서 사용할 필드 데이터
     var nick: String = ""
@@ -15,12 +14,20 @@ struct EditProfileModel {
     // 닉네임 유효성 검사
     var isNicknameValid: Bool = true
     var nicknameValidationMessage: String = ""
+    
+    // 파일 검증 관련 상태
+    var invalidFileIndices: Set<Int> = []
+    var invalidFileReasons: [Int: String] = [:]
+    
+    // CustomToastView 관련 상태
+    var toast: FancyToast? = nil
 }
 
 enum EditProfileIntent {
     case initialRequest
     case nicknameChanged(String)
-    case saveProfile(EditProfileRequestEntity, Data?)
+    case validateFiles([SelectedFile])
+    case saveProfile(EditProfileRequestEntity, [SelectedFile])
 }
 
 @MainActor
@@ -40,9 +47,11 @@ final class EditProfileContainer: ObservableObject {
         case .nicknameChanged(let newNick):
             model.nick = newNick
             validateNickname(newNick)
-        case .saveProfile(let editProfile, let profileImageData):
+        case .validateFiles(let files):
+            validateFiles(files)
+        case .saveProfile(let editProfile, let selectedFiles):
             Task {
-                await handleSaveProfile(editProfile: editProfile, profileImageData: profileImageData)
+                await handleSaveProfile(editProfile: editProfile, selectedFiles: selectedFiles)
             }
         }
     }
@@ -93,29 +102,43 @@ final class EditProfileContainer: ObservableObject {
             model.phoneNum = profile.phoneNum ?? ""
             
             // 성공 토스트 메시지 표시
-            model.showSuccessToast = true
-            
-            // 3초 후 토스트 메시지 숨기기
-            DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
-                self.model.showSuccessToast = false
-            }
+            model.toast = FancyToast(
+                type: .success,
+                title: "성공",
+                message: "프로필이 성공적으로 저장되었습니다",
+                duration: 3.0
+            )
         } catch {
             model.errorMessage = error.localizedDescription
         }
     }
     
-    private func handleSaveProfile(editProfile: EditProfileRequestEntity, profileImageData: Data?) async {
+    private func handleSaveProfile(editProfile: EditProfileRequestEntity, selectedFiles: [SelectedFile]) async {
         model.isLoading = true
         
-        if let profileImageData = profileImageData {
+        if let firstFile = selectedFiles.first {
             do {
-                // 1. 이미지 업로드
-                let uploadedImage = try await repository.uploadProfileImage(image: profileImageData)
+                // 1. SelectedFile을 FileData로 변환
+                guard let fileData = firstFile.toFileData() else {
+                    model.errorMessage = "프로필 이미지 변환에 실패했습니다."
+                    model.isLoading = false
+                    return
+                }
                 
-                // 2. 업로드된 이미지 정보를 모델에 저장 (UI 업데이트용)
+                // 2. 파일 검증
+                if !FileManageHelper.shared.validateFile(fileData, uploadType: FileUploadType.profile) {
+                    model.errorMessage = "프로필 이미지가 유효하지 않습니다. (1MB 이하, jpg/png/jpeg만 가능)"
+                    model.isLoading = false
+                    return
+                }
+                
+                // 3. 이미지 업로드
+                let uploadedImage = try await repository.uploadProfileImage(image: fileData)
+                
+                // 4. 업로드된 이미지 정보를 모델에 저장 (UI 업데이트용)
                 model.profileImage = uploadedImage
                 
-                // 3. 프로필 정보 업데이트 (업로드된 이미지 경로 포함)
+                // 5. 프로필 정보 업데이트 (업로드된 이미지 경로 포함)
                 let updatedEditProfile = EditProfileRequestEntity(
                     nick: editProfile.nick,
                     introduction: editProfile.introduction,
@@ -134,6 +157,63 @@ final class EditProfileContainer: ObservableObject {
         }
         
         model.isLoading = false
+    }
+    
+    // MARK: - 파일 검증
+    private func validateFiles(_ files: [SelectedFile]) {
+        let maxFileSize = 1 * 1024 * 1024 // 1MB
+        let allowedExtensions = ["jpg", "jpeg", "png"]
+        
+        var newInvalidIndices: Set<Int> = []
+        var newInvalidReasons: [Int: String] = [:]
+        
+        for (index, file) in files.enumerated() {
+            let fileData = file.data ?? file.image?.jpegData(compressionQuality: 0.8) ?? Data()
+            let fileExtension = file.fileExtension.lowercased()
+            
+            // 크기 검증
+            let isSizeValid = fileData.count <= maxFileSize
+            // 확장자 검증
+            let isExtensionValid = allowedExtensions.contains(fileExtension)
+            
+            if !isSizeValid || !isExtensionValid {
+                newInvalidIndices.insert(index)
+                
+                // 구체적인 원인 감지
+                var reasons: [String] = []
+                if !isSizeValid {
+                    let formatter = ByteCountFormatter()
+                    formatter.allowedUnits = [.useKB, .useMB]
+                    formatter.countStyle = .file
+                    let fileSizeString = formatter.string(fromByteCount: Int64(fileData.count))
+                    let maxSizeString = formatter.string(fromByteCount: Int64(maxFileSize))
+                    reasons.append("크기: \(fileSizeString) (제한: \(maxSizeString))")
+                }
+                if !isExtensionValid {
+                    reasons.append("확장자: \(fileExtension.uppercased()) (지원: JPG, PNG)")
+                }
+                
+                newInvalidReasons[index] = reasons.joined(separator: ", ")
+                
+                print("❌ 유효하지 않은 파일: \(file.fileName)")
+                print("   - 원인: \(reasons.joined(separator: ", "))")
+            }
+        }
+        
+        // 유효하지 않은 파일 정보 업데이트
+        model.invalidFileIndices = newInvalidIndices
+        model.invalidFileReasons = newInvalidReasons
+        
+        // 유효하지 않은 파일이 새로 추가된 경우 토스트 표시를 위한 상태 업데이트
+        if !newInvalidIndices.isEmpty {
+            model.toast = FancyToast(
+                type: .error,
+                title: "파일 오류",
+                message: "파일 크기가 너무 큽니다. 1MB 이하의 이미지를 선택해주세요.",
+                duration: 3.0
+            )
+            print("⚠️ 유효하지 않은 파일이 감지되었습니다: \(newInvalidIndices.count)개")
+        }
     }
     
     private func validateNickname(_ nickname: String) {

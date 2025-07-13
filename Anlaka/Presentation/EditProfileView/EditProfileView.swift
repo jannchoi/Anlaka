@@ -3,7 +3,9 @@ import PhotosUI
 
 struct EditProfileView: View {
     @StateObject private var container: EditProfileContainer
-    @State private var selectedImage: PhotosPickerItem?
+    @State private var selectedFiles: [SelectedFile] = []
+    @State private var isShowingFilePicker = false
+    @State private var isShowingDocumentPicker = false
     @State private var profileImageData: Data?
     @Binding var path: NavigationPath
     
@@ -51,13 +53,7 @@ struct EditProfileView: View {
         .onAppear {
             container.handle(.initialRequest)
         }
-        .onChange(of: selectedImage) { item in
-            Task {
-                if let data = try? await item?.loadTransferable(type: Data.self) {
-                    profileImageData = data
-                }
-            }
-        }
+
         .alert("오류", isPresented: .constant(container.model.errorMessage != nil)) {
             Button("확인") {
                 container.model.errorMessage = nil
@@ -67,9 +63,25 @@ struct EditProfileView: View {
                 Text(errorMessage)
             }
         }
-        .overlay(
-            SuccessToastOverlay(showSuccessToast: container.model.showSuccessToast)
-        )
+        .toastView(toast: $container.model.toast)
+        .onChange(of: container.model.invalidFileIndices) { invalidIndices in
+            // 유효하지 않은 파일이 새로 추가된 경우 토스트 표시
+            if !invalidIndices.isEmpty {
+                print("⚠️ EditProfileView: 유효하지 않은 파일 감지됨")
+            }
+        }
+        .sheet(isPresented: $isShowingFilePicker) {
+            FilePicker(selectedFiles: $selectedFiles, pickerType: .profile)
+                .onChange(of: selectedFiles) { files in
+                    container.handle(.validateFiles(files))
+                }
+        }
+        .sheet(isPresented: $isShowingDocumentPicker) {
+            DocumentPicker(selectedFiles: $selectedFiles, pickerType: .profile)
+                .onChange(of: selectedFiles) { files in
+                    container.handle(.validateFiles(files))
+                }
+        }
     }
     
     // MARK: - Profile Image Section
@@ -81,11 +93,35 @@ struct EditProfileView: View {
                 profileInfo: container.model.profile
             )
             
-            // 이미지 선택 버튼
-            PhotosPicker(selection: $selectedImage, matching: .images) {
-                Text("프로필 이미지 변경")
-                    .font(.pretendardCallout)
-                    .foregroundColor(.OliveMist)
+            // 파일 선택 버튼들
+            HStack(spacing: 12) {
+                // 갤러리에서 선택
+                Button(action: {
+                    isShowingFilePicker = true
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "photo")
+                            .font(.system(size: 14))
+                        Text("갤러리")
+                            .font(.pretendardCallout)
+                    }
+                    .foregroundColor(selectedFiles.isEmpty ? .OliveMist : .gray)
+                }
+                .disabled(!selectedFiles.isEmpty)
+                
+                // 문서에서 선택
+                Button(action: {
+                    isShowingDocumentPicker = true
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "doc")
+                            .font(.system(size: 14))
+                        Text("파일")
+                            .font(.pretendardCallout)
+                    }
+                    .foregroundColor(selectedFiles.isEmpty ? .OliveMist : .gray)
+                }
+                .disabled(!selectedFiles.isEmpty)
             }
         }
     }
@@ -108,12 +144,13 @@ struct EditProfileView: View {
     private var saveButton: some View {
         SaveProfileButton(
             isLoading: container.model.isLoading,
-            isEnabled: container.model.isNicknameValid,
+            isEnabled: container.model.isNicknameValid && container.model.invalidFileIndices.isEmpty,
             onSave: saveProfile
         )
     }
     
-    // MARK: - Helper Methods
+
+    
     private func saveProfile() {
         // EditProfileRequestEntity 생성 (이미지 데이터는 별도로 처리)
         let editProfile = EditProfileRequestEntity(
@@ -123,10 +160,11 @@ struct EditProfileView: View {
             profileImage: nil  // 이미지는 별도 API로 업로드
         )
         
-        // 컨테이너에 저장 요청
-        container.handle(.saveProfile(editProfile, profileImageData))
+        // 컨테이너에 저장 요청 (selectedFiles를 직접 전달)
+        container.handle(.saveProfile(editProfile, selectedFiles))
     }
 }
+
 
 // MARK: - ProfileImageView
 struct ProfileImageView: View {
@@ -293,44 +331,7 @@ struct SaveProfileButton: View {
     }
 }
 
-// MARK: - SuccessToastOverlay
-struct SuccessToastOverlay: View {
-    let showSuccessToast: Bool
-    
-    var body: some View {
-        Group {
-            if showSuccessToast {
-                VStack {
-                    Spacer()
-                    SuccessToastMessage()
-                        .padding(.bottom, 100)
-                }
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-                .animation(.easeInOut(duration: 0.3), value: showSuccessToast)
-            }
-        }
-    }
-}
 
-// MARK: - SuccessToastMessage
-struct SuccessToastMessage: View {
-    var body: some View {
-        HStack {
-            Image(systemName: "checkmark.circle.fill")
-                .foregroundColor(Color.SteelBlue)
-                            Text("프로필이 성공적으로 저장되었습니다")
-                    .font(.pretendardBody)
-                .font(.system(size: 16, weight: .medium))
-                .foregroundColor(.white)
-        }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 12)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color.Gray75.opacity(0.8))
-        )
-    }
-}
 
 // MARK: - PressableButtonStyle
 struct PressableButtonStyle: ButtonStyle {
@@ -344,3 +345,4 @@ struct PressableButtonStyle: ButtonStyle {
             .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
     }
 }
+
