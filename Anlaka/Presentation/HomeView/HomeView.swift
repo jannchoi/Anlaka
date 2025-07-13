@@ -83,7 +83,6 @@ struct HomeView: View {
             }
         }
             .navigationBarTitleDisplayMode(.inline)
-            .navigationBarHidden(true) // 네비게이션 바 완전히 숨김
             .navigationDestination(for: HomeRoute.self) { route in
                 switch route {
                 case .category(let categoryType):

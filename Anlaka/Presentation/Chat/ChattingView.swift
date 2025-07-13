@@ -63,7 +63,6 @@ struct ChatMessagesView: View {
                     .padding(.vertical, 12)
                     
                 }.background(Color.WarmLinen)
-                    .navigationBarHidden(true)
                 
                     .onAppear {
                         scrollProxy = proxy
