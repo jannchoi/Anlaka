@@ -9,14 +9,17 @@ struct PaymentView: UIViewControllerRepresentable {
     
     private let dismissDelay: TimeInterval = 1.0
     
-    func makeUIViewController(context: Context) -> PaymentViewController {
+    func makeUIViewController(context: Context) -> UINavigationController {
         print("PaymentView makeUIViewController")
         let viewController = PaymentViewController()
         viewController.container = container
-        return viewController
+        
+        let navigationController = UINavigationController(rootViewController: viewController)
+        navigationController.modalPresentationStyle = .fullScreen
+        return navigationController
     }
     
-    func updateUIViewController(_ uiViewController: PaymentViewController, context: Context) {
+    func updateUIViewController(_ uiViewController: UINavigationController, context: Context) {
         print("PaymentView updateUIViewController")
         if container.model.isPaymentCompleted {
             print("PaymentView에서 결제 완료 감지")

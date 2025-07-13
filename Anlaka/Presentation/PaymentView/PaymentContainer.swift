@@ -9,14 +9,18 @@ struct PaymentModel {
     var isLoading: Bool = false
     var error: Error?
     var isPaymentCompleted: Bool = false
+    var errorType: PaymentErrorType = .none
+}
+
+enum PaymentErrorType {
+    case none
+    case createPayment // 결제 생성 단계 오류 (다시 시도 가능)
+    case validatePayment // 결제 검증 단계 오류 (이미 돈이 빠져나간 후)
 }
 
 enum PaymentIntent {
     case createPayment
     case setResponse(IamportResponse?)
-    case setLoading(Bool)
-    case setError(Error?)
-    case setPaymentCompleted(Bool)
     case resetPayment
 }
 
@@ -45,38 +49,27 @@ class PaymentContainer: ObservableObject {
             }
             print("결제 응답 저장됨: \(String(describing: response))")
             
-        case .setLoading(let isLoading):
-            model.isLoading = isLoading
-            print("로딩 상태 변경: \(isLoading)")
-            
-        case .setError(let error):
-            model.error = error
-            print("에러 발생: \(String(describing: error))")
-            
-        case .setPaymentCompleted(let isCompleted):
-            print("결제 완료 상태 변경 시작: \(isCompleted)")
-            model.isPaymentCompleted = isCompleted
-            if isCompleted {
-                print("결제 완료됨, onPaymentCompleted 클로저 실행 예정")
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-                    print("onPaymentCompleted 클로저 실행")
-                    self.onPaymentCompleted?()
-                }
-            }
+
             
         case .resetPayment:
-            print("결제 상태 초기화")
-            model.response = nil
-            model.paymentData = nil
-            model.error = nil
-            model.isPaymentCompleted = false
+            resetPayment()
         }
-    }
 
+    }
+private func resetPayment() {
+    print("결제 상태 초기화")
+    model.response = nil
+    model.paymentData = nil
+    model.error = nil
+    model.isPaymentCompleted = false
+    model.errorType = .none
+}
     private func createPayment() {
+        resetPayment()
         print("결제 생성 시작")
         guard let iamportPayment = model.iamportPayment else {
             model.error = NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "결제 정보가 없습니다."])
+            model.errorType = .createPayment
             return
         }
         
@@ -85,6 +78,7 @@ class PaymentContainer: ObservableObject {
               !iamportPayment.orderCode.isEmpty,
               !iamportPayment.title.isEmpty else {
             model.error = NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "결제 정보가 올바르지 않습니다."])
+            model.errorType = .createPayment
             return
         }
         
@@ -110,6 +104,7 @@ class PaymentContainer: ObservableObject {
         print("결제 검증 시작")
         guard let response = model.response else {
             model.error = NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "결제 응답이 없습니다."])
+            model.errorType = .validatePayment
             return
         }
         
@@ -117,14 +112,24 @@ class PaymentContainer: ObservableObject {
             do {
                 let result = try await repository.validatePayment(payment: ReceiptPaymentRequestDTO(impUid: imp_uid))
                 print("영수증 검증 완료: ",result)
-                handle(.setPaymentCompleted(true))
+                
+                // 결제 완료 상태 직접 설정
+                print("결제 완료 상태 변경 시작: true")
+                model.isPaymentCompleted = true
+                print("결제 완료됨, onPaymentCompleted 클로저 실행 예정")
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                    print("onPaymentCompleted 클로저 실행")
+                    self.onPaymentCompleted?()
+                }
             } catch {
                 print("영수증 검증 실패: \(error)")
                 model.error = error
+                model.errorType = .validatePayment
             }
         } else {
-            print("결제 취소됨")
-            model.error = NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "결제가 취소되었습니다."])
+            print("결제가 취소되었거나 실패했습니다")
+            model.error = NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "결제가 취소되었거나 실패했습니다."])
+            model.errorType = .validatePayment
         }
     }
 }
