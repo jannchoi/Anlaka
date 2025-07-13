@@ -11,9 +11,8 @@ import CoreLocation
 struct SearchMapView: View {
     let di: DIContainer
     @StateObject private var container: SearchMapContainer
-    @State private var isSearchBarEditing: Bool = false
     @AppStorage(TextResource.Global.isLoggedIn.text) private var isLoggedIn: Bool = true
-    
+    @State private var showSearchAddress = false
     init(di: DIContainer) {
         self.di = di
         _container = StateObject(wrappedValue: di.makeSearchMapContainer())
@@ -24,7 +23,6 @@ struct SearchMapView: View {
             KakaoMapView(
                 draw: .constant(container.model.shouldDrawMap),
                 centerCoordinate: container.model.centerCoordinate,
-                isInteractive: !isSearchBarEditing,
                 pinInfoList: container.model.pinInfoList,
                 onMapReady: { maxDistance in
                     container.handle(.updateMaxDistance(maxDistance))
@@ -43,17 +41,9 @@ struct SearchMapView: View {
             )
             
             VStack {
-                SearchBar(
-                    text: $container.model.addressQuery,
-                    isEditing: $isSearchBarEditing,
-                    onSubmit: { query in
-                        container.handle(.searchBarSubmitted(query))
-                        hideKeyboard()
-                        isSearchBarEditing = false
-                    }
-                )
-                .padding(.horizontal)
-                .padding(.top, 8)
+                SearchBar(searchBarTapped: $showSearchAddress, placeholder: container.model.searchedData?.title)
+                    .padding(.horizontal)
+                    .padding(.top, 8)
                 
                 Spacer()
             }
@@ -79,76 +69,48 @@ struct SearchMapView: View {
                 isLoggedIn = false
             }
         }
-    }
-}
+        .fullScreenCover(isPresented: $showSearchAddress) {
+            SearchAddressView(
+                di: di,
+                isPresented: $showSearchAddress,
+                onAddressSelected: { selectedAddress in
+                    // 주소 선택됨
+                    print("searchmapview🥶🥶🥶",selectedAddress)
+                    container.handle(.searchBarSubmitted(selectedAddress))
 
-struct SearchBar: View {
-    @Binding var text: String
-    @Binding var isEditing: Bool
-    var onSubmit: (String) -> Void
+                },
+                onDismiss: {
+                    print("onDismiss")
+                }
+            )
+        }
+    }
     
-    var body: some View {
-        HStack {
-            TextField("주소 검색", text: $text)
-                .padding(7)
-                .padding(.horizontal, 25)
-                .background(Color(.systemGray6))
-                .cornerRadius(8)
-                .overlay(
-                    HStack {
-                        Image(systemName: "magnifyingglass")
-                            .foregroundColor(.gray)
-                            .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
-                            .padding(.leading, 8)
-                    }
-                )
-                .onTapGesture {
-                    isEditing = true
-                }
-                .onSubmit {
-                    onSubmit(text)
-                }
-            
-            if isEditing {
-                Button(action: {
-                    isEditing = false
-                    text = ""
-                    hideKeyboard()
-                }) {
-                    Text("취소")
-                }
-                .padding(.trailing, 10)
-                .transition(.move(edge: .trailing))
-                .animation(.default, value: isEditing)
+    struct SearchBar: View {
+        @Binding var searchBarTapped: Bool
+        var placeholder: String?
+        private var resolvedPlaceholder : String {
+            return (placeholder ?? "").isEmpty ? "주소를 입력하세요" : (placeholder ?? "")
+        }
+        var body: some View {
+            HStack {
+                Image(systemName: "magnifyingglass")
+                    .foregroundColor(.gray)
+                
+                Text(resolvedPlaceholder)
+                
+                Spacer()
+            }
+            .padding()
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color.gray.opacity(0.3))
+            )
+            .onTapGesture {
+                searchBarTapped = true
             }
         }
     }
-}
-
-extension View {
-    func hideKeyboard() {
-        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder),
-                                      to: nil, from: nil, for: nil)
-    }
-}
-
-// MARK: - Estate Count View (for debugging/preview)
-struct EstateCountView: View {
-    let count: Int
     
-    var body: some View {
-        HStack {
-            Image(systemName: "house.fill")
-                .foregroundColor(.blue)
-                .font(.system(size: 14))
-            Text("매물 \(count)개")
-                .font(.caption)
-                .fontWeight(.medium)
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-        .background(Color.white.opacity(0.9))
-        .cornerRadius(16)
-        .shadow(radius: 2)
-    }
 }
+
