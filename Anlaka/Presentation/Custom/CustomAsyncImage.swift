@@ -12,6 +12,7 @@ import SwiftUI
 
 struct CustomAsyncImage: View {
     let imagePath: String?  // 예: "/data/estates/xxx.png"
+    var onImageLoaded: ((UIImage?) -> Void)? = nil // 이미지 로드 완료 콜백
     
     @State private var uiImage: UIImage?
     @State private var isLoading = true
@@ -67,6 +68,7 @@ struct CustomAsyncImage: View {
             DispatchQueue.main.async {
                 self.uiImage = cachedImage
                 self.isLoading = false
+                self.onImageLoaded?(cachedImage) // 콜백 호출
             }
             return
         }
@@ -96,6 +98,9 @@ struct CustomAsyncImage: View {
                     self.uiImage = image
                     // 이미지를 캐시에 저장
                     ImageCache.shared.setImage(image, forKey: imagePath)
+                    self.onImageLoaded?(image) // 콜백 호출
+                } else {
+                    self.onImageLoaded?(nil) // 로드 실패 시 nil 전달
                 }
             }
         }.resume()
