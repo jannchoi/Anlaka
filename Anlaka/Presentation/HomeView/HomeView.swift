@@ -24,7 +24,40 @@ struct HomeView: View {
     }
     
 }
-
+struct TodayEstateView: View {
+    let entity: [TodayEstateWithAddress]
+    var body: some View {
+        /*@START_MENU_TOKEN@*//*@PLACEHOLDER=Hello, world!@*/Text("Hello, world!")/*@END_MENU_TOKEN@*/
+    }
+}
+struct CategoryEstateView: View {
+    var body: some View {
+        /*@START_MENU_TOKEN@*//*@PLACEHOLDER=Hello, world!@*/Text("Hello, world!")/*@END_MENU_TOKEN@*/
+    }
+}
+struct SectionTitleView: View {
+    var body: some View {
+        /*@START_MENU_TOKEN@*//*@PLACEHOLDER=Hello, world!@*/Text("Hello, world!")/*@END_MENU_TOKEN@*/
+    }
+}
+struct LatestView: View {
+    let entity: [mockLatestData] = [mockData]
+    var body: some View {
+        /*@START_MENU_TOKEN@*//*@PLACEHOLDER=Hello, world!@*/Text("Hello, world!")/*@END_MENU_TOKEN@*/
+    }
+}
+struct HotEstateView: View {
+    let entity: [HotEstateWithAddress]
+    var body: some View {
+        /*@START_MENU_TOKEN@*//*@PLACEHOLDER=Hello, world!@*/Text("Hello, world!")/*@END_MENU_TOKEN@*/
+    }
+}
+struct TopicEstateView: View {
+    let entity: TopicEstateEntity
+    var body: some View {
+        /*@START_MENU_TOKEN@*//*@PLACEHOLDER=Hello, world!@*/Text("Hello, world!")/*@END_MENU_TOKEN@*/
+    }
+}
 extension HomeView {
     @ViewBuilder
     func renderTodayEstate() -> some View {

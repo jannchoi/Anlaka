@@ -24,4 +24,5 @@ protocol NetworkRepository {
     func getTopicEstate() async throws -> TopicEstateEntity
     
     func getAddressFromGeo(_ geo: GeolocationEntity) async throws -> AddressResponseEntity
+    func getRoad3FromGeo(_ geo: GeolocationEntity) async throws -> RoadRegion3Entity
 }

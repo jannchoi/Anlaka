@@ -49,6 +49,9 @@ struct AddressResponseEntity {
     var roadRegion2: String
     var roadRegion3: String
 }
+struct RoadRegion3Entity {
+    var address: String
+}
 
 extension AddressResponseDTO {
     func toEntity() -> AddressResponseEntity {
@@ -74,4 +77,18 @@ extension AddressResponseDTO {
             return AddressResponseEntity(roadAddressName: "", roadRegion1: "", roadRegion2: "", roadRegion3: "")
         }
     }
+    func toRoadRegion3Entity() -> RoadRegion3Entity {
+        
+        guard let document = documents?.first else {
+            return RoadRegion3Entity(address: "")
+        }
+        if let road = document.road_address {
+            return RoadRegion3Entity(address: road.region_3depth_name ?? "")
+        } else if let jibun = document.address {
+            return RoadRegion3Entity(address: jibun.region_3depth_name ?? "")
+        } else { return RoadRegion3Entity(address: "")}
+    }
 }
+
+
+
