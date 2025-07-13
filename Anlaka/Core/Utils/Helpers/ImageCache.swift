@@ -495,15 +495,19 @@ struct ImageValidationHelper {
             return false
         }
         
-        // 픽셀 포맷 검사
+        // 픽셀 포맷 검사 (확장된 지원 포맷)
         let bitsPerComponent = cgImage.bitsPerComponent
         let bitsPerPixel = cgImage.bitsPerPixel
         let colorSpace = cgImage.colorSpace
         
-        // 지원하는 픽셀 포맷 검사
-        let isValidFormat = (bitsPerComponent == 8 && bitsPerPixel == 32) ||
-                           (bitsPerComponent == 8 && bitsPerPixel == 24) ||
-                           (bitsPerComponent == 8 && bitsPerPixel == 16)
+        // 지원하는 픽셀 포맷 검사 (16비트 RGBA 포맷 추가)
+        let isValidFormat = (bitsPerComponent == 8 && bitsPerPixel == 32) ||   // 8비트 RGBA
+                           (bitsPerComponent == 8 && bitsPerPixel == 24) ||   // 8비트 RGB
+                           (bitsPerComponent == 8 && bitsPerPixel == 16) ||   // 8비트 Gray + Alpha
+                           (bitsPerComponent == 16 && bitsPerPixel == 64) ||  // 16비트 RGBA (고품질)
+                           (bitsPerComponent == 16 && bitsPerPixel == 48) ||  // 16비트 RGB (고품질)
+                           (bitsPerComponent == 16 && bitsPerPixel == 32) ||  // 16비트 Gray + Alpha
+                           (bitsPerComponent == 16 && bitsPerPixel == 16)     // 16비트 Gray
         
         guard isValidFormat else {
             print("❌ 지원하지 않는 픽셀 포맷: bitsPerComponent=\(bitsPerComponent), bitsPerPixel=\(bitsPerPixel)")
@@ -521,12 +525,24 @@ struct ImageValidationHelper {
     
     /// CGImage의 픽셀 포맷을 안전한 포맷으로 변환
     static func convertToSafeFormat(_ image: UIImage) -> UIImage? {
-        guard let cgImage = image.cgImage else { return nil }
+        guard let cgImage = image.cgImage else { 
+            print("❌ CGImage가 없음")
+            return nil 
+        }
         
         let width = cgImage.width
         let height = cgImage.height
+        let bitsPerComponent = cgImage.bitsPerComponent
+        let bitsPerPixel = cgImage.bitsPerPixel
         
-        // 안전한 CGContext 생성
+        // 이미 안전한 8비트 포맷인 경우 원본 반환
+        if bitsPerComponent == 8 && (bitsPerPixel == 32 || bitsPerPixel == 24 || bitsPerPixel == 16) {
+            return image
+        }
+        
+        //print("🔄 픽셀 포맷 변환: \(bitsPerComponent)비트/컴포넌트, \(bitsPerPixel)비트/픽셀 -> 8비트 RGBA")
+        
+        // 안전한 CGContext 생성 (8비트 RGBA로 강제 변환)
         guard let context = CGContext(
             data: nil,
             width: width,
@@ -548,7 +564,16 @@ struct ImageValidationHelper {
             return nil
         }
         
-        return UIImage(cgImage: safeCGImage, scale: image.scale, orientation: image.imageOrientation)
+        let convertedImage = UIImage(cgImage: safeCGImage, scale: image.scale, orientation: image.imageOrientation)
+        
+        // 변환된 이미지 유효성 검사
+        guard validateUIImage(convertedImage) else {
+            print("❌ 변환된 이미지가 유효하지 않음")
+            return nil
+        }
+        
+        //print("✅ 픽셀 포맷 변환 성공: \(width) x \(height)")
+        return convertedImage
     }
 }
 
@@ -604,7 +629,7 @@ actor SafeDiskCacheManager {
         
         do {
             try data.write(to: fileURL)
-            print("✅ 디스크 캐시 저장 성공: \(key)")
+            //print("✅ 디스크 캐시 저장 성공: \(key)")
         } catch {
             print("❌ 디스크 캐시 저장 실패: \(error) - 키: \(key)")
         }

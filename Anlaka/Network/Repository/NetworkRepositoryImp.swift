@@ -174,19 +174,17 @@ internal final class NetworkRepositoryImp: NetworkRepository {
         }
     }
     
-    func uploadFiles(roomId: String, files: [FileData]) async throws -> ChatFileEntity {
-        //파일을 업로드함.
+    func uploadFiles(roomId: String, files: [FileData]) async throws -> [String] {
+        // 파일을 업로드함.
         do {
-            let response = try await NetworkManager.shared.callRequest(target: ChatRouter.uploadFiles(roomId: roomId, files), model: ChatFileResponseDTO.self)
-            return response.toEntity()
+            let response = try await NetworkManager.shared.callRequest(target: ChatRouter.uploadFiles(roomId: roomId, files), model: FileDTO.self)
+            // FileDTO는 files: [String]? 형태
+            return response.files ?? []
         } catch {
             throw error
         }
     }
 
-
-    
-    
     func getDetailEstate(_ estateId: String) async throws -> DetailEstateEntity {
         do {
             let response = try await NetworkManager.shared.callRequest(
@@ -422,6 +420,7 @@ extension NetworkRepositoryImp {
     private func saveTokens(accessToken: String, refreshToken: String) {
         UserDefaultsManager.shared.set(accessToken, forKey: .accessToken)
         UserDefaultsManager.shared.set(refreshToken, forKey: .refreshToken)
+        print("🧶 토큰 저장 성공, \(accessToken), \(refreshToken)")
     }
     
     private func saveProfileInfo(userId: String, email: String, nick: String, phoneNum: String? = nil, introduction: String? = nil) {
@@ -433,7 +432,6 @@ extension NetworkRepositoryImp {
             phoneNum: phoneNum,
             introduction: introduction
         )
-
         UserDefaultsManager.shared.setObject(profile, forKey: .profileData)
     }
 

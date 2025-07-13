@@ -6,7 +6,7 @@ enum CommunityRouter: AuthorizedTarget {
     case posting(dto: PostRequestDTO)
     case getLocationPost(category: String?, longitude: String?, latitude: String?, maxDistance: String?, next: String?, order: String?)
     case searchPostTitle(title: String?)
-    case searchPost(post_id: String)
+    case getPost(post_id: String)
     case editPost(post_id: String, dto: EditPostRequestDTO)
     case deletePost(post_id: String)
     case likePost(post_id: String, dto: LikeEstateRequestDTO)
@@ -32,19 +32,19 @@ enum CommunityRouter: AuthorizedTarget {
             return "/posts/geolocation"
         case .searchPostTitle:
             return "/posts/search"
-        case .searchPost(let post_id):
+        case .getPost(let post_id):
             return "/posts/\(post_id)"
-        case .editPost(let post_id):
+        case .editPost(let post_id, _):
             return "/posts/\(post_id)"
         case .deletePost(let post_id):
             return"/posts/\(post_id)"
-        case .likePost(let post_id):
+        case .likePost(let post_id, _):
             return "/posts/\(post_id)/like"
         case .searchUserPost(let user_id):
             return "/posts/users/\(user_id)"
         case .searchMyLikePost:
             return "/posts/likes/me"
-        case .postComment(let post_id):
+        case .postComment(let post_id, _):
             return "/posts/\(post_id)/comments"
         case .editComment(let post_id, let comment_id, _):
             return "/posts/\(post_id)/comments/\(comment_id)"
@@ -57,7 +57,7 @@ enum CommunityRouter: AuthorizedTarget {
         switch self {
         case .postFile, .posting, .likePost, .postComment:
             return "POST"
-        case .getLocationPost, .searchPostTitle, .searchPost, .searchUserPost, .searchMyLikePost:
+        case .getLocationPost, .searchPostTitle, .getPost, .searchUserPost, .searchMyLikePost:
             return "GET"
         case .deletePost, .deleteComment:
             return "DELETE"
@@ -71,6 +71,7 @@ enum CommunityRouter: AuthorizedTarget {
         return [
             "SeSACKey": AppConfig.apiKey,
             "Content-Type": "application/json",
+            "Accept": "application/json",
             "Authorization" : accessToken
         ]
     }
@@ -81,7 +82,9 @@ enum CommunityRouter: AuthorizedTarget {
             return ["category": category, "longitude": longitude, "latitude": latitude, "maxDistance": maxDistance, "limit": 10, "next": next, "order": order]
         case .searchPostTitle(let title):
             return ["title": title]
-        case .searchPost(let post_id), .editPost(let post_id, _), .deletePost(let post_id), .likePost(let post_id, _), .postComment(let post_id, _):
+        case .getPost(let post_id), .editPost(let post_id, _), .deletePost(let post_id), .likePost(let post_id, _):
+            return ["post_id": post_id]
+        case .postComment(let post_id, _):
             return ["post_id": post_id]
         case .editComment(let post_id, let comment_id, _), .deleteComment(let post_id, let comment_id):
             return ["post_id": post_id, "comment_id": comment_id]
@@ -143,11 +146,21 @@ extension CommunityRouter {
     func asURLRequest() throws -> URLRequest {
         var url = baseURL.appendingPathComponent(path)
         
-        // GET 요청의 경우 쿼리 파라미터 추가
-        if method == "GET" {
+        // GET 요청 또는 특정 POST 케이스의 경우 쿼리 파라미터 추가
+        let shouldAddQueryParams: Bool
+        switch self {
+        case .postComment, .likePost:
+            shouldAddQueryParams = method == "POST"
+        default:
+            shouldAddQueryParams = method == "GET"
+        }
+        
+        if shouldAddQueryParams {
             var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
-            let queryItems = parameters.map { key, value in
-                return URLQueryItem(name: key, value: "\(value)")
+            let queryItems = parameters.compactMap { (key: String, value: Any?) -> URLQueryItem? in
+                // Optional 값을 안전하게 처리
+                guard let unwrappedValue = value else { return nil }
+                return URLQueryItem(name: key, value: "\(unwrappedValue)")
             }
             components?.queryItems = queryItems
             if let composedURL = components?.url {
@@ -195,5 +208,3 @@ extension CommunityRouter {
         return request
     }
 }
-
-// Anlaka/Core/Utils/Helpers/FileManager.swift
