@@ -66,5 +66,5 @@ GoogleService-Info.plist
 
 # SecretKey
 SecretKey.swift
-
+SecretKey.swift
 *.xcconfig
