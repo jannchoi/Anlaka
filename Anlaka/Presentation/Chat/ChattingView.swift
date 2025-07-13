@@ -75,8 +75,6 @@ struct ChattingView: View {
     @State private var selectedFiles: [GalleryImage] = []
     @State private var isShowingImagePicker = false
     @State private var scrollProxy: ScrollViewProxy? = nil
-    @State private var reconnectAttempts = 0
-    @State private var isReconnecting = false
     @State private var isShowingProfileDetail = false
     @State private var profileDetailOffset: CGSize = .zero
     @Binding var path: NavigationPath
@@ -113,9 +111,9 @@ struct ChattingView: View {
                     HStack {
                         Image(systemName: "wifi.slash")
                             .foregroundColor(.TomatoRed)
-                        Text(isReconnecting ? "재연결 시도 중..." : "연결이 끊어졌습니다")
+                        Text(container.model.isReconnecting ? "재연결 시도 중..." : "연결이 끊어졌습니다")
                             .foregroundColor(.TomatoRed)
-                        if isReconnecting {
+                        if container.model.isReconnecting {
                             ProgressView()
                                 .progressViewStyle(CircularProgressViewStyle())
                                 .scaleEffect(0.7)
@@ -193,20 +191,12 @@ struct ChattingView: View {
             print("ChattingView - onDisappear 호출됨")
             container.handle(.disconnectSocket)
         }
-        .onChange(of: container.model.isConnected) { isConnected in
-            if !isConnected {
-                attemptReconnect()
-            } else {
-                isReconnecting = false
-                reconnectAttempts = 0
-            }
-        }
         .sheet(isPresented: $isShowingImagePicker) {
             ImagePicker(selectedFiles: $selectedFiles)
         }
         .alert("오류", isPresented: .constant(container.model.error != nil)) {
             Button("확인") {
-                container.model.error = nil
+                container.handle(.setError(nil))
             }
             Button("재시도") {
                 container.handle(.initialLoad)
@@ -259,30 +249,6 @@ struct ChattingView: View {
         withAnimation {
             scrollProxy?.scrollTo(container.model.messages.last?.chatId, anchor: .bottom)
         }
-    }
-    
-    private func attemptReconnect() {
-        guard !isReconnecting else { return }
-        
-        isReconnecting = true
-        let maxAttempts = 5
-        let baseDelay = 1.0 // 초기 지연 시간 (초)
-        
-        func tryReconnect(attempt: Int) {
-            guard attempt < maxAttempts else {
-                isReconnecting = false
-                container.model.error = "연결을 재설정할 수 없습니다. 앱을 다시 시작해주세요."
-                return
-            }
-            
-            let delay = baseDelay * pow(2.0, Double(attempt)) // exponential backoff
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-                container.handle(.initialLoad)
-            }
-        }
-        
-        tryReconnect(attempt: reconnectAttempts)
-        reconnectAttempts += 1
     }
 }
 
