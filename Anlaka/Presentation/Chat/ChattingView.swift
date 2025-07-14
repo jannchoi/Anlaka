@@ -523,7 +523,7 @@ struct SingleFilePreview: View {
     
     var body: some View {
         if isImageFile {
-            CustomAsyncImage(imagePath: fileURL)
+            CustomAsyncImage.listCell(imagePath: fileURL)
                 .frame(width: 200, height: 200)
                 .cornerRadius(8)
         } else {
