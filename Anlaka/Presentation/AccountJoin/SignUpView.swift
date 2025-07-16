@@ -19,17 +19,28 @@ struct SignUpView: View {
     }
     
     var body: some View {
-        ZStack {
-            Color("WarmLinen")
-                .ignoresSafeArea()
+        VStack(spacing: 0) {
+            CustomNavigationBar(title: "회원가입", leftButton:  {
+                Button(action: {
+                    onComplete()
+                }) {
+                    Image("chevron")
+                        .font(.headline)
+                        .foregroundColor(.MainTextColor)
+                }
+            })
             
-            ScrollView {
-                SignUpFormView(container: container)
-                    .dismissKeyboardToolbar()
-                    .padding(20)
+            ZStack {
+                Color("WarmLinen")
+                    .ignoresSafeArea()
+                
+                ScrollView {
+                    SignUpFormView(container: container)
+                        .dismissKeyboardToolbar()
+                        .padding(20)
+                }
             }
         }
-        .navigationTitle("회원가입")
         .alert(item: Binding(
             get: { container.model.errorMessage.map { Message(text: $0) } },
             set: { _ in container.model.errorMessage = nil })
@@ -74,12 +85,18 @@ private struct SignUpInputFieldsView: View {
                 container.handle(.emailChanged($0))
             }
             
-            Button("이메일 중복 확인") {
+            Button(action: {
                 container.handle(.emailValidateButtonTapped)
+            }) {
+                Text("이메일 중복 확인")
+                    .font(.pretendardSubheadline)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(container.model.isEmailValid ? Color.oliveMist : Color.Deselected)
+                    .cornerRadius(8)
             }
             .disabled(!container.model.isEmailValid)
-            .font(.subheadline)
-            .foregroundColor(container.model.isEmailValid ? Color.oliveMist : Color.Deselected)
             
             CustomTextField(
                 title: "비밀번호",
@@ -119,21 +136,50 @@ private struct SignUpInputFieldsView: View {
 private struct SignUpIntroductionView: View {
     @ObservedObject var container: SignUpContainer
     
+    // 글자수 계산을 위한 computed properties
+    private var characterCount: Int {
+        container.model.introduction.count
+    }
+    
+    private var isOverLimit: Bool {
+        characterCount > 60
+    }
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("자기소개")
-                .font(.headline)
+                .font(.soyoHeadline)
                 .foregroundColor(Color.MainTextColor)
-            TextEditor(text: $container.model.introduction)
-                .onChange(of: container.model.introduction) { container.handle(.introChanged($0)) }
+            
+            TextEditor(text: Binding(
+                get: { container.model.introduction },
+                set: { newValue in
+                    // 글자수 제한 적용 (공백 포함 60자)
+                    let charCount = newValue.count
+                    
+                    if charCount <= 60 {
+                        container.model.introduction = newValue
+                        container.handle(.introChanged(newValue))
+                    }
+                    // 제한을 초과하면 아무것도 하지 않음 (이전 값 유지)
+                }
+            ))
                 .frame(height: 100)
                 .padding(12)
                 .background(Color(.systemGray6))
                 .cornerRadius(12)
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                        .stroke(isOverLimit ? Color.TomatoRed : Color.gray.opacity(0.2), lineWidth: 1)
                 )
+            
+            // 글자수 카운터
+            HStack {
+                Spacer()
+                Text("\(characterCount)/60")
+                    .font(.pretendardCaption)
+                    .foregroundColor(isOverLimit ? Color.TomatoRed : Color.SubText)
+            }
         }
     }
 }
@@ -146,9 +192,9 @@ private struct SignUpButtonView: View {
         Button(action: {
             container.handle(.SignUpButtonTapped)
         }) {
-            Text("완료")
-                .font(.headline)
-                .foregroundColor(.white)
+                                    Text("완료")
+                            .font(.soyoHeadline)
+                            .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
                 .padding()
                 .background(container.model.isSignUpButtonEnabled ? Color.oliveMist : Color.Deselected)

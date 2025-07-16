@@ -18,44 +18,51 @@ struct EstateDetailView: View {
     
     // estateId로 초기화하는 경우
     init(di: DIContainer,estateId: String) {
-        self._container = StateObject(wrappedValue: EstateDetailContainer(repository: di.networkRepository, estateId: estateId))
+        self._container = StateObject(wrappedValue: di.makeEstateDetailContainer(estateId: estateId))
         self.di = di
     }
     
     // estate 객체로 초기화하는 경우
     init(di: DIContainer,estate: DetailEstateEntity) {
-        self._container = StateObject(wrappedValue: EstateDetailContainer(repository: di.networkRepository, estate: estate))
+        self._container = StateObject(wrappedValue: di.makeEstateDetailContainer(estate: estate))
         self.di = di
     }
     
     var body: some View {
         NavigationStack(path: $path) {
-            ZStack(alignment: .bottom) {
-                VStack(spacing: 0) {
-                    navigationBar
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 16) {
-                            renderDetailEstate()
+            ZStack {
+                Color.WarmLinen
+                    .ignoresSafeArea()
+                
+                ZStack(alignment: .bottom) {
+                    VStack(spacing: 0) {
+                        navigationBar
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 16) {
+                                renderDetailEstate()
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.bottom, 80) // 예약 버튼의 높이만큼 패딩 추가
                         }
-                        .padding(.bottom, 80) // 예약 버튼의 높이만큼 패딩 추가
                     }
-                }
-                
-                if case .success(let data) = container.model.detailEstate {
-                    reservationButton(isReserved: data.detail.isReserved)
-                        .background(Color.white)
-                }
-                
-                // PaymentStartView 오버레이
-                if showPaymentStartView, let payment = container.model.iamportPayment {
-                    PaymentStartView(
-                        di: di,
-                        iamportPayment: payment,
-                        showPaymentStartView: $showPaymentStartView,
-                        onCancel: {
-                            container.handle(.resetReservation)
-                        }
-                    )
+                    
+                    if case .success(let data) = container.model.detailEstate {
+                        reservationButton(isReserved: data.detail.isReserved)
+                            .padding(.horizontal)
+                            .background(Color.white)
+                    }
+                    
+                    // PaymentStartView 오버레이
+                    if showPaymentStartView, let payment = container.model.iamportPayment {
+                        PaymentStartView(
+                            di: di,
+                            iamportPayment: payment,
+                            showPaymentStartView: $showPaymentStartView,
+                            onCancel: {
+                                container.handle(.resetReservation)
+                            }
+                        )
+                    }
                 }
             }
             .navigationDestination(for: String.self) { opponent_id in
@@ -103,7 +110,7 @@ extension EstateDetailView {
             
             if case .success(let data) = container.model.detailEstate {
                 Text(data.detail.title)
-                    .font(.headline)
+                    .font(.soyoHeadline)
                     .foregroundColor(.MainTextColor)
             }
             
@@ -121,6 +128,7 @@ extension EstateDetailView {
         }
         .padding(.horizontal)
         .padding(.vertical, 8)
+        .background(.white)
     }
 }
 
@@ -130,7 +138,7 @@ extension EstateDetailView {
     private func topThumbnailView(thumbnails: [String]) -> some View {
         TabView {
             ForEach(0..<thumbnails.count, id: \.self) { index in
-                CustomAsyncImage(imagePath: thumbnails[index])
+                CustomAsyncImage.detail(imagePath: thumbnails[index])
                     .frame(height: 250)
                     .clipped()
             }
@@ -143,7 +151,7 @@ extension EstateDetailView {
                 HStack {
                     Spacer()
                     Text("\(1)/\(thumbnails.count)")
-                        .font(.caption)
+                        .font(.pretendardCaption)
                         .foregroundColor(.white)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
@@ -161,12 +169,13 @@ extension EstateDetailView {
     private func watchingBar(likeCount: String) -> some View {
         HStack {
             Text("\(likeCount)명이 함께 보는중")
-                .font(.caption)
+                .font(.pretendardCaption)
                 .foregroundColor(.secondary)
+                .padding(.leading, 16)
             Spacer()
         }
-        .padding(.horizontal)
-        .frame(height: 20)
+        .frame(height: 27)
+        .background(Color.SoftSage)
     }
 }
 
@@ -174,44 +183,43 @@ extension EstateDetailView {
 extension EstateDetailView {
     private func metaDataView(data: DetailEstateWithAddrerss) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-           
-VStack{ 
-HStack{       if data.detail.isSafeEstate {
-                Image("Safty Mark")
-            }
-            Spacer()
-            }
-HStack{            Text(data.address)
-                .font(.subheadline)
-                .foregroundColor(.MainTextColor)
-                Spacer()}
+            
+            VStack{
+                HStack{       if data.detail.isSafeEstate {
+                    Image("Safty Mark")
                 }
-
-
+                    Spacer()
+                }
+                HStack{            
+                    Text(data.address)
+                        .font(.pretendardSubheadline)
+                        .foregroundColor(.MainTextColor)
+                    Spacer()}
+            }
+            
+            
             HStack {
                 Text("월세")
-                    .font(.title3)
+                    .font(.soyoTitle3)
                     .foregroundColor(.MainTextColor)
                 Text("\(data.detail.deposit)/\(data.detail.monthlyRent)")
-                    .font(.title3)
-                    .fontWeight(.bold)
+                    .font(.soyoTitle3)
                     .foregroundColor(.MainTextColor)
-                    Spacer()
+                Spacer()
             }
             
             VStack(alignment: .leading, spacing: 4) {
                 HStack{Text("관리비: \(data.detail.maintenanceFee)")
-                    .font(.caption)
-                    .foregroundColor(.SubText)
+                        .font(.pretendardCaption)
+                        .foregroundColor(.SubText)
                     Spacer()}
-               HStack{ Text("면적: \(data.detail.area)")
-                    .font(.caption)
-                    .foregroundColor(.SubText)
+                HStack{ Text("면적: \(data.detail.area)")
+                        .font(.pretendardCaption)
+                        .foregroundColor(.SubText)
                     Spacer()}
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading) // 이 부분이 핵심!
-        .padding(.horizontal)
     }
 }
 
@@ -221,13 +229,12 @@ extension EstateDetailView {
     private func optionView(options: OptionEntity, parkingCount: String) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("옵션 정보")
-                .font(.headline)
-                .fontWeight(.bold)
+                .font(.soyoHeadline)
                 .foregroundColor(.MainTextColor)
             
             if !options.description.isEmpty {
                 Text(options.description)
-                    .font(.caption)
+                    .font(.pretendardCaption)
                     .foregroundColor(.MainTextColor)
             }
             
@@ -241,26 +248,37 @@ extension EstateDetailView {
                 optionItem(title: "싱크대", imageName: "Sink", isAvailable: options.sink)
                 optionItem(title: "TV", imageName: "Television", isAvailable: options.tv)
             }
-                HStack {
-                    Spacer()
+            .padding()
+            .background(Color.white)
+            .cornerRadius(12)
+            HStack {
+                Spacer()
+                HStack(spacing: 4) {
                     Image("Parking")
                         .resizable()
                         .frame(width: 20, height: 20)
                         .foregroundColor(.SubText)
-                        .padding(.trailing, 2)
                     Text("세대별 차량 \(parkingCount)대 주차 가능")
+                        .font(.pretendardCaption)
+                        .foregroundColor(.SubText)
                 }
-                    .font(.caption)
-                    .foregroundColor(.SubText)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(Color.white)
+                .overlay(
+                    Capsule()
+                        .stroke(Color.gray, lineWidth: 1)
+                )
+                .clipShape(Capsule())
+            }
         }
-        .padding(.horizontal)
     }
     private func optionItem(title: String, imageName: String, isAvailable: Bool) -> some View {
         VStack(spacing: 4) {
             Image(imageName)
                 .foregroundColor(isAvailable ? Color.MainTextColor : Color.Deselected)
             Text(title)
-                .font(.caption2)
+                .font(.pretendardCaption2)
                 .foregroundColor(isAvailable ? Color.MainTextColor : Color.Deselected)
         }
     }
@@ -271,15 +289,14 @@ extension EstateDetailView {
     private func detailDescriptionView(description: String) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("상세 설명")
-                .font(.headline)
-                .fontWeight(.bold)
+                .font(.soyoHeadline)
                 .foregroundColor(.MainTextColor)
             
             Text(description)
-                .font(.caption)
+                .font(.pretendardCaption)
                 .foregroundColor(Color.SubText)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.horizontal)
     }
 }
 
@@ -291,12 +308,12 @@ struct SimilarEstatesView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("유사한 매물")
-                .font(.headline)
-                .fontWeight(.bold)
+                .font(.soyoHeadline)
                 .foregroundColor(.MainTextColor)
-                .padding(.horizontal)
+                .padding(.leading, 16)
             horizontalScrollView
             recommendationFooter
+                .padding(.leading, 16)
         }
     }
     
@@ -307,7 +324,7 @@ struct SimilarEstatesView: View {
                     similarEstateCard(at: index)
                 }
             }
-            .padding(.horizontal)
+            .padding(.leading, 16)
         }
     }
     
@@ -381,7 +398,6 @@ struct SimilarEstatesView: View {
                 .font(.caption)
                 .foregroundColor(.SubText)
         }
-        .padding(.horizontal)
     }
 }
 
@@ -393,7 +409,7 @@ extension EstateDetailView {
                 .font(.headline)
                 .fontWeight(.bold)
                 .foregroundColor(.MainTextColor)
-                .padding(.horizontal)
+                .padding(.leading, 16)
             
             HStack(spacing: 12) {
                 CustomAsyncImage(imagePath: creator.profileImage)
@@ -421,12 +437,13 @@ extension EstateDetailView {
                         Image("Chat Button")
                             .frame(width: 40, height: 40)
                     }
+                    .disabled(container.model.opponent_id != nil)
                 }
             }
             .padding()
             .background(Color.gray.opacity(0.05))
             .cornerRadius(12)
-            .padding(.horizontal)
+            .padding(.bottom, 10)
         }
     }
 }
@@ -447,7 +464,6 @@ extension EstateDetailView {
                 .cornerRadius(12)
         }
         .disabled(container.model.isReserved)
-        .padding(.horizontal)
         .padding(.vertical, 16)
         .shadow(color: .black.opacity(0.1), radius: 4, y: -2)
     }
@@ -463,12 +479,21 @@ extension EstateDetailView {
             
         case .success(let data):
             VStack(spacing: 16) {
-                topThumbnailView(thumbnails: data.detail.thumbnails)
-                watchingBar(likeCount: data.detail.likeCount)
-                metaDataView(data: data)
-                optionView(options: data.detail.options, parkingCount: data.detail.parkingCount)
-                detailDescriptionView(description: data.detail.description)
+                VStack(spacing: 0) {
+                    topThumbnailView(thumbnails: data.detail.thumbnails)
+                    watchingBar(likeCount: data.detail.likeCount)
+                }
+                VStack(spacing: 16) {
+                    metaDataView(data: data)
+                    Divider()
+                    optionView(options: data.detail.options, parkingCount: data.detail.parkingCount)
+                    Divider()
+                    detailDescriptionView(description: data.detail.description)
+                    Divider()
+                }
+                .padding(.horizontal)
                 renderSimilarEstate()
+                Divider()
                 createrInfoView(creator: data.detail.creator)
             }
             

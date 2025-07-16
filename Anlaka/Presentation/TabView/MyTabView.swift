@@ -10,8 +10,8 @@ import SwiftUI
 struct MyTabView: View {
     let di: DIContainer
     
-    enum Tab {
-        case home, reserved, myPage
+    enum Tab: Int, CaseIterable {
+        case home = 0, reserved = 1, myPage = 2
     }
     
     @State private var selected: Tab = .home
@@ -19,27 +19,72 @@ struct MyTabView: View {
     @State private var reservedPath = NavigationPath()
     @State private var myPagePath = NavigationPath()
     
+    // 각 탭의 뷰 인스턴스를 한 번만 생성하여 재사용
+    @State private var homeView: HomeView?
+    @State private var reservedView: RerservedEstatesView?
+    @State private var myPageView: MyPageView?
+    
     init(di: DIContainer) {
         self.di = di
     }
     
     var body: some View {
         ZStack(alignment: .bottom) {
-            Group {
-                switch selected {
-                case .home:
-                    NavigationStack(path: $homePath) {
-                        HomeView(di: di, path: $homePath)
-                    }
-                case .reserved:
-                    NavigationStack(path: $reservedPath) {
-                        RerservedEstatesView(di: di, path: $reservedPath)
-                    }
-                case .myPage:
-                    NavigationStack(path: $myPagePath) {
-                        MyPageView(di: di, path: $myPagePath)
+            // LazyView를 사용하여 선택된 탭만 생성하되, 한 번 생성된 뷰는 재사용
+            ZStack {
+                // Home Tab
+                NavigationStack(path: $homePath) {
+                    Group {
+                        if let homeView = homeView {
+                            homeView
+                        } else {
+                            LazyView(content: HomeView(di: di, path: $homePath))
+                                .onAppear {
+                                    if homeView == nil {
+                                        self.homeView = HomeView(di: di, path: $homePath)
+                                    }
+                                }
+                        }
                     }
                 }
+                .opacity(selected == .home ? 1 : 0)
+                .allowsHitTesting(selected == .home)
+                
+                // Reserved Tab
+                NavigationStack(path: $reservedPath) {
+                    Group {
+                        if let reservedView = reservedView {
+                            reservedView
+                        } else {
+                            LazyView(content: RerservedEstatesView(di: di, path: $reservedPath))
+                                .onAppear {
+                                    if reservedView == nil {
+                                        self.reservedView = RerservedEstatesView(di: di, path: $reservedPath)
+                                    }
+                                }
+                        }
+                    }
+                }
+                .opacity(selected == .reserved ? 1 : 0)
+                .allowsHitTesting(selected == .reserved)
+                
+                // MyPage Tab
+                NavigationStack(path: $myPagePath) {
+                    Group {
+                        if let myPageView = myPageView {
+                            myPageView
+                        } else {
+                            LazyView(content: MyPageView(di: di, path: $myPagePath))
+                                .onAppear {
+                                    if myPageView == nil {
+                                        self.myPageView = MyPageView(di: di, path: $myPagePath)
+                                    }
+                                }
+                        }
+                    }
+                }
+                .opacity(selected == .myPage ? 1 : 0)
+                .allowsHitTesting(selected == .myPage)
             }
             
             if shouldShowTabBar {
@@ -47,6 +92,9 @@ struct MyTabView: View {
             }
         }
         .ignoresSafeArea(.all, edges: .bottom)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            Color.clear.frame(height: 0)
+        }
     }
     
     private var shouldShowTabBar: Bool {
@@ -73,7 +121,7 @@ struct MyTabView: View {
                         .frame(width: 30)
                     if selected == .home {
                         Text("홈")
-                            .font(.system(size: 11))
+                            .font(.pretendardCaption2)
                     }
                 }
             }
@@ -89,7 +137,7 @@ struct MyTabView: View {
                         .frame(width: 30)
                     if selected == .reserved {
                         Text("관심매물")
-                            .font(.system(size: 11))
+                            .font(.pretendardCaption2)
                     }
                 }
             }
@@ -105,7 +153,7 @@ struct MyTabView: View {
                         .frame(width: 30)
                     if selected == .myPage {
                         Text("프로필")
-                            .font(.system(size: 11))
+                            .font(.pretendardCaption2)
                     }
                 }
             }
@@ -130,3 +178,4 @@ struct MyTabView: View {
         }
     }
 }
+
