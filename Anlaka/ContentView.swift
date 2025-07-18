@@ -33,8 +33,6 @@ struct ContentView: View {
             }
         }
         .onOpenURL(perform: { url in
-            print("📱 딥링크 URL 수신: \(url)")
-            
             // 카카오 로그인 URL 처리
             if AuthApi.isKakaoTalkLoginUrl(url) {
                 AuthController.handleOpenUrl(url: url)
@@ -46,7 +44,6 @@ struct ContentView: View {
         })
         .task {
             await setupCacheCleanup()
-            print("📱 앱 시작 시 로그인 상태 설정: \(isLoggedIn)")
             
             // 앱 시작 시 대기 중인 딥링크 처리
             if isLoggedIn {
@@ -54,7 +51,7 @@ struct ContentView: View {
             }
         }
         .onChange(of: isLoggedIn) { newValue in
-            print("🔐 ContentView에서 isLoggedIn 변경 감지: \(newValue)")
+
             
             // 로그인 상태가 변경될 때 대기 중인 채팅방 처리
             if newValue {
@@ -66,10 +63,7 @@ struct ContentView: View {
                 CustomNotificationManager.shared.clearAllNotifications()
             }
             
-            print("📱 로그인 상태 변경 감지: \(newValue)")
-            
-            // SwiftUI가 자동으로 화면 전환을 처리하므로 별도 작업 불필요
-            print("🔄 SwiftUI가 자동으로 화면 전환 처리")
+
         }
         .alert("알림 권한", isPresented: $permissionManager.shouldShowPermissionAlert) {
             Button("설정으로 이동") {
@@ -92,7 +86,7 @@ struct ContentView: View {
             let stats = try await withTimeout(seconds: 3.0) {
                 return await SafeImageCache.shared.getCacheStatistics()
             }
-            //print("📊 캐시 통계 - 총 비용: \(stats.totalCost / 1024 / 1024)MB, 이미지 개수: \(stats.count)")
+
             
         } catch {
             print("⚠️ 캐시 초기화 중 오류 발생: \(error.localizedDescription)")

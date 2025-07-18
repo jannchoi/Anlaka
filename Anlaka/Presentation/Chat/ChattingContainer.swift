@@ -97,14 +97,14 @@ final class ChattingContainer: ObservableObject {
     }
     
     private func setupSocket() {
-        print("🔧 WebSocketManager 생성: roomId = \(model.roomId)")
+        print(" WebSocketManager 생성: roomId = \(model.roomId)")
         socket = WebSocketManager(roomId: model.roomId)
         socket?.onMessage = { [weak self] message in
             self?.handleIncomingMessage(message)
         }
         socket?.onConnectionStatusChanged = { [weak self] isConnected in
             DispatchQueue.main.async {
-                print("🔌 WebSocket 연결 상태 변경: \(isConnected)")
+                print(" WebSocket 연결 상태 변경: \(isConnected)")
                 self?.model.isConnected = isConnected
                 
                 // 연결이 끊어진 경우 재연결 시도
@@ -169,7 +169,7 @@ final class ChattingContainer: ObservableObject {
                 // 2. 상대방 프로필 정보 가져오기
                 let opponentProfile = try await repository.getOtherProfileInfo(userId: opponent_id)
                     model.opponentProfile = opponentProfile
-                    print("👤 상대방 프로필 정보 로드 완료: \(opponentProfile)")
+                    print(" 상대방 프로필 정보 로드 완료: \(opponentProfile)")
             } else {
                 // roomId로 초기화된 경우, 채팅방 정보를 가져와서 상대방 프로필 정보 찾기
                 // 1. 채팅방 정보 가져오기 (서버에서)
@@ -179,12 +179,12 @@ final class ChattingContainer: ObservableObject {
                     if let opponent = chatRoom.participants.first(where: { $0.userId != userInfo.userid }) {
                         // 3. opponent_id 설정
                         model.opponent_id = opponent.userId
-                        print("👤 opponent_id 설정: \(opponent.userId)")
+                        print(" opponent_id 설정: \(opponent.userId)")
                         
                         // 4. 상대방 프로필 정보 가져오기
                         let opponentProfile = try await repository.getOtherProfileInfo(userId: opponent.userId)
                         model.opponentProfile = opponentProfile
-                        print("👤 상대방 프로필 정보 로드 완료 (roomId): \(opponentProfile)")
+                        print(" 상대방 프로필 정보 로드 완료 (roomId): \(opponentProfile)")
                     }
                 }
             }
@@ -226,7 +226,7 @@ final class ChattingContainer: ObservableObject {
             model.updateMessagesGroupedByDate()
             
             // 11. WebSocket 연결
-            print("🔌 WebSocket 연결 시도: roomId = \(model.roomId)")
+            print(" WebSocket 연결 시도: roomId = \(model.roomId)")
             socket?.connect()
             
         } catch {
@@ -260,7 +260,6 @@ final class ChattingContainer: ObservableObject {
         // 임시 메시지를 즉시 UI에 추가
         model.messages.append(tempMessage)
         model.updateMessagesGroupedByDate()  // 임시 메시지도 UI에 표시되어야 함
-        print("📝 임시 메시지 추가: \(tempMessageId)")
         
         do {
             // 1. SelectedFile을 FileData로 변환
@@ -289,10 +288,10 @@ final class ChattingContainer: ObservableObject {
             // 3. 파일 업로드
             var uploadedFiles: [String] = []
             if !validatedFiles.isEmpty {
-                print("📝 파일 업로드 시작")
+
                 let chatFile = try await repository.uploadFiles(roomId: model.roomId, files: validatedFiles)
                 uploadedFiles = chatFile
-                print("✅ 파일 업로드 성공 - 업로드된 파일 URL: \(uploadedFiles)")
+                print(" 파일 업로드 성공 - 업로드된 파일 URL: \(uploadedFiles)")
             }
             
             // 4. HTTP 서버로 메시지 전송
@@ -301,7 +300,6 @@ final class ChattingContainer: ObservableObject {
                 files: uploadedFiles  // 업로드된 파일 URL 그대로 사용
             )
             
-            print("📤 HTTP 서버로 전송할 메시지 데이터: \(chatRequest)")
             
             let message = try await repository.sendMessage(
                 roomId: model.roomId,
@@ -312,7 +310,7 @@ final class ChattingContainer: ObservableObject {
             if let tempIndex = model.messages.firstIndex(where: { $0.chatId == tempMessageId }) {
                 model.messages.remove(at: tempIndex)  // 임시 메시지 제거
                 model.messages.insert(message, at: tempIndex)  // 실제 메시지 삽입
-                print("🔄 임시 메시지를 실제 메시지로 교체: \(message.chatId)")
+
             }
             
             // DB 저장
@@ -321,7 +319,7 @@ final class ChattingContainer: ObservableObject {
             // 전송 상태 업데이트 및 UI 갱신
             model.sendingMessageId = nil
             model.updateMessagesGroupedByDate()  // 실제 메시지 교체 후에만 UI 갱신
-            print("✅ 메시지 전송 및 저장 완료: \(message.chatId)")
+
             
         } catch {
             print("❌ 메시지 전송 실패: \(error.localizedDescription)")
@@ -401,7 +399,6 @@ final class ChattingContainer: ObservableObject {
                     // newMessageButton 흔들림 처리
                     handleNewMessageButtonShake()
                 
-                print("✅ 새 메시지 저장 완료: \(message.chatID)")
                 } catch {
                     print("⚠️ 메시지 저장 중 오류 발생 (중복 가능성): \(error.localizedDescription)")
                     // 중복 키 오류인 경우 UI에만 추가 (DB는 이미 존재할 수 있음)
@@ -409,7 +406,7 @@ final class ChattingContainer: ObservableObject {
                         model.messages.append(chatEntity)
                         model.updateMessagesGroupedByDate()
                         handleNewMessageButtonShake()
-                        print("✅ 중복 메시지로 인식하여 UI에만 추가: \(message.chatID)")
+                        
                     }
                 }
                 

@@ -29,8 +29,6 @@ final class CurrentScreenTracker: ObservableObject {
         
         currentScreen = screen
         currentChatRoomId = chatRoomId
-        
-        print("📱 화면 변경: \(previousScreen) → \(screen) - 채팅방: \(previousChatRoomId ?? "없음") → \(chatRoomId ?? "없음")")
     }
     
     /// 현재 채팅방에 있는지 확인

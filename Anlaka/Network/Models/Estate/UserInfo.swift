@@ -18,7 +18,7 @@ struct UserInfoResponseDTO: Codable {
     
     func toEntity() -> UserInfoEntity? {
         guard !userId.isEmpty && !nick.isEmpty else {
-            print("👤 사용자 ID가 비어있습니다. userId: \(userId), nick: \(nick)")
+            print("사용자 ID가 비어있습니다. userId: \(userId), nick: \(nick)")
             return nil
         }
         return UserInfoEntity(

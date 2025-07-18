@@ -111,7 +111,6 @@ final class HomeContainer: ObservableObject {
             // 캐시된 데이터 사용
             loadCachedData()
             model.isUsingCache = true
-            print("📦 홈 화면 캐시된 데이터 사용")
         } else {
             // API 호출
             model.isUsingCache = false
@@ -120,7 +119,6 @@ final class HomeContainer: ObservableObject {
             Task { await getHotEstate(useCache: false) }
             Task { await getTopicEstate(useCache: false) }
             Task { await getBanners(useCache: false) }
-            print("🌐 홈 화면 API 호출")
         }
     }
     
@@ -177,12 +175,11 @@ final class HomeContainer: ObservableObject {
             
             // 캐시에 저장
             tabCache.setCachedData(response, for: MyTabView.Tab.home)
-            print("📦 오늘의 부동산 캐시 저장")
             
         } catch {
             print("❌ Failed to get today estate: \(error)")
             if let netError = error as? CustomError, netError == .expiredRefreshToken {
-                print("🔐 Refresh Token 만료 - 자동 로그아웃 처리")
+                print(" Refresh Token 만료 - 자동 로그아웃 처리")
                 handleRefreshTokenExpiration()
             } else {
                 let message = (error as? CustomError)?.errorDescription ?? error.localizedDescription
@@ -209,12 +206,11 @@ final class HomeContainer: ObservableObject {
             
             // 캐시에 저장
             tabCache.setCachedData(response, for: MyTabView.Tab.home)
-            print("📦 좋아요 매물 캐시 저장")
             
         } catch {
             print("❌ Failed to get like lists: \(error)")
             if let netError = error as? CustomError, netError == .expiredRefreshToken {
-                print("🔐 Refresh Token 만료 - 자동 로그아웃 처리")
+                print(" Refresh Token 만료 - 자동 로그아웃 처리")
                 handleRefreshTokenExpiration()
             } else {
                 let message = (error as? CustomError)?.errorDescription ?? error.localizedDescription
@@ -241,12 +237,12 @@ final class HomeContainer: ObservableObject {
             
             // 캐시에 저장
             tabCache.setCachedData(response, for: MyTabView.Tab.home)
-            print("📦 인기 매물 캐시 저장")
+
             
         } catch {
             print("❌ Failed to get hot estate: \(error)")
             if let netError = error as? CustomError, netError == .expiredRefreshToken {
-                print("🔐 Refresh Token 만료 - 자동 로그아웃 처리")
+                print(" Refresh Token 만료 - 자동 로그아웃 처리")
                 handleRefreshTokenExpiration()
             } else {
                 let message = (error as? CustomError)?.errorDescription ?? error.localizedDescription
@@ -273,12 +269,12 @@ final class HomeContainer: ObservableObject {
             
             // 캐시에 저장
             tabCache.setCachedData(response, for: MyTabView.Tab.home)
-            print("📦 토픽 부동산 캐시 저장")
+
             
         } catch {
             print("❌ Failed to get topic estate: \(error)")
             if let netError = error as? CustomError, netError == .expiredRefreshToken {
-                print("🔐 Refresh Token 만료 - 자동 로그아웃 처리")
+                print(" Refresh Token 만료 - 자동 로그아웃 처리")
                 handleRefreshTokenExpiration()
             } else {
                 let message = (error as? CustomError)?.errorDescription ?? error.localizedDescription
@@ -305,12 +301,12 @@ final class HomeContainer: ObservableObject {
             
             // 캐시에 저장
             tabCache.setCachedData(response, for: MyTabView.Tab.home)
-            print("📦 배너 캐시 저장")
+
             
         } catch {
             print("❌ Failed to get banners: \(error)")
             if let netError = error as? CustomError, netError == .expiredRefreshToken {
-                print("🔐 Refresh Token 만료 - 자동 로그아웃 처리")
+                print(" Refresh Token 만료 - 자동 로그아웃 처리")
                 handleRefreshTokenExpiration()
             } else {
                 let message = (error as? CustomError)?.errorDescription ?? error.localizedDescription
@@ -323,7 +319,21 @@ final class HomeContainer: ObservableObject {
     // MARK: - RefreshToken 만료 처리
     
     private func handleRefreshTokenExpiration() {
-        print("🔐 Refresh Token 만료 - 자동 로그아웃 처리")
+        print(" Refresh Token 만료 - 자동 로그아웃 처리")
+        
+        // Refresh Token 만료 시에도 디바이스 토큰 무효화 (서버에 빈 문자열 전송)
+        Task {
+            do {
+                let success = try await useCase.invalidateDeviceToken()
+                if success {
+                    print("Refresh Token 만료 시 디바이스 토큰 무효화 성공")
+                } else {
+                    print("❌ Refresh Token 만료 시 디바이스 토큰 무효화 실패")
+                }
+            } catch {
+                print("❌ Refresh Token 만료 시 디바이스 토큰 무효화 실패: \(error.localizedDescription)")
+            }
+        }
         
         // 토큰 및 프로필 데이터 제거
         UserDefaultsManager.shared.removeObject(forKey: .accessToken)
