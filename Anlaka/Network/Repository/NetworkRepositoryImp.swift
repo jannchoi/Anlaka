@@ -7,7 +7,17 @@
 
 import Foundation
 
-final class NetworkRepositoryImp: NetworkRepository {
+// MARK: - NetworkRepository Factory
+// internal 접근제어로 같은 모듈 내에서만 접근 가능
+internal enum NetworkRepositoryFactory {
+    static func create() -> NetworkRepository {
+        return NetworkRepositoryImp()
+    }
+}
+
+// MARK: - NetworkRepository Implementation
+// internal 접근제어로 같은 모듈 내에서만 접근 가능
+internal final class NetworkRepositoryImp: NetworkRepository {
 
     func searchUser(nick: String) async throws -> SearchUserEntity {
         do {
@@ -373,37 +383,44 @@ final class NetworkRepositoryImp: NetworkRepository {
         }
     }
     func kakaoLogin(kakaoLoginEntity: KakaoLoginRequestEntity) async throws{
-        
-        let target = kakaoLoginEntity.toDTO()
+        print("🧶 카카오 로그인 시작, \(kakaoLoginEntity)")
+        guard let target = kakaoLoginEntity.toDTO() else {
+            throw CustomError.nilResponse
+        }
         do {
             let response = try await NetworkManager.shared.callRequest(target: UserRouter.kakaoLogin(target), model: LoginResponseDTO.self)
             let entity = response.toEntity()
-            
+            print("🧶 카카오 로그인 성공, \(entity)")
             let savedProfile = UserDefaultsManager.shared.getObject(forKey: .profileData, as: MyProfileInfoEntity.self)
             if savedProfile == nil || savedProfile?.userid != entity.userId {
                 saveProfileInfo(userId: entity.userId, email: entity.email, nick: entity.nick)
             }
             saveTokens(accessToken: entity.accessToken, refreshToken: entity.refreshToken)
         } catch {
+            print("🧶 카카오 로그인 실패, \(error)")
             throw error
         }
     }
    
     func appleLogin(appleLoginEntity: AppleLoginRequestEntity) async throws {
-        let target = appleLoginEntity.toDTO()
-        
+        guard let target = appleLoginEntity.toDTO() else {
+            throw CustomError.nilResponse
+        }
+        print("🧶 애플 로그인 시작, \(target)")
         do {
             let response = try await NetworkManager.shared.callRequest(
                 target: UserRouter.appleLogin(target),
                 model: LoginResponseDTO.self
             )
             let entity = response.toEntity()
+            print("🧶 애플 로그인 성공, \(entity)")
             let savedProfile = UserDefaultsManager.shared.getObject(forKey: .profileData, as: MyProfileInfoEntity.self)
             if savedProfile == nil || savedProfile?.userid != entity.userId {
                 saveProfileInfo(userId: entity.userId, email: entity.email, nick: entity.nick)
             }
             saveTokens(accessToken: entity.accessToken, refreshToken: entity.refreshToken)
         } catch {
+            print("🧶 애플 로그인 실패, \(error)")
             throw error
         }
     }

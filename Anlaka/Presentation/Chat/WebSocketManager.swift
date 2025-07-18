@@ -122,13 +122,17 @@ class WebSocketManager {
                     do {
                         let jsonData = try JSONSerialization.data(withJSONObject: data)
                         let message = try JSONDecoder().decode(ChatMessageDTO.self, from: jsonData)
-                        let entity = message.toEntity()
+                        guard let entity = message.toEntity() else {
+                            print("⚠️ 메시지 변환 실패: 필수 필드가 nil입니다. chatID: \(message.chatID ?? "nil"), roomID: \(message.roomID ?? "nil"), sender: \(message.sender?.userID ?? "nil")")
+                            return // 에러를 throw하지 않고 조용히 무시
+                        }
                         print("✅ 메시지 변환 성공:", entity)
                         DispatchQueue.main.async {
                             self?.onMessage?(entity)
                         }
                     } catch {
                         print("❌ 메시지 변환 실패:", error)
+                        // 에러를 throw하지 않고 조용히 무시하여 WebSocket 연결 유지
                     }
                 }
             }

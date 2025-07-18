@@ -8,29 +8,45 @@ struct EditProfileView: View {
     @Binding var path: NavigationPath
     
     init(di: DIContainer, path: Binding<NavigationPath>) {
-        self._container = StateObject(wrappedValue: EditProfileContainer(repository: di.networkRepository))
+        self._container = StateObject(wrappedValue: di.makeEditProfieContainer())
         self._path = path
     }
     
     var body: some View {
-        ScrollView {
-            VStack(spacing: 24) {
-                // 프로필 이미지 섹션
-                profileImageSection
+        ZStack {
+            Color.WarmLinen
+                .ignoresSafeArea()
+            
+            VStack(spacing: 0) {
+                // CustomNavigationBar 추가
+                CustomNavigationBar(title: "프로필 수정", leftButton: {
+                    // 뒤로가기 버튼
+                    Button(action: {
+                        print("EditProfileView - 뒤로가기 버튼 클릭, 현재 path.count: \(path.count)")
+                        path.removeLast()
+                        print("EditProfileView - path.removeLast() 후 path.count: \(path.count)")
+                    }) {
+                        Image("chevron")
+                            .font(.headline)
+                            .foregroundColor(.MainTextColor)
+                    }
+                })
                 
-                // 입력 필드들
-                inputFieldsSection
-                
-                // 저장 버튼
-                saveButton
+                ScrollView {
+                    VStack(spacing: 24) {
+                        // 프로필 이미지 섹션
+                        profileImageSection
+                        
+                        // 입력 필드들
+                        inputFieldsSection
+                        
+                        // 저장 버튼
+                        saveButton
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 16)
+                }
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 16)
-        }
-        .navigationBarTitleDisplayMode(.large)
-        .navigationBarBackButtonHidden(true)
-        .toolbar {
-            EditProfileToolbar(path: $path)
         }
         .onAppear {
             container.handle(.initialRequest)
@@ -68,8 +84,8 @@ struct EditProfileView: View {
             // 이미지 선택 버튼
             PhotosPicker(selection: $selectedImage, matching: .images) {
                 Text("프로필 이미지 변경")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(.blue)
+                    .font(.pretendardCallout)
+                    .foregroundColor(.OliveMist)
             }
         }
     }
@@ -112,45 +128,6 @@ struct EditProfileView: View {
     }
 }
 
-// MARK: - EditProfileToolbar
-struct EditProfileToolbar: ToolbarContent {
-    @Binding var path: NavigationPath
-    
-    var body: some ToolbarContent {
-        ToolbarItem(placement: .navigationBarLeading) {
-            BackButton(path: $path)
-        }
-        
-        ToolbarItem(placement: .principal) {
-            NavigationTitle()
-        }
-    }
-}
-
-// MARK: - BackButton
-struct BackButton: View {
-    @Binding var path: NavigationPath
-    
-    var body: some View {
-        Button(action: {
-            path.removeLast()
-        }) {
-            Image(systemName: "chevron.left")
-                .foregroundColor(Color.MainTextColor)
-                .font(.system(size: 18, weight: .medium))
-        }
-    }
-}
-
-// MARK: - NavigationTitle
-struct NavigationTitle: View {
-    var body: some View {
-        Text("프로필 수정")
-            .font(.system(size: 18, weight: .semibold))
-            .foregroundColor(Color.MainTextColor)
-    }
-}
-
 // MARK: - ProfileImageView
 struct ProfileImageView: View {
     let profileImageData: Data?
@@ -170,7 +147,7 @@ struct ProfileImageView: View {
         } else if let uploadedImagePath = uploadedImagePath,
                   !uploadedImagePath.isEmpty {
             // 업로드 완료된 이미지 (CustomAsyncImage로 표시)
-            CustomAsyncImage(imagePath: uploadedImagePath)
+            CustomAsyncImage.profile(imagePath: uploadedImagePath)
                 .frame(width: 100, height: 100)
                 .clipShape(Circle())
                 .overlay(Circle().stroke(Color.gray.opacity(0.3), lineWidth: 1))
@@ -178,7 +155,7 @@ struct ProfileImageView: View {
                   let profileImage = profileInfo.profileImage,
                   !profileImage.isEmpty {
             // UserDefaults에 저장된 기존 이미지 (CustomAsyncImage로 표시)
-            CustomAsyncImage(imagePath: profileImage)
+            CustomAsyncImage.profile(imagePath: profileImage)
                 .frame(width: 100, height: 100)
                 .clipShape(Circle())
                 .overlay(Circle().stroke(Color.gray.opacity(0.3), lineWidth: 1))
@@ -224,15 +201,45 @@ struct NicknameInputField: View {
 struct IntroductionInputField: View {
     @Binding var introduction: String
     
+    // 글자수 계산을 위한 computed properties
+    private var characterCount: Int {
+        introduction.count
+    }
+    
+    private var isOverLimit: Bool {
+        characterCount > 60
+    }
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("자기소개")
-                .font(.system(size: 16, weight: .medium))
+                .font(.soyoHeadline)
                 .foregroundColor(Color.MainTextColor)
             
             TextField("자기소개를 입력하세요", text: $introduction, axis: .vertical)
                 .textFieldStyle(RoundedBorderTextFieldStyle())
                 .lineLimit(3...6)
+                .onChange(of: introduction) { newValue in
+                    // 글자수 제한 적용 (공백 포함 60자)
+                    let charCount = newValue.count
+                    
+                    if charCount > 60 {
+                        // 제한을 초과하면 이전 값으로 되돌리기
+                        introduction = String(newValue.prefix(60))
+                    }
+                }
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(isOverLimit ? Color.TomatoRed : Color.gray.opacity(0.2), lineWidth: 1)
+                )
+            
+            // 글자수 카운터
+            HStack {
+                Spacer()
+                Text("\(characterCount)/60")
+                    .font(.pretendardCaption)
+                    .foregroundColor(isOverLimit ? Color.TomatoRed : Color.SubText)
+            }
         }
     }
 }
@@ -244,7 +251,7 @@ struct PhoneNumberInputField: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("전화번호")
-                .font(.system(size: 16, weight: .medium))
+                .font(.soyoHeadline)
                 .foregroundColor(Color.MainTextColor)
             
             TextField("전화번호를 입력하세요", text: $phoneNum)
@@ -270,7 +277,7 @@ struct SaveProfileButton: View {
                 }
                 
                 Text("저장")
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.soyoHeadline)
                     .foregroundColor(.white)
             }
             .frame(maxWidth: .infinity)
@@ -311,7 +318,8 @@ struct SuccessToastMessage: View {
         HStack {
             Image(systemName: "checkmark.circle.fill")
                 .foregroundColor(Color.SteelBlue)
-            Text("프로필이 성공적으로 저장되었습니다")
+                            Text("프로필이 성공적으로 저장되었습니다")
+                    .font(.pretendardBody)
                 .font(.system(size: 16, weight: .medium))
                 .foregroundColor(.white)
         }
