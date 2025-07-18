@@ -139,7 +139,7 @@ struct HomeView: View {
                 .disabled(true) // 입력은 불가능
         }
         .padding(8)
-        .background(Color.white.opacity(0.9))
+        .background(Color.Alabaster.opacity(0.9))
         .cornerRadius(10)
         .contentShape(Rectangle()) // 전체 영역을 탭 가능하게 설정
         .onTapGesture {
@@ -194,7 +194,7 @@ var body: some View {
                                 .padding(.vertical, 4)
                                 .background(
                                     Capsule()
-                                        .fill(getTextColor(for: index) == .white ? Color.black.opacity(0.4) : Color.white.opacity(0.6))
+                                        .fill(getTextColor(for: index) == .Alabaster ? Color.black.opacity(0.4) : Color.Alabaster.opacity(0.6))
                                 )
                                 
                                 Spacer() // 나머지 공간을 차지
@@ -249,14 +249,14 @@ var body: some View {
     // 텍스트 색상 결정 함수
     private func getTextColor(for index: Int) -> Color {
         let isBright = imageBrightness[index] ?? false
-        return isBright ? Color.black : Color.white
+        return isBright ? Color.black : Color.Alabaster
     }
     
     // 그라데이션 색상 결정 함수
     private func getGradientColors(for index: Int) -> [Color] {
         let isBright = imageBrightness[index] ?? false
         if isBright {
-            return [Color.white.opacity(0.7), Color.white.opacity(0)]
+            return [Color.Alabaster.opacity(0.7), Color.Alabaster.opacity(0)]
         } else {
             return [Color.black.opacity(0.7), Color.black.opacity(0)]
         }
@@ -342,7 +342,7 @@ struct FavoriteView: View {
                         // 썸네일 이미지
                         CustomAsyncImage(imagePath: entity[index].summary.thumbnail
                         )
-                        .frame(width: 176, height: 140) // width를 200에서 176으로 줄임 (좌우 패딩 12씩 고려)
+                        .frame(width: 166, height: 130) // width를 200에서 176으로 줄임 (좌우 패딩 12씩 고려)
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                         .padding(.top, 12) // 상단 패딩 추가
                         .frame(maxWidth: .infinity, alignment: .center) // 가운데 정렬
@@ -382,15 +382,17 @@ struct FavoriteView: View {
                         .padding(.horizontal, 12) // 좌우 패딩 추가
                         .padding(.bottom, 12) // 하단 패딩 추가
                     }
-                    .frame(width: 200)
-                    .background(Color.white)
+                    .frame(width: 190)
+                    .background(Color.Alabaster)
                     .cornerRadius(12)
+                    .shadow(color: .gray.opacity(0.2), radius: 4, x: 0, y: 2)
                     .onTapGesture {
                          onTap(entity[index].summary.estateId)
                      }
                 }
             }
             .padding(.horizontal)
+            .padding(.bottom, 8) // shadow가 잘리지 않도록 하단 패딩 추가
         }
     }
 
@@ -403,35 +405,73 @@ struct HotEstateItemView: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // 썸네일 이미지
-            CustomAsyncImage(imagePath: item.summary.thumbnail)
-                .frame(width: 176, height: 140) // width를 200에서 176으로 줄임 (좌우 패딩 12씩 고려)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-                .padding(.top, 12) // 상단 패딩 추가
-                .frame(maxWidth: .infinity, alignment: .center) // 가운데 정렬
-                .overlay(
-                    item.summary.isRecommended ?
-                    Text("추천")
-                        .font(.pretendardCaption2)
-                        .fontWeight(.bold)
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.OliveMist)
-                        .cornerRadius(4)
-                        .padding(.top, 18) // 상단 패딩 12 + 6
-                        .padding(.leading, 18) // 좌측 패딩 12 + 6
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                    : nil
-                )
-                .padding(.bottom, 4) // 썸네일과 텍스트 사이 패딩 추가
+            // 썸네일 이미지 with overlays
+            ZStack {
+                CustomAsyncImage(imagePath: item.summary.thumbnail)
+                    .frame(width: 235, height: 130)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                
+                // 검은색 오버레이로 어둡게 만들기
+                Rectangle()
+                    .fill(Color.black.opacity(0.3))
+                    .frame(width: 235, height: 130)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                
+                // 오버레이 컨텐츠
+                VStack(alignment: .leading, spacing: 0) {
+                    // 상단 오버레이 (Fire 이미지, 추천 텍스트)
+                    HStack {
+                        // Leading: Fire 이미지 (항상 표시)
+                        Image("Fire")
+                            .resizable()
+                            .foregroundColor(.Alabaster)
+                            .frame(width: 23, height: 23)
+                        
+                        Spacer()
+                        
+                        // Trailing: 추천 텍스트
+                        if item.summary.isRecommended {
+                            Text("추천")
+                                .font(.pretendardCaption2)
+                                .fontWeight(.bold)
+                                .foregroundColor(.Alabaster)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.OliveMist)
+                                .cornerRadius(4)
+                        }
+                    }
+                    .padding(.top, 12)
+                    .padding(.horizontal, 12)
+                    
+                    Spacer()
+                    
+                    // 우측 하단: 제목
+                    HStack {
+                        Spacer()
+                        
+                        Text(item.summary.title)
+                            .font(.soyoTitle3)
+                            .foregroundColor(.Alabaster)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.trailing)
+                            .padding(.horizontal, 12)
+                            .padding(.bottom, 12)
+                    }
+                }
+            }
+            .frame(width: 235, height: 130)
+            .padding(.top, 12)
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.bottom, 4)
             
             // 정보 섹션
             itemInfoSection
         }
-        .frame(width: 200)
-        .background(Color.white)
+        .frame(width: 259)
+        .background(Color.Alabaster)
         .cornerRadius(12)
+        .shadow(color: .gray.opacity(0.2), radius: 4, x: 0, y: 2)
         .onTapGesture {
             onTap(item.summary.estateId)
         }
@@ -439,17 +479,18 @@ struct HotEstateItemView: View {
     
     private var itemInfoSection: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(item.summary.title)
-                .font(.soyoSubheadline) // soyo 폰트 유지하면서 작은 크기 사용
-                .foregroundColor(Color.MainTextColor)
-                .lineLimit(1)
-            
             priceInfoView
-            addressAndAreaView
-            likesView
+            
+            HStack {
+                addressView
+                
+                Spacer()
+                
+                likesView
+            }
         }
-        .padding(.horizontal, 12) // 좌우 패딩 추가
-        .padding(.bottom, 12) // 하단 패딩 추가
+        .padding(.horizontal, 12)
+        .padding(.bottom, 12)
     }
     
     private var priceInfoView: some View {
@@ -464,32 +505,25 @@ struct HotEstateItemView: View {
         }
     }
     
-    private var addressAndAreaView: some View {
-        HStack {
-            Text(item.address)
-                .font(.pretendardCaption)
-                .foregroundColor(.secondary)
-            
-            Spacer()
-            
-            Text("\(item.summary.area)")
-                .font(.pretendardCaption)
-                .foregroundColor(.secondary)
-        }
+    private var addressView: some View {
+        Text(item.address)
+            .font(.pretendardCaption)
+            .foregroundColor(.secondary)
     }
     
     private var likesView: some View {
-        HStack {
-            Image(systemName: "heart.fill")
-                .foregroundColor(.red)
-                .font(.caption)
-            
-            Text("\(item.summary.likeCount)")
-                .font(.pretendardCaption)
-                .foregroundColor(.secondary)
-        }
+        Text("\(item.summary.likeCount)명이 보는 중")
+            .font(.pretendardCaption)
+            .foregroundColor(Color.Alabaster)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color.SubText)
+            )
     }
 }
+
 
 struct HotEstateView: View {
     let entity: [HotEstateWithAddress]
@@ -503,6 +537,7 @@ struct HotEstateView: View {
                 }
             }
             .padding(.horizontal)
+            .padding(.bottom, 8) // shadow가 잘리지 않도록 하단 패딩 추가
         }
     }
 }
@@ -532,7 +567,7 @@ struct TopicEstateView: View {
                 }
             }
         }
-        .background(Color.white)
+        //.background(Color.white)
         .cornerRadius(12)
         .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 1)
         .padding(.horizontal)
@@ -556,6 +591,7 @@ struct TopicEstateView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 16)
+        .background(Color.Alabaster)
     }
 }
 
@@ -593,7 +629,7 @@ extension HomeView {
         switch container.model.hotEstate {
         case .idle, .loading:
             ProgressView("Hot 매물 로딩 중…")
-                .frame(height: 200)
+                .frame(height: 190)
         case .success(let data):
             HotEstateView(entity: data, onTap: { estateId in
                 container.handle(.goToDetail(estateId: estateId))
@@ -601,11 +637,11 @@ extension HomeView {
         case .failure(let message):
             Text("에러: \(message)")
                 .foregroundColor(Color.TomatoRed)
-                .frame(height: 200)
+                .frame(height: 190)
         case .requiresLogin:
             Text("세션이 만료되어 로그아웃되었습니다.")
                 .foregroundColor(Color.TomatoRed)
-                .frame(height: 400)
+                .frame(height: 190)
                 .task {
                     isLoggedIn = false
                 }

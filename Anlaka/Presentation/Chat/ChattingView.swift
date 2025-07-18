@@ -225,7 +225,7 @@ struct ChattingView: View {
     // 닉네임 길이 제한을 위한 computed property
     private var displayNick: String {
         guard let nick = container.model.opponentProfile?.nick else { return "채팅" }
-        return nick.count > 17 ? String(nick.prefix(17)) + "..." : nick
+        return nick.count > 17 ? String(nick.prefix(20)) + "..." : nick
     }
     
     
@@ -272,9 +272,6 @@ struct ChattingView: View {
                             Image("chevron")
                                 .font(.headline)
                                 .foregroundColor(.MainTextColor)
-                            Text("뒤로")
-                            .font(.pretendardBody)
-                            .foregroundColor(.MainTextColor)
                         }
                     }
                 } rightButton: {
