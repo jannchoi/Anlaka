@@ -25,7 +25,7 @@ struct HotSummaryEntity {
     let estateId: String
     let category: String
     let title: String
-    let thumbnails: [String]
+    let thumbnail: String
     let deposit: Double
     let monthlyRent: Double
     let geolocation: GeolocationEntity
@@ -34,9 +34,5 @@ struct HotSummaryEntity {
 }
 struct HotEstateWithAddress {
     let summary: HotSummaryEntity
-    let address: String // roadRegion3
-}
-struct SimilarEstateWithAddress {
-    let summary: SimilarSummaryEntity
     let address: String // roadRegion3
 }
