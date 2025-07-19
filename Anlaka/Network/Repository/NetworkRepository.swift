@@ -36,4 +36,9 @@ protocol NetworkRepository {
     func getMyProfileInfo() async throws -> MyProfileInfoEntity
 
     func uploadAdminRequest(adminRequest: AdminRequestMockData) async throws -> DetailEstateEntity
+
+    func createOrder(order: CreateOrderRequestDTO) async throws -> CreateOrderEntity
+    func getOrders() async throws -> GetOrdersResponseEntity
+    func validatePayment(payment: ReceiptPaymentRequestDTO) async throws -> ReceiptOrderResponseEntity
+    func getPayment(orderCode: String) async throws -> PaymentResponseEntity
 }
