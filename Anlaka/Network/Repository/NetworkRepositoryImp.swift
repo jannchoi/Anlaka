@@ -8,6 +8,15 @@
 import Foundation
 
 final class NetworkRepositoryImp: NetworkRepository {
+    func getGeofromAddressQuery(_ query: String) async throws -> GeolocationEntity {
+        do {
+            let response = try await NetworkManager.shared.callRequest(target: GeoRouter.getGeolocation(query: query), model: KakaoGeolocationDTO.self)
+            return response.toEntity()
+        } catch {
+            throw error
+        }
+    }
+    
     func getRoad3FromGeo(_ geo: GeolocationEntity) async throws -> RoadRegion3Entity {
         let (x,y) = (geo.longitude, geo.latitude)
         do {
@@ -54,10 +63,10 @@ final class NetworkRepositoryImp: NetworkRepository {
         }
     }
     
-    func getGeoEstate(category: String?, lon: String?, lat: String?, maxD: String?) async throws -> GeoEstateEntity {
+    func getGeoEstate(category: CategoryType?, lon: Double, lat: Double, maxD: Double) async throws -> GeoEstateEntity {
         do {
             let response = try await NetworkManager.shared.callRequest(
-                target: EstateRouter.geoEstate(category: category, lon: lon, lat: lat, maxD: maxD),
+                target: EstateRouter.geoEstate(category: category?.rawValue, lon: String(lon), lat: String(lat), maxD: String(maxD)),
                 model: GeoEstateResponseDTO.self
             )
             return response.toEntity()
@@ -115,10 +124,10 @@ final class NetworkRepositoryImp: NetworkRepository {
     }
     
     
-    func fetchRefreshToken(refToken: String) async throws -> RefreshTokenEntity {
+    func fetchRefreshToken() async throws -> RefreshTokenEntity {
         do {
             let response = try await NetworkManager.shared.callRequest(
-                target: AuthRouter.getRefreshToken(refToken: refToken),
+                target: AuthRouter.getRefreshToken,
                 model: RefreshTokenResponseDTO.self
             )
             return response.toEntity()
@@ -127,12 +136,11 @@ final class NetworkRepositoryImp: NetworkRepository {
         }
     }
     
-    func validateEmail(targeteEmail: EmailValidationRequestEntity) async throws -> EmailValidationResponseEntity {
+    func validateEmail(targeteEmail: EmailValidationRequestEntity) async throws {
         let emailValDTO = targeteEmail.toDTO()
 
         do {
             let response = try await NetworkManager.shared.callRequest(target: UserRouter.emailValidation(emailValDTO), model: EmailValidationResponseDTO.self)
-            return response.toEntity()
         } catch {
             throw error
         }
@@ -140,34 +148,47 @@ final class NetworkRepositoryImp: NetworkRepository {
     
     func signUp(signUpEntity: SignUpRequestEntity) async throws -> SignUpResponseEntity {
         let target = signUpEntity.toDTO()
-
+        let phoneNum = target.phoneNum
+        let intro = target.introduction
         do {
             let response = try await NetworkManager.shared.callRequest(target: UserRouter.signUp(target) , model: SignUpResponseDTO.self)
+            let entity = response.toEntity()
+            let profile = ProfileInfo(userid: entity.userId, email: entity.email, nick: entity.nick, profileImage: nil, phoneNum: phoneNum, introduction: intro)
+            UserDefaultsManager.shared.set(profile, forKey: .profileData)
             return response.toEntity()
         }  catch {
             throw error
         }
     }
-    func emailLogin(emailLoginEntity: EmailLoginRequestEntity) async throws -> LoginResponseEntity {
+    func emailLogin(emailLoginEntity: EmailLoginRequestEntity) async throws {
         let target = emailLoginEntity.toDTO()
 
         do {
             let response = try await NetworkManager.shared.callRequest(target: UserRouter.emailLogin(target), model: LoginResponseDTO.self)
-            return response.toEntity()
+            let entity = response.toEntity()
+            UserDefaultsManager.shared.set(entity.accessToken, forKey: .accessToken)
+            UserDefaultsManager.shared.set(entity.refreshToken, forKey: .refreshToken)
         } catch {
             throw error
         }
     }
-    func kakaoLogin(kakaoLoginEntity: KakaoLoginRequestEntity) async throws -> LoginResponseEntity {
+    func kakaoLogin(kakaoLoginEntity: KakaoLoginRequestEntity) async throws{
         let target = kakaoLoginEntity.toDTO()
         do {
             let response = try await NetworkManager.shared.callRequest(target: UserRouter.kakaoLogin(target), model: LoginResponseDTO.self)
-            return response.toEntity()
+            let entity = response.toEntity()
+            
+            if UserDefaultsManager.shared.getObject(forKey: .profileData, as: ProfileInfo.self) == nil {
+                let profile = ProfileInfo(userid: entity.userId, email: entity.email, nick: entity.nick, profileImage: nil, phoneNum: nil, introduction: nil)
+                UserDefaultsManager.shared.set(profile, forKey: .profileData)
+            }
+            UserDefaultsManager.shared.set(entity.accessToken, forKey: .accessToken)
+            UserDefaultsManager.shared.set(entity.refreshToken, forKey: .refreshToken)
         } catch {
             throw error
         }
     }
-    func appleLogin(appleLoginEntity: AppleLoginRequestEntity) async throws -> LoginResponseEntity {
+    func appleLogin(appleLoginEntity: AppleLoginRequestEntity) async throws {
         let target = appleLoginEntity.toDTO()
         
         do {
@@ -175,7 +196,13 @@ final class NetworkRepositoryImp: NetworkRepository {
                 target: UserRouter.appleLogin(target),
                 model: LoginResponseDTO.self
             )
-            return response.toEntity()
+            let entity = response.toEntity()
+            if UserDefaultsManager.shared.getObject(forKey: .profileData, as: ProfileInfo.self) == nil {
+                let profile = ProfileInfo(userid: entity.userId, email: entity.email, nick: entity.nick, profileImage: nil, phoneNum: nil, introduction: nil)
+                UserDefaultsManager.shared.set(profile, forKey: .profileData)
+            }
+            UserDefaultsManager.shared.set(entity.accessToken, forKey: .accessToken)
+            UserDefaultsManager.shared.set(entity.refreshToken, forKey: .refreshToken)
         } catch {
             throw error
         }
