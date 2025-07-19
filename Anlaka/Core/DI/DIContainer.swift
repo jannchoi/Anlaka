@@ -10,11 +10,17 @@ import Foundation
 @MainActor
 final class DIContainer: ObservableObject {
     private let networkRepository: NetworkRepository
+    private let addressNetworkRepository: AddressNetworkRepository
+    private let communityNetworkRepository: CommunityNetworkRepository
     private let databaseRepository: DatabaseRepository
+    private let locationService: LocationService
     
     init() throws {
         self.networkRepository = NetworkRepositoryFactory.create()
+        self.addressNetworkRepository = AddressNetworkRepositoryFactory.create()
+        self.communityNetworkRepository = CommunityNetworkRepositoryFactory.create()
         self.databaseRepository = try DatabaseRepositoryFactory.create()
+        self.locationService = LocationServiceFactory.create() // Factory로 생성
     }
     
     // MARK: - Static Factory Method
@@ -33,10 +39,10 @@ final class DIContainer: ObservableObject {
         HomeContainer(repository: networkRepository)
     }
     func makeSearchMapContainer() -> SearchMapContainer {
-        SearchMapContainer(repository: networkRepository)
+        SearchMapContainer(repository: networkRepository, locationService: locationService)
     }
     func makeSearchAddressContainer() -> SearchAddressContainer {
-        SearchAddressContainer(repository: networkRepository)
+        SearchAddressContainer(repository: addressNetworkRepository)
     }
     func makeMyPageContainer() -> MyPageContainer {
         MyPageContainer(repository: networkRepository, databaseRepository: databaseRepository)
@@ -59,5 +65,29 @@ final class DIContainer: ObservableObject {
     }
     func makePaymentContainer(iamportPayment: IamportPaymentEntity) -> PaymentContainer {
         PaymentContainer(repository: networkRepository, iamportPayment: iamportPayment)
+    }
+    func makeCommunityContainer() -> CommunityContainer {
+        let postSummaryUseCase = PostSummaryUseCase(
+            communityRepository: communityNetworkRepository,
+            addressRepository: addressNetworkRepository
+        )
+        return CommunityContainer(repository: communityNetworkRepository, useCase: postSummaryUseCase, locationService: locationService)
+    }
+    
+    func makePostDetailContainer(postId: String) -> PostDetailContainer {
+        let postingUseCase = PostingUseCase(
+            communityRepository: communityNetworkRepository,
+            addressRepository: addressNetworkRepository
+        )
+        return PostDetailContainer(useCase: postingUseCase, postId: postId)
+    }
+
+    // PostingContainer 생성자 통합
+    func makePostingContainer(post: PostResponseEntity? = nil) -> PostingContainer {
+        let postingUseCase = PostingUseCase(
+            communityRepository: communityNetworkRepository,
+            addressRepository: addressNetworkRepository
+        )
+        return PostingContainer(post: post, postingUseCase: postingUseCase, locationService: locationService)
     }
 }

@@ -28,7 +28,7 @@ struct LoginModel {
     var isLoginEnabled: Bool {
         isEmailValid && isPasswordValid
     }
-    var onNavigate: ((LoginRoute) -> Void)?
+    var onNavigate: ((AppRoute.LoginRoute) -> Void)?
 }
 
 enum LoginIntent {
@@ -144,7 +144,7 @@ final class LoginContainer: NSObject, ObservableObject {
             model.loginCompleted = true
             model.isLoading = false
         } catch {
-            if let error = error as? NetworkError {
+            if let error = error as? CustomError {
                 model.errorMessage = error.errorDescription
             }
             else {
@@ -195,7 +195,7 @@ final class LoginContainer: NSObject, ObservableObject {
             model.isLoading = false
         } catch {
             print("🧤 애플 로그인 실패, \(error)")
-            if let error = error as? NetworkError {
+            if let error = error as? CustomError {
                 model.errorMessage = error.errorDescription
             } else {
                 model.errorMessage = "알 수 없는 에러: \(error.localizedDescription)"
