@@ -16,6 +16,8 @@ enum UserDefaultsKey: String {
     case expAccess
     case expRefresh
     case deviceTokenChanged
+    case pendingChatRoomId
+    case badgeCount
     /// 이 키로 저장되는 값이 JWT 토큰인지 여부
     var requiresJWTDecoding: Bool {
         switch self {

@@ -179,6 +179,7 @@ struct PostDetailView: View {
         .disabled(isProcessing)
         .onAppear {
             container.handle(.initialRequest)
+            CurrentScreenTracker.shared.setCurrentScreen(.posting)
         }
         // Toast 적용
         .toastView(toast: $toast)
