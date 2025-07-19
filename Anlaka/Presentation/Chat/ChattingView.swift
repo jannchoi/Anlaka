@@ -1,6 +1,21 @@
 import SwiftUI
 import PhotosUI
 
+// MARK: - ShakingButtonModifier
+struct ShakingButtonModifier: ViewModifier {
+    let isShaking: Bool
+    
+    func body(content: Content) -> some View {
+        content
+            .rotationEffect(Angle(degrees: isShaking ? -5 : 5))
+            .animation(
+                .easeInOut(duration: 0.1)
+                .repeatCount(3, autoreverses: true),
+                value: isShaking
+            )
+    }
+}
+
 
 
 // MARK: - KeyboardResponder
@@ -29,6 +44,16 @@ final class KeyboardResponder: ObservableObject {
     }
 }
 
+
+
+// MARK: - ScrollOffsetPreferenceKey
+struct ScrollOffsetPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
 // MARK: - ChatMessagesView
 struct ChatMessagesView: View {
     let messagesGroupedByDate: [(String, [ChatEntity])]
@@ -39,6 +64,9 @@ struct ChatMessagesView: View {
     @ObservedObject var keyboard: KeyboardResponder
     @Binding var showNewMessageButton: Bool
     @Binding var isAtBottom: Bool
+    @Binding var hasUserScrolled: Bool
+    @State private var scrollOffset: CGFloat = 0
+    @State private var contentHeight: CGFloat = 0
     
     var body: some View {
         VStack {
@@ -64,10 +92,21 @@ struct ChatMessagesView: View {
                             Color.clear
                                 .frame(height: 1)
                                 .id(bottom1)
+                                .background(
+                                    GeometryReader { contentGeo in
+                                        Color.clear
+                                            .preference(key: ScrollOffsetPreferenceKey.self, value: contentGeo.frame(in: .global).minY)
+                                            .onAppear {
+                                                contentHeight = contentGeo.size.height
+                                            }
+                                            .onChange(of: contentGeo.size.height) { newHeight in
+                                                contentHeight = newHeight
+                                            }
+                                    }
+                                )
                         }
+
                         .padding(.horizontal, 16)
-                        //.padding(.top, 140)
-                        //.padding(.bottom, 100)
                         .rotationEffect(.degrees(180))
                         .scaleEffect(x: -1, y: 1, anchor: .center)
                     }
@@ -79,51 +118,106 @@ struct ChatMessagesView: View {
                     }
                     .onAppear {
                         scrollProxy = proxy
+                        hasUserScrolled = false
                         onScrollToBottom()
                     }
                     .onChange(of: messagesGroupedByDate.count) { _ in
-                        checkScrollPosition(proxy: proxy)
+                        checkScrollPosition(proxy: proxy, geometry: geometry)
                         if isAtBottom {
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                                 onScrollToBottom()
                             }
                         }
                     }
-                    .onChange(of: messagesGroupedByDate.flatMap { $0.1 }.count) { _ in
-                        checkScrollPosition(proxy: proxy)
+                    .onChange(of: messagesGroupedByDate.flatMap { $0.1 }.count) { newCount in
+                        checkScrollPosition(proxy: proxy, geometry: geometry)
+                        
+                        // 새 메시지가 추가되었을 때 처리
+                        if newCount > 0 {
                         if isAtBottom {
+                                // 이미 하단에 있으면 바로 스크롤
+                                hasUserScrolled = false
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                                 onScrollToBottom()
                             }
+                                print("📱 새 메시지 추가됨 - 이미 하단에 있음 - 바로 스크롤")
+                            } else {
+                                // 하단에 없으면 newMessageButton 표시
+                                withAnimation(.easeInOut(duration: 0.3)) {
+                                    showNewMessageButton = true
+                                }
+                                print("📱 새 메시지 추가됨 - 하단에 없음 - newMessageButton 표시: true")
+                            }
                         }
                     }
+                    .onChange(of: scrollOffset) { newOffset in
+                        checkScrollPosition(proxy: proxy, geometry: geometry)
+                    }
+                    .onPreferenceChange(ScrollOffsetPreferenceKey.self) { newOffset in
+                        scrollOffset = newOffset
+                    }
+
                     .simultaneousGesture(
                         DragGesture()
-                            .onChanged { _ in checkScrollPosition(proxy: proxy) }
-                            .onEnded { _ in checkScrollPosition(proxy: proxy) }
+                            .onChanged { _ in
+                                hasUserScrolled = true
+                                checkScrollPosition(proxy: proxy, geometry: geometry)
+                                // 스크롤 중에 하단에 도달하면 버튼 숨기기
+                                if isAtBottom {
+                                    hasUserScrolled = false // 하단에 도달했으므로 상태 리셋
+                                    withAnimation(.easeInOut(duration: 0.3)) {
+                                        showNewMessageButton = false
+                                    }
+                                    print("📱 스크롤 중 하단 도달 - 상태 리셋 및 newMessageButton 숨김: false")
+                                }
+                            }
+                            .onEnded { _ in
+                                checkScrollPosition(proxy: proxy, geometry: geometry)
+                                // 스크롤이 끝났을 때 하단에 있으면 버튼 숨기기 및 상태 리셋
+                                if isAtBottom {
+                                    hasUserScrolled = false // 사용자가 직접 하단으로 스크롤했으므로 상태 리셋
+                                    withAnimation(.easeInOut(duration: 0.3)) {
+                                        showNewMessageButton = false
+                                    }
+                                    print("📱 스크롤 끝 - 하단 도달 - 상태 리셋 및 newMessageButton 숨김: false")
+                                }
+                            }
                     )
                 }
             }
-            // emptyView 추가
             Color.clear
                 .frame(height: keyboard.currentHeight > 0 ? keyboard.currentHeight + inputViewHeight : inputViewHeight)
         }
-        
     }
-    private func checkScrollPosition(proxy: ScrollViewProxy) {
+    
+    private func checkScrollPosition(proxy: ScrollViewProxy, geometry: GeometryProxy) {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             let totalMessages = messagesGroupedByDate.flatMap { $0.1 }.count
             let hasMessages = totalMessages > 0
-            let isNearBottom = hasMessages // 임시로 메시지가 있으면 하단에 있다고 가정
+            
+            if hasMessages {
+                // 실제 스크롤 위치로 하단 도달 여부 판단
+                let viewHeight = geometry.size.height
+                
+                // 스크롤 오프셋이 뷰 높이보다 작거나 같으면 하단에 있는 것으로 판단
+                // (스크롤이 위로 올라가면 오프셋이 작아짐)
+                let isNearBottom = scrollOffset <= viewHeight + 100 // 100px 여유 마진
+                
             withAnimation(.easeInOut(duration: 0.3)) {
                 isAtBottom = isNearBottom
                 showNewMessageButton = hasMessages && !isNearBottom
             }
+                
+                print("🔍 스크롤 위치 확인 - 오프셋: \(scrollOffset), 뷰 높이: \(viewHeight), 하단 여부: \(isNearBottom), 버튼 표시: \(showNewMessageButton)")
+            } else {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    isAtBottom = true
+                    showNewMessageButton = false
         }
     }
-    
+        }
 }
-
+}
 
 // MARK: - DateDivider
 struct DateDivider: View {
@@ -174,6 +268,7 @@ struct MainContentView: View {
     let navigationBarHeight: CGFloat // 추가
     @State private var showNewMessageButton: Bool = false
     @State private var isAtBottom: Bool = true
+    @State private var hasUserScrolled: Bool = false
     
     var body: some View {
         GeometryReader { mainGeometry in
@@ -207,7 +302,8 @@ struct MainContentView: View {
                             inputViewHeight: inputViewHeight,
                             keyboard: keyboard,
                             showNewMessageButton: $showNewMessageButton,
-                            isAtBottom: $isAtBottom
+                            isAtBottom: $isAtBottom,
+                            hasUserScrolled: $hasUserScrolled
                         )
                     }
                 }
@@ -268,6 +364,18 @@ struct MainContentView: View {
     }
     private var newMessageButton: some View {
         Button(action: {
+            // 흔들림 상태 해제
+            container.model.shouldShakeNewMessageButton = false
+            
+            // 버튼 숨기기
+            withAnimation(.easeInOut(duration: 0.3)) {
+                showNewMessageButton = false
+            }
+            print("📱 newMessageButton 탭 - 버튼 숨김: false")
+            
+            // 스크롤 상태 리셋
+            hasUserScrolled = false
+            
             withAnimation(.easeInOut(duration: 0.25)) {
                 scrollToBottom()
             }
@@ -284,6 +392,7 @@ struct MainContentView: View {
             }
         }
         .transition(.scale.combined(with: .opacity))
+        .modifier(ShakingButtonModifier(isShaking: container.model.shouldShakeNewMessageButton))
     }
 }
 
@@ -385,9 +494,21 @@ struct ChattingView: View {
             
             // 채팅방 진입 시 알림 카운트 초기화
             ChatNotificationCountManager.shared.resetCount(for: container.model.roomId)
+            
+            // 커스텀 알림 제거 및 현재 채팅방 설정
+            CustomNotificationManager.shared.clearNotificationsForRoom(container.model.roomId)
+            CustomNotificationManager.shared.setCurrentChatRoom(container.model.roomId)
         }
         .onDisappear {
             container.handle(.disconnectSocket)
+            // 채팅방 나갈 때 현재 채팅방 ID 초기화
+            CustomNotificationManager.shared.setCurrentChatRoom(nil)
+            
+            // 채팅방에서 나갈 때 해당 채팅방의 뱃지 카운트 완전 제거
+            ChatNotificationCountManager.shared.removeCount(for: container.model.roomId)
+            
+            // MyPageView의 채팅방 목록 UI 업데이트 트리거
+            NotificationCenter.default.post(name: .chatNotificationUpdate, object: nil)
         }
         .sheet(isPresented: $isShowingImagePicker) {
             FilePicker(

@@ -15,7 +15,10 @@ struct MyTabView: View {
         case home = 0, community = 1, reserved = 2, myPage = 3
     }
     
-    @State private var selected: Tab = .home
+    // selected를 computed property로 변경하여 RoutingStateManager와 동기화
+    private var selected: Tab {
+        Tab(rawValue: routingStateManager.currentTab.rawValue) ?? .home
+    }
     @State private var communityPath = NavigationPath()
     @State private var homePath = NavigationPath()
     @State private var reservedPath = NavigationPath()
@@ -50,8 +53,8 @@ struct MyTabView: View {
                         }
                     }
                 }
-                .opacity(selected == .home ? 1 : 0)
-                .allowsHitTesting(selected == .home)
+                .opacity(routingStateManager.currentTab == .home ? 1 : 0)
+                .allowsHitTesting(routingStateManager.currentTab == .home)
                 .onAppear {
                     CurrentScreenTracker.shared.setCurrentScreen(.home)
                 }
@@ -74,8 +77,8 @@ struct MyTabView: View {
                         PostDetailView(postId: postId, di: di, path: $communityPath)
                     }
                 }
-                .opacity(selected == .community ? 1 : 0)
-                .allowsHitTesting(selected == .community)
+                .opacity(routingStateManager.currentTab == .community ? 1 : 0)
+                .allowsHitTesting(routingStateManager.currentTab == .community)
                 .onAppear {
                     CurrentScreenTracker.shared.setCurrentScreen(.community)
                 }
@@ -95,8 +98,8 @@ struct MyTabView: View {
                         }
                     }
                 }
-                .opacity(selected == .reserved ? 1 : 0)
-                .allowsHitTesting(selected == .reserved)
+                .opacity(routingStateManager.currentTab == .reserved ? 1 : 0)
+                .allowsHitTesting(routingStateManager.currentTab == .reserved)
                 .onAppear {
                     CurrentScreenTracker.shared.setCurrentScreen(.estateDetail)
                 }
@@ -116,8 +119,9 @@ struct MyTabView: View {
                         }
                     }
                 }
-                .opacity(selected == .myPage ? 1 : 0)
-                .allowsHitTesting(selected == .myPage)
+                .animation(.easeInOut(duration: 0.3), value: myPagePath)
+                .opacity(routingStateManager.currentTab == .myPage ? 1 : 0)
+                .allowsHitTesting(routingStateManager.currentTab == .myPage)
                 .onAppear {
                     CurrentScreenTracker.shared.setCurrentScreen(.profile)
                 }
@@ -131,52 +135,62 @@ struct MyTabView: View {
         .safeAreaInset(edge: .bottom, spacing: 0) {
             Color.clear.frame(height: 0)
         }
-        .onChange(of: routingStateManager.currentTab) { newTab in
-            selected = Tab(rawValue: newTab.rawValue) ?? .home
-        }
+        // selected가 computed property로 변경되어 onChange 불필요
         .onChange(of: routingStateManager.pendingNavigation) { navigation in
-            if let navigation = navigation {
-                handlePendingNavigation(navigation)
+            // nil인 경우
+            guard let navigation = navigation else {
+                return
             }
+            
+            // 이미 처리 중인 경우 (isNavigationInProgress가 true여야 처리 가능)
+            guard routingStateManager.isNavigationInProgress else {
+                return
+            }
+            
+            handlePendingNavigation(navigation)
         }
+        .customNotificationBanner() // 새로운 커스텀 알림 배너 추가
     }
     
 
     
     private func handlePendingNavigation(_ navigation: RoutingStateManager.NavigationDestination) {
-        print("📱 MyTabView에서 대기 중인 네비게이션 처리: \(navigation)")
-        
         switch navigation {
         case .chatRoom(let roomId):
-            print("📱 채팅방으로 이동: \(roomId)")
-            selected = .myPage
-            myPagePath.append(AppRoute.MyPageRoute.chatRoom(roomId: roomId))
-            print("📱 MyPage 탭 선택 및 채팅방 경로 추가 완료")
+            // 1. MyPage 탭으로 전환
+            routingStateManager.currentTab = .myPage
+            
+            // 2. NavigationPath 리셋 및 목표 채팅방 추가 (애니메이션과 함께)
+            withAnimation(.easeInOut(duration: 0.3)) {
+                resetNavigationPath(&myPagePath)
+                myPagePath.append(AppRoute.MyPageRoute.chatRoom(roomId: roomId))
+            }
             
         case .estateDetail(let estateId):
-            selected = .home
-            // EstateDetailView로 이동하는 로직 추가 필요
+            routingStateManager.currentTab = .home
+            resetNavigationPath(&homePath)
             
         case .postDetail(let postId):
-            selected = .community
+            routingStateManager.currentTab = .community
+            resetNavigationPath(&communityPath)
             communityPath.append(postId)
             
         case .profile:
-            selected = .myPage
+            routingStateManager.currentTab = .myPage
+            resetNavigationPath(&myPagePath)
             myPagePath.append(AppRoute.MyPageRoute.editProfile)
             
         case .settings:
-            selected = .myPage
-            // 설정 화면으로 이동하는 로직 추가 필요
+            routingStateManager.currentTab = .myPage
+            resetNavigationPath(&myPagePath)
         }
         
-        // 네비게이션 완료 후 상태 초기화
+        // 네비게이션 완료 후 상태 초기화 (즉시)
         routingStateManager.completeNavigation()
-        print("📱 네비게이션 완료 - 상태 초기화됨")
     }
     
     private var shouldShowTabBar: Bool {
-        switch selected {
+        switch routingStateManager.currentTab {
         case .home:
             return homePath.isEmpty
         case .community:
@@ -188,76 +202,83 @@ struct MyTabView: View {
         }
     }
     
+    /// NavigationPath를 효율적으로 리셋하는 헬퍼 메서드
+    private func resetNavigationPath(_ path: inout NavigationPath) {
+        if !path.isEmpty {
+            path = NavigationPath()
+        }
+    }
+    
     var tabBar: some View {
         HStack {
             Spacer()
             Button {
-                selected = .home
+                routingStateManager.currentTab = .home
                 CurrentScreenTracker.shared.setCurrentScreen(.home)
             } label: {
                 VStack(alignment: .center) {
-                    Image(selected == .home ? "Home_Fill" : "Home_Empty")
+                    Image(routingStateManager.currentTab == .home ? "Home_Fill" : "Home_Empty")
                         .resizable()
                         .scaledToFit()
                         .frame(width: 30)
-                    if selected == .home {
+                    if routingStateManager.currentTab == .home {
                         Text("홈")
                             .font(.pretendardCaption2)
                     }
                 }
             }
-            .foregroundStyle(selected == .home ? Color.DeepForest : Color.Deselected)
+            .foregroundStyle(routingStateManager.currentTab == .home ? Color.DeepForest : Color.Deselected)
             Spacer()
             Button {
-                selected = .community
+                routingStateManager.currentTab = .community
                 CurrentScreenTracker.shared.setCurrentScreen(.community)
             } label: {
                 VStack(alignment: .center) {
-                    Image(selected == .community ? "Browser_Fill" : "Browser_Empty")
+                    Image(routingStateManager.currentTab == .community ? "Browser_Fill" : "Browser_Empty")
                         .resizable()
                         .scaledToFit()
                         .frame(width: 30)
-                    if selected == .community {
+                    if routingStateManager.currentTab == .community {
                         Text("커뮤니티")
                             .font(.pretendardCaption2)
                     }
                 }
             }
-            .foregroundStyle(selected == .community ? Color.DeepForest : Color.Deselected)
+            .foregroundStyle(routingStateManager.currentTab == .community ? Color.DeepForest : Color.Deselected)
             Spacer()
             Button {
-                selected = .reserved
+                routingStateManager.currentTab = .reserved
                 CurrentScreenTracker.shared.setCurrentScreen(.estateDetail)
             } label: {
                 VStack(alignment: .center) {
-                    Image(selected == .reserved ? "User_Fill" : "User_Empty")
+                    Image(routingStateManager.currentTab == .reserved ? "User_Fill" : "User_Empty")
                         .resizable()
                         .scaledToFit()
                         .frame(width: 30)
-                    if selected == .reserved {
+                    if routingStateManager.currentTab == .reserved {
                         Text("예약")
                             .font(.pretendardCaption2)
                     }
                 }
             }
-            .foregroundStyle(selected == .reserved ? Color.DeepForest : Color.Deselected)
+            .foregroundStyle(routingStateManager.currentTab == .reserved ? Color.DeepForest : Color.Deselected)
             Spacer()
             Button {
-                selected = .myPage
+                routingStateManager.currentTab = .myPage
                 CurrentScreenTracker.shared.setCurrentScreen(.profile)
             } label: {
                 VStack(alignment: .center) {
-                    Image(selected == .myPage ? "Setting_Fill" : "Setting_Empty")
+                    Image(routingStateManager.currentTab == .myPage ? "Setting_Fill" : "Setting_Empty")
                         .resizable()
                         .scaledToFit()
                         .frame(width: 30)
-                    if selected == .myPage {
+                    if routingStateManager.currentTab == .myPage {
                         Text("마이")
                             .font(.pretendardCaption2)
                     }
                 }
             }
-            .foregroundStyle(selected == .myPage ? Color.DeepForest : Color.Deselected)
+            .foregroundStyle(routingStateManager.currentTab == .myPage ? Color.DeepForest : Color.Deselected)
             Spacer()
         }
         .padding(.horizontal, 20)
