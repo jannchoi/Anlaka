@@ -180,14 +180,14 @@ final class DatabaseRepositoryImp: DatabaseRepository {
                         }
                         
                         let realmMessage = ChatRealmModel(
-                            chatId: message.chatId,
-                            content: message.content,
-                            createdAt: PresentationMapper.parseISO8601ToDate(message.createdAt),
-                            updatedAt: PresentationMapper.parseISO8601ToDate(message.updatedAt),
-                            senderId: message.sender.userId,
-                            files: message.files,
-                            roomId: message.roomId
-                        )
+                        chatId: message.chatId,
+                        content: message.content,
+                        createdAt: PresentationMapper.parseISO8601ToDate(message.createdAt),
+                        updatedAt: PresentationMapper.parseISO8601ToDate(message.updatedAt),
+                        senderId: message.sender.userId,
+                        files: message.files,
+                        roomId: message.roomId
+                    )
                         
                         // 채팅방 찾기 또는 생성
                         let chatList = realm.object(ofType: ChatListRealmModel.self, forPrimaryKey: message.roomId) ?? ChatListRealmModel(
