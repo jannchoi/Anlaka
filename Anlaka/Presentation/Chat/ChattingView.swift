@@ -593,18 +593,20 @@ struct ChatInputView: View {
                     Spacer()
                 }
                 .padding(.horizontal, 4)
+                //.padding(.top, 8) // X 버튼이 보이도록 상단 패딩 추가
                 
                 // 선택된 파일 미리보기
                 if !selectedFiles.isEmpty {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
                             ForEach(selectedFiles.indices, id: \.self) { idx in
-                                FileThumbnailView(file: selectedFiles[idx].toChattingViewModel(), isInvalid: invalidFileIndices.contains(idx), invalidReason: nil) {
+                                SelectedFileThumbnailView(file: selectedFiles[idx], isInvalid: invalidFileIndices.contains(idx), invalidReason: nil) {
                                     selectedFiles.remove(at: idx)
                                 }
                             }
                         }
                         .padding(.horizontal, 4)
+                        .padding(.top, 4)
                     }
                     .frame(height: 90)
                 }
@@ -758,8 +760,8 @@ struct FileInfoView: View {
     }
 }
 
-struct FileThumbnailView: View {
-    let file: ChattingSelectedFileViewModel
+struct SelectedFileThumbnailView: View {
+    let file: SelectedFile
     let isInvalid: Bool
     let invalidReason: String?
     let onRemove: () -> Void
@@ -768,43 +770,34 @@ struct FileThumbnailView: View {
         ZStack(alignment: .topTrailing) {
             // 파일 타입에 따른 썸네일 표시
             Group {
-                switch file.name.split(separator: ".").last?.lowercased() {
-                case "jpg", "jpeg", "png", "gif":
-                    if let image = UIImage(contentsOfFile: file.name) {
+                switch file.fileType {
+                case .image:
+                    if let image = file.image {
                         Image(uiImage: image)
                             .resizable()
                             .aspectRatio(contentMode: .fill)
+                            .frame(width: 60, height: 60)
                     } else {
                         Color.gray.opacity(0.3)
+                            .frame(width: 60, height: 60)
                     }
-                case "mp4", "mov":
+                case .video:
                     VStack(spacing: 4) {
                         Image(systemName: "video.slash")
                             .font(.system(size: 20))
                             .foregroundColor(.gray)
-                        Text(file.name.split(separator: ".").last?.uppercased() ?? "")
+                        Text(file.fileExtension.uppercased())
                             .font(.pretendardCaption2)
                             .foregroundColor(.gray)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Color.gray.opacity(0.1))
-                case "pdf":
+                case .pdf:
                     VStack(spacing: 4) {
                         Image(systemName: "doc.text.slash")
                             .font(.system(size: 20))
                             .foregroundColor(.gray)
                         Text("PDF")
-                            .font(.pretendardCaption2)
-                            .foregroundColor(.gray)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color.gray.opacity(0.1))
-                default:
-                    VStack(spacing: 4) {
-                        Image(systemName: "doc.slash")
-                            .font(.system(size: 20))
-                            .foregroundColor(.gray)
-                        Text(file.name.split(separator: ".").last?.uppercased() ?? "")
                             .font(.pretendardCaption2)
                             .foregroundColor(.gray)
                     }
@@ -825,7 +818,7 @@ struct FileThumbnailView: View {
                 Spacer()
                 HStack {
                     Spacer()
-                    Text(FormatManager.formatFileSize(fromPath: file.name))
+                    Text(formatFileSize(file.sizeMB))
                         .font(.pretendardCaption2)
                         .foregroundColor(.white)
                         .padding(.horizontal, 4)
@@ -864,6 +857,14 @@ struct FileThumbnailView: View {
                     .clipShape(Circle())
             }
             .offset(x: 6, y: -6)
+        }
+    }
+    
+    private func formatFileSize(_ sizeMB: Double) -> String {
+        if sizeMB >= 1.0 {
+            return String(format: "%.1fMB", sizeMB)
+        } else {
+            return String(format: "%.0fKB", sizeMB * 1024)
         }
     }
 }
