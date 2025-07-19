@@ -13,11 +13,11 @@ import CoreLocation
 struct KakaoMapView: UIViewRepresentable {
     @Binding var draw: Bool
     var centerCoordinate: CLLocationCoordinate2D
-    var isInteractive: Bool
     var pinInfoList: [PinInfo]
+    var forceUpdate: Bool = false
     var onMapReady: ((Double) -> Void)?
     var onMapChanged: ((CLLocationCoordinate2D, Double) -> Void)?
-        var onClusterTap: ((ClusterInfo) -> Void)?
+    var onClusterTap: ((ClusterInfo) -> Void)?
     var onPOITap: ((String) -> Void)?  // estate_id 전달
     var onPOIGroupTap: (([String]) -> Void)?  // 클러스터 매물들의 estate_id 배열
     
@@ -30,6 +30,7 @@ struct KakaoMapView: UIViewRepresentable {
     // MARK: - 기존 updateUIView 메서드 수정
     // KakaoMapView struct 내부의 updateUIView 메서드를 다음과 같이 수정:
     func updateUIView(_ uiView: KMViewContainer, context: Context) {
+        //print(#function)
         guard draw else {
             context.coordinator.controller?.pauseEngine()
             context.coordinator.controller?.resetEngine()
@@ -47,22 +48,22 @@ struct KakaoMapView: UIViewRepresentable {
         
         context.coordinator.updateCenterCoordinate(centerCoordinate)
         
-        // 기존 updatePOIs 대신 효율적인 업데이트 메서드 사용
+
         guard let kakaoMap = context.coordinator.controller?.getView("mapview") as? KakaoMap else { return }
         let maxDistance = context.coordinator.calculateMaxDistance(mapView: kakaoMap)
         
         context.coordinator.updatePOIsWithClustering(  
             pinInfoList,
             currentCenter: centerCoordinate,
-            maxDistance: maxDistance
+            maxDistance: maxDistance,
+            forceUpdate: forceUpdate
         )
     }
     
-    
     func makeCoordinator() -> Coordinator {
-        Coordinator(
+        print(#function)
+        return Coordinator(
             centerCoordinate: centerCoordinate,
-            isInteractive: isInteractive,
             onMapReady: onMapReady,
             onMapChanged: onMapChanged,
             onClusterTap: onClusterTap,
