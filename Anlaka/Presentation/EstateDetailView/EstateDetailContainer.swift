@@ -15,6 +15,7 @@ struct EstateDetailModel {
     var isReserved = false
     var isLiked = false
     var backToLogin: Bool = false
+    var opponent_id: String? = nil
 }
 
 enum EstateDetailIntent {
@@ -22,6 +23,7 @@ enum EstateDetailIntent {
     case similarEstateSelected(estateId: String)
     case reserveButtonTapped
     case likeButtonTapped
+    case chatButtonTapped
 }
 
 // MARK: - EstateDetailContainer 초기화 메서드 수정
@@ -66,6 +68,14 @@ final class EstateDetailContainer: ObservableObject {
         case .likeButtonTapped:
             model.isLiked.toggle()
             print("isLiked: \(model.isLiked)")
+        case .chatButtonTapped:
+            if case .success(let data) = model.detailEstate {
+                // opponent_id를 초기화한 후 다시 설정
+                model.opponent_id = nil
+                DispatchQueue.main.async {
+                    self.model.opponent_id = data.detail.creator.userId
+                }
+            }
         }
     }
     
