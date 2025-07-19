@@ -171,24 +171,47 @@ final class DatabaseRepositoryImp: DatabaseRepository {
         try await withCheckedThrowingContinuation { continuation in
             do {
                 let realm = try Realm(configuration: configuration)
-                let realmMessages = messages.map { message -> ChatRealmModel in
-                    ChatRealmModel(
-                        chatId: message.chatId,
-                        content: message.content,
-                        createdAt: PresentationMapper.parseISO8601ToDate(message.createdAt),
-                        updatedAt: PresentationMapper.parseISO8601ToDate(message.updatedAt),
-                        senderId: message.sender.userId,
-                        files: message.files,
-                        roomId: message.roomId
-                    )
-                }
                 
                 try realm.write {
-                    // 중복 체크 후 저장
-                    for realmMessage in realmMessages {
-                        if realm.object(ofType: ChatRealmModel.self, forPrimaryKey: realmMessage.chatId) == nil {
-                            realm.add(realmMessage, update: .modified)
+                    for message in messages {
+                        // 중복 체크
+                        if realm.object(ofType: ChatRealmModel.self, forPrimaryKey: message.chatId) != nil {
+                            continue
                         }
+                        
+                        let realmMessage = ChatRealmModel(
+                            chatId: message.chatId,
+                            content: message.content,
+                            createdAt: PresentationMapper.parseISO8601ToDate(message.createdAt),
+                            updatedAt: PresentationMapper.parseISO8601ToDate(message.updatedAt),
+                            senderId: message.sender.userId,
+                            files: message.files,
+                            roomId: message.roomId
+                        )
+                        
+                        // 채팅방 찾기 또는 생성
+                        let chatList = realm.object(ofType: ChatListRealmModel.self, forPrimaryKey: message.roomId) ?? ChatListRealmModel(
+                            roomId: message.roomId,
+                            chats: [],
+                            participants: []
+                        )
+                        
+                        // 새로운 참여자 추가
+                        let senderInfo = UserInfoRealmModel(
+                            userId: message.sender.userId,
+                            nick: message.sender.nick,
+                            introduction: message.sender.introduction,
+                            profileImage: message.sender.profileImage
+                        )
+                        
+                        if !chatList.participants.contains(where: { $0.userId == senderInfo.userId }) {
+                            chatList.participants.append(senderInfo)
+                        }
+                        
+                        // 메시지 추가
+                        chatList.chats.append(realmMessage)
+                        
+                        realm.add(chatList, update: .modified)
                     }
                 }
                 continuation.resume()
