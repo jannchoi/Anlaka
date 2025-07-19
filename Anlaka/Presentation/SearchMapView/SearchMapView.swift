@@ -49,7 +49,6 @@ struct SearchMapView: View {
                 mainContent
             }
         }
-        .navigationBarHidden(true)
         .fullScreenCover(item: Binding(
             get: { container.model.selectedEstate },
             set: { container.model.selectedEstate = $0 }
