@@ -48,7 +48,7 @@ struct CustomTextField: View {
             if let validationMessage = validationMessage,
                let isValid = isValid {
                 Text(validationMessage)
-                    .font(.caption)
+                    .font(.pretendardCaption)
                     .foregroundColor(isValid ? .steelBlue : .tomatoRed)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
