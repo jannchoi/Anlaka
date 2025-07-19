@@ -25,62 +25,60 @@ struct SearchMapView: View {
     }
     
     var body: some View {
-        mainContent
-            .navigationTitle("매물 찾기 ")
-            .toolbarBackground(.visible, for: .navigationBar)
-            .toolbarBackground(Color.white, for: .navigationBar)
-            .navigationBarTitleDisplayMode(.inline)
-            .navigationBarBackButtonHidden(true)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button(action: {
-                        path.removeLast()
-                    }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "chevron.left")
-                                .foregroundColor(.MainTextColor)
-                            Text("뒤로")
-                                .foregroundColor(.MainTextColor)
-                        }
-                        .padding(.leading, 8)
+        VStack(spacing: 0) {
+            // CustomNavigationBar 추가
+            CustomNavigationBar(title: "매물 찾기", leftButton: {
+                // 뒤로가기 버튼
+                Button(action: {
+                    path.removeLast()
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "chevron.left")
+                            .foregroundColor(.MainTextColor)
+                        Text("뒤로")
+                            .foregroundColor(.MainTextColor)
                     }
+                    .padding(.leading, 8)
                 }
-            }
+            })
             
-            .fullScreenCover(item: Binding(
-                get: { container.model.selectedEstate },
-                set: { container.model.selectedEstate = $0 }
-            )) { estate in
-                LazyView(content: EstateDetailView(di: di,estate: estate))
+            mainContent
+        }
+        .navigationBarHidden(true)
+        .fullScreenCover(item: Binding(
+            get: { container.model.selectedEstate },
+            set: { container.model.selectedEstate = $0 }
+        )) { estate in
+            LazyView(content: EstateDetailView(di: di,estate: estate))
+        }
+        .fullScreenCover(item: Binding(
+            get: { container.model.selectedEstateId },
+            set: { container.model.selectedEstateId = $0 }
+        )) { identifiableString in
+            LazyView(content: EstateDetailView(di: di,estateId: identifiableString.id))
+        }
+        .animation(.easeInOut(duration: 0.3), value: container.model.selectedFilterIndex)
+        .animation(.easeInOut(duration: 0.3), value: container.model.showEstateScroll)
+        .onAppear {
+            container.handle(.requestLocationPermission)
+        }
+        .onChange(of: container.model.backToLogin) { needsLogin in
+            if needsLogin {
+                isLoggedIn = false
             }
-            .fullScreenCover(item: Binding(
-                get: { container.model.selectedEstateId },
-                set: { container.model.selectedEstateId = $0 }
-            )) { identifiableString in
-                LazyView(content: EstateDetailView(di: di,estateId: identifiableString.id))
-            }
-            .animation(.easeInOut(duration: 0.3), value: container.model.selectedFilterIndex)
-            .animation(.easeInOut(duration: 0.3), value: container.model.showEstateScroll)
-            .onAppear {
-                container.handle(.requestLocationPermission)
-            }
-            .onChange(of: container.model.backToLogin) { needsLogin in
-                if needsLogin {
-                    isLoggedIn = false
+        }
+        .fullScreenCover(isPresented: $showSearchAddress) {
+            SearchAddressView(
+                di: di,
+                isPresented: $showSearchAddress,
+                onAddressSelected: { selectedAddress in
+                    container.handle(.searchBarSubmitted(selectedAddress))
+                },
+                onDismiss: {
+                    print("onDismiss")
                 }
-            }
-            .fullScreenCover(isPresented: $showSearchAddress) {
-                SearchAddressView(
-                    di: di,
-                    isPresented: $showSearchAddress,
-                    onAddressSelected: { selectedAddress in
-                        container.handle(.searchBarSubmitted(selectedAddress))
-                    },
-                    onDismiss: {
-                        print("onDismiss")
-                    }
-                )
-            }
+            )
+        }
     }
     
     private var mainContent: some View {
