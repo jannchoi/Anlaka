@@ -262,8 +262,7 @@ final class ChattingContainer: ObservableObject {
             }
             
             // 2. 파일 검증
-            let validatedFiles = FileManager.shared.validateFiles(fileDataArray, uploadType: .chat)
-            
+            let validatedFiles = FileManageHelper.shared.validateFiles(fileDataArray, uploadType: FileUploadType.chat)
             // 유효한 파일이 없고 원본 파일이 있었다면 에러 처리
             if validatedFiles.isEmpty && !files.isEmpty {
                 model.error = "선택된 파일 중 유효하지 않은 파일이 있습니다."
@@ -280,26 +279,16 @@ final class ChattingContainer: ObservableObject {
                 print("   - 유효한 파일 개수: \(validatedFiles.count)")
             }
             
-            // 3. FileData를 ChatFile로 변환
-            let chatFiles = validatedFiles.map { fileData in
-                return ChatFile(
-                    data: fileData.data,
-                    fileName: fileData.fileName,
-                    mimeType: fileData.mimeType,
-                    fileExtension: fileData.fileExtension
-                )
-            }
-            
-            // 4. 파일 업로드
+            // 3. 파일 업로드
             var uploadedFiles: [String] = []
-            if !chatFiles.isEmpty {
+            if !validatedFiles.isEmpty {
                 print("📝 파일 업로드 시작")
-                let chatFile = try await repository.uploadFiles(roomId: model.roomId, files: chatFiles)
-                uploadedFiles = chatFile.files
+                let chatFile = try await repository.uploadFiles(roomId: model.roomId, files: validatedFiles)
+                uploadedFiles = chatFile
                 print("✅ 파일 업로드 성공 - 업로드된 파일 URL: \(uploadedFiles)")
             }
             
-            // 3. Socket.IO를 통한 메시지 전송 (업로드된 파일 URL을 그대로 전송)
+            // 4. Socket.IO를 통한 메시지 전송 (업로드된 파일 URL을 그대로 전송)
             let messageData: [String: Any] = [
                 "content": text,
                 "files": uploadedFiles,  // 서버에서 받은 파일 URL 그대로 사용

@@ -9,7 +9,7 @@ struct PostSummaryUseCase {
         self.addressRepository = addressRepository
     }
     
-    // 위치 기반 게시글 조회
+    // 위치 기반 게시글 조회 (주소 매핑 실패 시 기본값 제공)
     func getLocationPosts(
         category: String?,
         latitude: Double?,
@@ -27,10 +27,43 @@ struct PostSummaryUseCase {
             next: next,
             order: order
         )
-        
-        // 2. 주소 매핑
+        print("📍 PostSummaryUseCase: 위치 기반 게시글 조회 성공")
+        print("📍 PostSummaryUseCase: 게시글 수: \(response.data.count)")
+        print("📍 PostSummaryUseCase: 다음 페이지: \(response.next)")
+        // 2. 주소 매핑 (실패 시 기본값 제공)
         let mappedResult = await AddressMappingHelper.mapPostSummariesWithAddress(response.data)
-        
+        print("📍 PostSummaryUseCase: 주소 매핑 후 게시글 수: \(mappedResult.estates.count)")
+        // 3. 결과 반환
+        return PostSummaryPaginationResponseEntity(
+            data: mappedResult.estates,
+            next: response.next
+        )
+    }
+    
+    // 위치 기반 게시글 조회 (주소 매핑 실패 시 데이터 제외)
+    func getLocationPostsExcludeFailed(
+        category: String?,
+        latitude: Double?,
+        longitude: Double?,
+        maxDistance: Double?,
+        next: String?,
+        order: String?
+    ) async throws -> PostSummaryPaginationResponseEntity {
+        // 1. 네트워크에서 데이터 가져오기
+        let response = try await communityRepository.getLocationPost(
+            category: category,
+            latitude: latitude,
+            longitude: longitude,
+            maxDistance: maxDistance,
+            next: next,
+            order: order
+        )
+        print("📍 PostSummaryUseCase: 위치 기반 게시글 조회 성공")
+        print("📍 PostSummaryUseCase: 게시글 수: \(response.data.count)")
+        print("📍 PostSummaryUseCase: 다음 페이지: \(response.next)")
+        // 2. 주소 매핑 (실패 시 데이터 제외)
+        let mappedResult = await AddressMappingHelper.mapPostSummariesWithAddressExcludeFailed(response.data)
+        print("📍 PostSummaryUseCase: 주소 매핑 후 게시글 수: \(mappedResult.estates.count)")
         // 3. 결과 반환
         return PostSummaryPaginationResponseEntity(
             data: mappedResult.estates,

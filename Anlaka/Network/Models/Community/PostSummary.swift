@@ -15,7 +15,10 @@ struct PostSummaryResponseDTO: Decodable {
 
     enum CodingKeys: String, CodingKey {
         case postId = "post_id"
-        case category, title, content, geolocation, creator, files, isLike, likeCount, createdAt, updatedAt
+        case category, title, content, geolocation, creator, files
+        case isLike = "is_like"
+        case likeCount = "like_count"
+        case createdAt, updatedAt
     }
 }
 
@@ -81,7 +84,7 @@ struct PostSummaryListResponseEntity {
     let likeCount: Int
     let createdAt: String
     let updatedAt: String
-    let address: String?
+    let address: String
  }
 
 
@@ -95,7 +98,7 @@ struct PostSummaryResponsePresentation {
     let likeCount: String
     let createdAt: String
     let updatedAt: String
-    let address: String?
+    let address: String
  }
 
 
@@ -129,7 +132,7 @@ extension PostSummaryResponseDTO {
             likeCount: likeCount,
             createdAt: createdAt,
             updatedAt: updatedAt,
-            address: nil // 주소는 UseCase에서 처리
+            address: "알 수 없음" // 주소는 UseCase에서 처리
         )
     }
 }

@@ -11,7 +11,7 @@ extension FancyToastStyle {
     var themeColor: Color {
         switch self {
         case .error: return Color.TomatoRed
-        case .warning: return Color.Orange
+        case .warning: return Color.ToffeeWood
         case .info: return Color.SteelBlue
         case .success: return Color.SteelBlue
         }
