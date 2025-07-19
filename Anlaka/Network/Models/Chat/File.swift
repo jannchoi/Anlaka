@@ -28,6 +28,9 @@ struct FileDTO {
         self.files = files
     }
 }
+struct FileRequestDTO: Decodable {
+    let files: [String]
+}
 
 extension FileDTO {
     func toEntity() -> [FileEntity] {

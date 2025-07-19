@@ -1,14 +1,21 @@
 import Foundation
 import UIKit
 
-enum ChatRouter: AuthorizedTarget {
-    
-    case getChatRoom(ChatRoomRequestDTO)
-    case getChatRooms
-    case sendMessage(roomId: String, ChatRequestDTO)
-    case getChatList(roomId: String, from: String?)
-    case uploadFiles(roomId: String, [FileData])
-    
+enum CommunityRouter: AuthorizedTarget {
+    case postFile(files: [FileData])
+    case posting(dto: PostRequestDTO)
+    case getLocationPost(category: String?, longitude: String?, latitude: String?, maxDistance: String?, next: String?, order: String?)
+    case searchPostTitle(title: String?)
+    case searchPost(post_id: String)
+    case editPost(post_id: String, dto: EditPostRequestDTO)
+    case deletePost(post_id: String)
+    case likePost(post_id: String, dto: LikeEstateRequestDTO)
+    case searchUserPost(user_id: String)
+    case searchMyLikePost
+    case postComment(post_id: String, dto: PostCommentRequestDTO)
+    case editComment(post_id: String, comment_id: String, dto: EditCommentRequestDTO)
+    case deleteComment(post_id: String, comment_id: String)
+
     var baseURL: URL { URL(string: BaseURL.baseV1)!}
     
     var requiresAuthorization: Bool {
@@ -17,23 +24,45 @@ enum ChatRouter: AuthorizedTarget {
     
     var path: String {
         switch self {
-        case .getChatRooms, .getChatRoom:
-            return "/chats"
-        case .sendMessage(let roomId, _):
-            return "/chats/\(roomId)"
-        case .getChatList(let roomId, _):
-            return "/chats/\(roomId)"
-        case .uploadFiles(let roomId, _):
-            return "/chats/\(roomId)/files"
+        case .postFile:
+            return "/posts/files"
+        case .posting:
+            return "/posts"
+        case .getLocationPost:
+            return "/posts/geolocation"
+        case .searchPostTitle:
+            return "/posts/search"
+        case .searchPost(let post_id):
+            return "/posts/\(post_id)"
+        case .editPost(let post_id):
+            return "/posts/\(post_id)"
+        case .deletePost(let post_id):
+            return"/posts/\(post_id)"
+        case .likePost(let post_id):
+            return "/posts/\(post_id)/like"
+        case .searchUserPost(let user_id):
+            return "/posts/users/\(user_id)"
+        case .searchMyLikePost:
+            return "/posts/likes/me"
+        case .postComment(let post_id):
+            return "/posts/\(post_id)/comments"
+        case .editComment(let post_id, let comment_id, _):
+            return "/posts/\(post_id)/comments/\(comment_id)"
+        case .deleteComment(let post_id, let comment_id):
+            return "/posts/\(post_id)/comments/\(comment_id)"
         }
     }
     
     var method: String {
         switch self {
-        case .getChatRoom, .sendMessage, .uploadFiles:
+        case .postFile, .posting, .likePost, .postComment:
             return "POST"
-        case .getChatRooms, .getChatList:
+        case .getLocationPost, .searchPostTitle, .searchPost, .searchUserPost, .searchMyLikePost:
             return "GET"
+        case .deletePost, .deleteComment:
+            return "DELETE"
+        case .editPost, .editComment:
+            return "PUT"
         }
     }
     
@@ -48,43 +77,39 @@ enum ChatRouter: AuthorizedTarget {
     
     var parameters: [String: Any?] {
         switch self {
-        case .sendMessage(let roomId, _):
-            return ["room_id": roomId]
-        case .uploadFiles(let roomId, _):
-            return ["room_id": roomId]
-        case .getChatList(let roomId, let from):
-            var params = ["room_id": roomId]
-            if let from = from {
-                params["from"] = from
-            }
-            return params
-        case .getChatRooms:
-            return [:]
+        case .getLocationPost(let category, let longitude, let latitude, let maxDistance, let next, let order):
+            return ["category": category, "longitude": longitude, "latitude": latitude, "maxDistance": maxDistance, "limit": 10, "next": next, "order": order]
+        case .searchPostTitle(let title):
+            return ["title": title]
+        case .searchPost(let post_id), .editPost(let post_id, _), .deletePost(let post_id), .likePost(let post_id, _), .postComment(let post_id, _):
+            return ["post_id": post_id]
+        case .editComment(let post_id, let comment_id, _), .deleteComment(let post_id, let comment_id):
+            return ["post_id": post_id, "comment_id": comment_id]
         default:
             return [:]
         }
     }
 }
 
-// MARK: - ChatRouter Specific Implementation
-extension ChatRouter {
+// MARK: - CommunityRouter Specific Implementation
+extension CommunityRouter {
     func multipartFormData(boundary: String) -> Data {
         var body = Data()
         
         switch self {
-        case .uploadFiles(let roomId, let dto):
-            // 채팅 파일 업로드 특화 로직
-            // 1. 확장자 제한: jpg, png, jpeg, gif, pdf
+        case .postFile(let files):
+            // 커뮤니티 파일 업로드 특화 로직
+            // 1. 확장자 제한: jpg, png, jpeg, gif, webp, mp4, mov, avi, mkv, wmv
             // 2. 용량 제한: 5MB
             // 3. 파일 개수: 5개
             // 4. request body: multipart/form-data - "files" : [String]
             
-            let validExtensions = ["jpg", "jpeg", "png", "gif", "pdf"]
+            let validExtensions = ["jpg", "jpeg", "png", "gif", "webp", "mp4", "mov", "avi", "mkv", "wmv"]
             let maxSize: Int = 5 * 1024 * 1024 // 5MB
             let maxFileCount = 5
             
             // 파일 개수 제한 확인
-            let filesToUpload = Array(dto.files.prefix(maxFileCount))
+            let filesToUpload = Array(files.prefix(maxFileCount))
             
             // 각 파일에 대해 multipart/form-data 구성
             for (index, file) in filesToUpload.enumerated() {
@@ -93,7 +118,6 @@ extension ChatRouter {
                     print("Invalid file extension: \(file.fileExtension)")
                     continue
                 }
-                
                 // 파일 크기 검증
                 guard file.data.count <= maxSize else {
                     print("File too large: \(file.fileName)")
@@ -107,11 +131,6 @@ extension ChatRouter {
                 body.append(file.data)
                 body.append("\r\n".data(using: .utf8)!)
             }
-            
-            // room_id 파라미터 추가
-            body.append("--\(boundary)\r\n".data(using: .utf8)!)
-            body.append("Content-Disposition: form-data; name=\"room_id\"\r\n\r\n".data(using: .utf8)!)
-            body.append("\(roomId)\r\n".data(using: .utf8)!)
             
         default:
             break
@@ -142,8 +161,8 @@ extension ChatRouter {
         var headers = header
         let boundary = "Boundary-\(UUID().uuidString)"
         
-        // uploadFiles 케이스일 때 Content-Type 변경
-        if case .uploadFiles = self {
+        // postFile 케이스일 때 Content-Type 변경
+        if case .postFile = self {
             headers["Content-Type"] = "multipart/form-data; boundary=\(boundary)"
         }
         
@@ -151,15 +170,21 @@ extension ChatRouter {
         
         // POST, PUT 요청의 경우 body 추가
         if method == "POST" || method == "PUT" {
-            if case .uploadFiles = self {
+            if case .postFile = self {
                 request.httpBody = multipartFormData(boundary: boundary)
             } else {
                 // DTO를 직접 인코딩
                 let encoder = JSONEncoder()
                 switch self {
-                case .getChatRoom(let dto):
+                case .posting(let dto):
                     request.httpBody = try encoder.encode(dto)
-                case .sendMessage(_, let dto):
+                case .likePost(_, let dto):
+                    request.httpBody = try encoder.encode(dto)
+                case .postComment(_, let dto):
+                    request.httpBody = try encoder.encode(dto)
+                case .editComment(_, _, let dto):
+                    request.httpBody = try encoder.encode(dto)
+                case .editPost(_, let dto):
                     request.httpBody = try encoder.encode(dto)
                 default:
                     break
@@ -171,4 +196,4 @@ extension ChatRouter {
     }
 }
 
-
+// Anlaka/Core/Utils/Helpers/FileManager.swift
