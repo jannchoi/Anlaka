@@ -13,7 +13,7 @@ enum UserRouter {
     case kakaoLogin(KakaoLoginRequestDTO)
     case appleLogin(AppleLoginRequestDTO)
     
-    var baseURL: URL { URL(string: "BaseURL.baseV1")! }
+    var baseURL: URL { URL(string: BaseURL.baseV1)!}
 
     var path: String {
         switch self {
@@ -22,7 +22,7 @@ enum UserRouter {
         case .signUp:
             return "/users/join"
         case .emailLogin:
-            return "/users/login/email"
+            return "/users/login"
         case .kakaoLogin:
             return "/users/login/kakao"
         case .appleLogin:
@@ -36,7 +36,7 @@ enum UserRouter {
 
     var header: [String: String] {
         return [
-            "SeSACKey": "APIKey.mainKey",
+            "SeSACKey": Environment.apiKey,
             "Content-Type": "application/json"
         ]
     }
