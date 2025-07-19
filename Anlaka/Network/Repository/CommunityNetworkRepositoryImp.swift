@@ -37,7 +37,6 @@ internal final class CommunityNetworkRepositoryImp: CommunityNetworkRepository {
             guard let entity = response.toEntity() else {
                 throw CustomError.nilResponse
             }
-            print("📍 CommunityNetworkRepositoryImp: 게시글 수: \(entity.data.count)")
             return entity
         } catch {
             throw error
@@ -82,22 +81,11 @@ internal final class CommunityNetworkRepositoryImp: CommunityNetworkRepository {
     
     func deletePost(postId: String) async throws -> Bool {
         do {
-            // 빈 응답을 처리하기 위해 Data로 직접 받아서 처리
-            let request = try CommunityRouter.deletePost(post_id: postId).asURLRequest()
-            let (data, response) = try await URLSession.shared.data(for: request)
-            
-            // HTTP 상태 코드 확인
-            guard let httpResponse = response as? HTTPURLResponse else {
-                throw CustomError.unknown(code: -1, message: "유효하지 않은 응답입니다.")
-            }
-            
-            // 200 성공 응답인지 확인
-            guard httpResponse.statusCode == 200 else {
-                throw CustomError.from(code: httpResponse.statusCode, router: "CommunityRouter")
-            }
-            
-            // 응답 데이터가 비어있거나 유효하지 않은 JSON이어도 성공으로 처리
-            return true
+            let _: EmptyResponseDTO = try await NetworkManager.shared.callRequest(
+                target: CommunityRouter.deletePost(post_id: postId),
+                model: EmptyResponseDTO.self
+            )
+            return true // 성공 시 true 반환
         } catch {
             throw error
         }
@@ -165,22 +153,11 @@ internal final class CommunityNetworkRepositoryImp: CommunityNetworkRepository {
     
     func deleteComment(postId: String, commentId: String) async throws -> Bool {
         do {
-            // 빈 응답을 처리하기 위해 Data로 직접 받아서 처리
-            let request = try CommunityRouter.deleteComment(post_id: postId, comment_id: commentId).asURLRequest()
-            let (data, response) = try await URLSession.shared.data(for: request)
-            
-            // HTTP 상태 코드 확인
-            guard let httpResponse = response as? HTTPURLResponse else {
-                throw CustomError.unknown(code: -1, message: "유효하지 않은 응답입니다.")
-            }
-            
-            // 200 성공 응답인지 확인
-            guard httpResponse.statusCode == 200 else {
-                throw CustomError.from(code: httpResponse.statusCode, router: "CommunityRouter")
-            }
-            
-            // 응답 데이터가 비어있거나 유효하지 않은 JSON이어도 성공으로 처리
-            return true
+            let _: EmptyResponseDTO = try await NetworkManager.shared.callRequest(
+                target: CommunityRouter.deleteComment(post_id: postId, comment_id: commentId),
+                model: EmptyResponseDTO.self
+            )
+            return true // 성공 시 true 반환
         } catch {
             throw error
         }
