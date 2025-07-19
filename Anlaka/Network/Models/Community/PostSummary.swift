@@ -31,7 +31,14 @@ struct PostSummaryPaginationResponseEntity {
     let data: [PostSummaryResponseEntity]
     let next: String
 }
- 
+
+struct PostSummaryListResponseDTO: Decodable {
+    let data: [PostSummaryResponseDTO]?
+}
+struct PostSummaryListResponseEntity {
+    let data: [PostSummaryResponseEntity]
+}
+
  struct PostSummaryResponseEntity {
     let postId: String
     let category: String
@@ -39,16 +46,32 @@ struct PostSummaryPaginationResponseEntity {
     let content: String
     let geolocation: GeolocationEntity
     let creator: UserInfoEntity
-    let files: [String?]
+    let files: [String]
     let isLike: Bool
     let likeCount: Int
     let createdAt: String
     let updatedAt: String
  }
 
-struct PostSummaryListResponseDTO: Decodable {
-    let data: [PostSummaryResponseDTO]?
+
+struct PostSummaryResponsePresentation {
+    let postId: String
+    let category: String
+    let title: String
+    let content: String
+    let files: [String]
+    let isLike: Bool
+    let likeCount: String
+    let createdAt: String
+    let updatedAt: String
+ }
+struct PostSummaryResponseWithAddress {
+    let summary: PostSummaryResponsePresentation
+    let address: String
 }
-struct PostSummaryListResponseEntity {
-    let data: [PostSummaryResponseEntity]
+
+extension PostSummaryResponseEntity {
+    func toPresentation () -> PostSummaryResponsePresentation {
+        return PostSummaryResponsePresentation(postId: postId, category: category, title: title, content: content, files: files, isLike: isLike, likeCount: "\(likeCount)", createdAt: PresentationMapper.formatRelativeTime(createdAt), updatedAt: PresentationMapper.formatRelativeTime(updatedAt))
+    }
 }

@@ -12,6 +12,7 @@ struct AddressMappingResult<T> {
 }
 
 struct AddressMappingHelper {
+    
     static func mapLikeSummariesWithAddress(_ summaries: [LikeSummaryEntity],_ repository: NetworkRepository) async -> AddressMappingResult<LikeEstateWithAddress> {
         await withTaskGroup(of: Result<LikeEstateWithAddress?, Error>.self) { group in
             for summary in summaries {
@@ -154,6 +155,7 @@ extension AddressMappingHelper {
         }
     }
 }
+
 extension AddressMappingHelper {
     static func mapDetailEstateWithAddress(
         _ detail: DetailEstateEntity,
@@ -173,6 +175,55 @@ extension AddressMappingHelper {
             return .success(mapped)
         } catch {
             return .failure(error)
+        }
+    }
+}
+
+extension AddressMappingHelper {
+    static func mapPostSummariesWithAddress(
+        _ summaries: [PostSummaryResponseEntity],
+        repository: NetworkRepository
+    ) async -> AddressMappingResult<PostSummaryResponseWithAddress> {
+        await withTaskGroup(of: Result<PostSummaryResponseWithAddress?, Error>.self) { group in
+            for summary in summaries {
+                group.addTask {
+                    let geo = summary.geolocation
+                    do {
+                        let address = try await repository.getAddressFromGeo(geo).toShortAddress()
+                        return .success(PostSummaryResponseWithAddress(summary: summary.toPresentation(), address: address))
+                    } catch {
+                        return .success(nil)
+                            .flatMapError { _ in .failure(error) }
+                    }
+                }
+            }
+
+            var posts: [PostSummaryResponseWithAddress?] = []
+            var errors: [Error] = []
+
+            for await result in group {
+                switch result {
+                case .success(let post):
+                    posts.append(post)
+                case .failure(let error):
+                    errors.append(error)
+                }
+            }
+
+            return AddressMappingResult(estates: posts.compactMap{$0}, errors: errors)
+        }
+    }
+}
+
+extension AddressMappingHelper {
+    static func getSingleAddress(longitude: Double, latitude: Double, repository: NetworkRepository) async -> String {
+        let geo = GeolocationEntity(longitude: longitude, latitude: latitude)
+        
+        do {
+            let address = try await repository.getAddressFromGeo(geo).toRoadRegion2()
+            return address
+        } catch {
+            return "알 수 없음"
         }
     }
 }
