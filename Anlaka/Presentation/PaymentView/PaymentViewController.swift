@@ -11,7 +11,32 @@ class PaymentViewController: UIViewController, WKNavigationDelegate {
         super.viewDidLoad()
         print("PaymentView viewDidLoad")
         view.backgroundColor = UIColor.white
+        setupNavigationBar()
         setupWebView()
+    }
+    
+    private func setupNavigationBar() {
+        // NavigationBar 설정
+        navigationController?.setNavigationBarHidden(false, animated: false)
+        navigationController?.navigationBar.backgroundColor = UIColor.white
+        navigationController?.navigationBar.tintColor = UIColor(Color.MainTextColor)
+        
+        // 뒤로가기 버튼 추가
+        let backButton = UIBarButtonItem(
+            image: UIImage(systemName: "chevron.left"),
+            style: .plain,
+            target: self,
+            action: #selector(backButtonTapped)
+        )
+        navigationItem.leftBarButtonItem = backButton
+        
+        // 타이틀 설정
+        navigationItem.title = "결제"
+    }
+    
+    @objc private func backButtonTapped() {
+        print("뒤로가기 버튼 클릭됨")
+        dismiss(animated: true)
     }
     
     private func setupWebView() {
