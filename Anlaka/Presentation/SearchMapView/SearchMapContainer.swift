@@ -28,7 +28,7 @@ struct SearchMapModel {
     
     // 새로 추가할 필터 관련 프로퍼티들
     var selectedFilterIndex: Int? = nil // 0: 카테고리, 1: 평수, 2: 월세, 3: 보증금
-    var selectedCategories: [String] = [] // 배열로 변경
+    var selectedCategory: String? = nil // 단일 카테고리 선택으로 변경
     var selectedAreaRange: ClosedRange<Double> = 1...200 // 수정: 0~200평
     var selectedMonthlyRentRange: ClosedRange<Double> = 1...5000 // 수정: 0~5000만원
     var selectedDepositRange: ClosedRange<Double> = 1...50000 // 수정: 0~50000만원
@@ -41,7 +41,6 @@ struct SearchMapModel {
     var selectedEstateId: IdentifiableString? = nil
     
     var curEstatesData: GeoEstateEntity? = nil
-
 }
 
 enum SearchMapIntent {
@@ -54,7 +53,7 @@ enum SearchMapIntent {
     
     // 새로 추가할 필터 관련 인텐트들
     case selectFilter(Int?) // nil이면 필터 해제
-    case selectCategory(String?)
+    case selectCategory(String?) // 단일 카테고리 선택으로 변경
     case updateAreaRange(ClosedRange<Double>)
     case updateMonthlyRentRange(ClosedRange<Double>)
     case updateDepositRange(ClosedRange<Double>)
@@ -62,7 +61,6 @@ enum SearchMapIntent {
     case poiSelected(String) // onPOITap
     case hideEstateScroll
     case estateCardSelected(String)
-    
 }
 
 @MainActor
@@ -98,7 +96,7 @@ final class SearchMapContainer: NSObject, ObservableObject {
             model.maxDistance = distance
             guard let searchedData = model.searchedData else {return}
             Task {
-                await getGeoEstates(lon: searchedData.longitude, lat: searchedData.latitude, maxD: model.maxDistance)
+                await getGeoEstates(lon: searchedData.longitude, lat: searchedData.latitude, maxD: model.maxDistance, category: model.selectedCategory)
             }
             
         case .mapDidStopMoving(let center, let maxDistance):
@@ -118,14 +116,10 @@ final class SearchMapContainer: NSObject, ObservableObject {
             model.selectedFilterIndex = index
             
         case .selectCategory(let category):
-            if let category = category {
-                if model.selectedCategories.contains(category) {
-                    model.selectedCategories.removeAll { $0 == category }
-                } else {
-                    model.selectedCategories.append(category)
-                }
+            if model.selectedCategory == category {
+                model.selectedCategory = nil
             } else {
-                model.selectedCategories.removeAll()
+                model.selectedCategory = category
             }
             debounceFilterUpdate()
             
@@ -238,10 +232,10 @@ final class SearchMapContainer: NSObject, ObservableObject {
     private func estateDataFiltering(_ estates: GeoEstateEntity) -> GeoEstateEntity {
         var filteredData = estates.data.compactMap { $0 }
 
-        // 카테고리 필터
-        if !model.selectedCategories.isEmpty {
-            filteredData = filteredData.filter {
-                model.selectedCategories.contains($0.category)
+        // 카테고리 필터 - 단일 카테고리 선택으로 변경
+        if let selectedCategory = model.selectedCategory {
+            filteredData = filteredData.filter { estate in
+                estate.category == selectedCategory
             }
         }
 
@@ -296,10 +290,10 @@ final class SearchMapContainer: NSObject, ObservableObject {
         }
     }
 
-    private func getGeoEstates(lon: Double, lat: Double, maxD: Double) async {
+    private func getGeoEstates(lon: Double, lat: Double, maxD: Double, category: String? = nil) async {
         model.isLoading = true
         do {
-            let estates = try await repository.getGeoEstate(category: nil, lon: lon, lat: lat, maxD: maxD)
+            let estates = try await repository.getGeoEstate(category: category, lon: lon, lat: lat, maxD: maxD)
             model.curEstatesData = estateDataFiltering(estates)
             if let geoEstates = model.curEstatesData {
                 model.pinInfoList = geoEstates.toPinInfoList()
@@ -324,7 +318,7 @@ final class SearchMapContainer: NSObject, ObservableObject {
                 if self.lastGeoEstatesCoordinate == nil ||
                     abs(self.lastGeoEstatesCoordinate!.latitude - lat) > 0.0001 ||
                     abs(self.lastGeoEstatesCoordinate!.longitude - lon) > 0.0001 {
-                    await self.getGeoEstates(lon: lon, lat: lat, maxD: maxD)
+                    await self.getGeoEstates(lon: lon, lat: lat, maxD: maxD, category: self.model.selectedCategory)
                     self.lastGeoEstatesCoordinate = coordinate
                 }
             }

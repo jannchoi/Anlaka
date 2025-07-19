@@ -8,6 +8,17 @@
 import Foundation
 
 final class NetworkRepositoryImp: NetworkRepository {
+    func uploadAdminRequest(adminRequest: AdminRequestMockData) async throws -> DetailEstateEntity {
+        do {
+            let response = try await NetworkManager.shared.callRequest(target: AdminRouter.uploadAdminRequest(adminRequest), model: DetailEstateResponseDTO.self)
+             guard let entity = response.toEntity() else {
+                throw CustomError.nilResponse
+            }
+            return entity
+        } catch {
+            throw error
+        }
+    }
 
     func getMyProfileInfo() async throws -> MyProfileInfoEntity {
         do {
@@ -140,10 +151,11 @@ final class NetworkRepositoryImp: NetworkRepository {
         }
     }
     
-    func getGeoEstate(category: CategoryType?, lon: Double, lat: Double, maxD: Double) async throws -> GeoEstateEntity {
+    func getGeoEstate(category: String? = nil, lon: Double, lat: Double, maxD: Double) async throws -> GeoEstateEntity {
+        
         do {
             let response = try await NetworkManager.shared.callRequest(
-                target: EstateRouter.geoEstate(category: category?.rawValue, lon: String(lon), lat: String(lat), maxD: String(maxD)),
+                target: EstateRouter.geoEstate(category: category, lon: String(lon), lat: String(lat), maxD: String(maxD)),
                 model: GeoEstateResponseDTO.self
             )
             return response.toEntity()
