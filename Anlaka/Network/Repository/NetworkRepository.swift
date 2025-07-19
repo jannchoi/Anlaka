@@ -17,7 +17,7 @@ protocol NetworkRepository {
     
     func getDetailEstate(_ estateId: String) async throws -> DetailEstateEntity
     func postLikeEstate(_ estateId: String, _ targetLikeEstate: LikeEstateEntity) async throws -> LikeEstateEntity
-    func getGeoEstate(category: CategoryType?, lon: Double, lat: Double, maxD: Double) async throws -> GeoEstateEntity
+    func getGeoEstate(category: String?, lon: Double, lat: Double, maxD: Double) async throws -> GeoEstateEntity
     func getTodayEstate() async throws -> TodayEstateEntity
     func getHotEstate() async throws -> HotEstateEntity
     func getSimilarEstate() async throws -> SimilarEstateEntity
@@ -34,4 +34,11 @@ protocol NetworkRepository {
     func uploadFiles(roomId: String, files: [ChatFile]) async throws -> ChatFileEntity
     func getChatList(roomId: String, from: String?) async throws -> ChatListEntity
     func getMyProfileInfo() async throws -> MyProfileInfoEntity
+
+    func uploadAdminRequest(adminRequest: AdminRequestMockData) async throws -> DetailEstateEntity
+
+    func createOrder(order: CreateOrderRequestDTO) async throws -> CreateOrderEntity
+    func getOrders() async throws -> GetOrdersResponseEntity
+    func validatePayment(payment: ReceiptPaymentRequestDTO) async throws -> ReceiptOrderResponseEntity
+    func getPayment(orderCode: String) async throws -> PaymentResponseEntity
 }

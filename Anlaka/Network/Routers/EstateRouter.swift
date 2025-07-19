@@ -54,6 +54,7 @@ enum EstateRouter: AuthorizedTarget {
 
     var header: [String: String] {
         guard let accessToken = UserDefaultsManager.shared.getString(forKey: .accessToken) else {return [:]}
+        //print("accessToken: \(accessToken)")
         return [
             "SeSACKey": AppConfig.apiKey,
             "Content-Type": "application/json",
@@ -64,12 +65,19 @@ enum EstateRouter: AuthorizedTarget {
     var parameters: [String: Any] {
         switch self {
         case .geoEstate(let category, let lon, let lat, let maxD):
-            return [
-                
+            var params: [String: Any] = [
                 "longitude": lon ?? "",
                 "latitude": lat ?? "",
                 "maxDistance": maxD ?? ""
             ]
+            
+            // category가 nil이 아니고 비어있지 않은 경우에만 추가
+            if let category = category, !category.isEmpty {
+                params["category"] = category
+            }
+            //print(params)
+            return params
+            
         case .likeEstate(let estateId, _):
             return ["estate_id": estateId] // 쿼리로 요구된다면 추가
         default:
