@@ -9,7 +9,6 @@ import SwiftUI
 
 struct MyTabView: View {
     let di: DIContainer
-    @StateObject private var routingQueue = NotificationRoutingQueue.shared
     @StateObject private var routingStateManager = RoutingStateManager.shared
     
     enum Tab: Int, CaseIterable {
@@ -132,11 +131,6 @@ struct MyTabView: View {
         .safeAreaInset(edge: .bottom, spacing: 0) {
             Color.clear.frame(height: 0)
         }
-        .onChange(of: routingQueue.pendingChatRoomId) { roomId in
-            if let roomId = roomId {
-                handlePendingChatRoom(roomId)
-            }
-        }
         .onChange(of: routingStateManager.currentTab) { newTab in
             selected = Tab(rawValue: newTab.rawValue) ?? .home
         }
@@ -147,26 +141,17 @@ struct MyTabView: View {
         }
     }
     
-    private func handlePendingChatRoom(_ roomId: String) {
-        print("📱 MyTabView에서 대기 중인 채팅방 처리: \(roomId)")
-        
-        // MyPage 탭으로 이동 (채팅방 목록이 있는 탭)
-        selected = .myPage
-        
-        // 채팅방으로 이동
-        myPagePath.append(AppRoute.MyPageRoute.chatRoom(roomId: roomId))
-        
-        // 라우팅 큐에서 제거
-        routingQueue.dequeueChatRoom()
-    }
+
     
     private func handlePendingNavigation(_ navigation: RoutingStateManager.NavigationDestination) {
         print("📱 MyTabView에서 대기 중인 네비게이션 처리: \(navigation)")
         
         switch navigation {
         case .chatRoom(let roomId):
+            print("📱 채팅방으로 이동: \(roomId)")
             selected = .myPage
             myPagePath.append(AppRoute.MyPageRoute.chatRoom(roomId: roomId))
+            print("📱 MyPage 탭 선택 및 채팅방 경로 추가 완료")
             
         case .estateDetail(let estateId):
             selected = .home
@@ -187,6 +172,7 @@ struct MyTabView: View {
         
         // 네비게이션 완료 후 상태 초기화
         routingStateManager.completeNavigation()
+        print("📱 네비게이션 완료 - 상태 초기화됨")
     }
     
     private var shouldShowTabBar: Bool {
