@@ -98,17 +98,17 @@ final class HomeContainer: ObservableObject {
         do {
             let likeLists = try await repository.getLikeLists(category: nil, next: nil)
 
-            let result = await AddressMappingHelper.mapLikeSummariesWithAddress(likeLists.data, repository)
+            let result = await AddressMappingHelper.mapLikeSummariesWithAddress(likeLists.data)
 
             model.likeLists = .success(result.estates)
 
            
 
         } catch {
-            if let netError = error as? NetworkError, netError == .expiredRefreshToken {
+            if let netError = error as? CustomError, netError == .expiredRefreshToken {
                 model.likeLists = .requiresLogin
             } else {
-                let message = (error as? NetworkError)?.errorDescription ?? error.localizedDescription
+                let message = (error as? CustomError)?.errorDescription ?? error.localizedDescription
                 model.likeLists = .failure(message)
             }
         }
@@ -118,17 +118,17 @@ final class HomeContainer: ObservableObject {
         model.todayEstate = .loading
         do {
             let summaries = try await repository.getTodayEstate()
-            let result = await AddressMappingHelper.mapTodaySummariesWithAddress(summaries.data, repository: repository)
+            let result = await AddressMappingHelper.mapTodaySummariesWithAddress(summaries.data)
             
             model.todayEstate = .success(result.estates)
             if let firstError = result.errors.first {
-                model.errorMessage = (firstError as? NetworkError)?.errorDescription ?? firstError.localizedDescription
+                model.errorMessage = (firstError as? CustomError)?.errorDescription ?? firstError.localizedDescription
             }
         } catch {
-            if let netError = error as? NetworkError, netError == .expiredRefreshToken {
+            if let netError = error as? CustomError, netError == .expiredRefreshToken {
                 model.todayEstate = .requiresLogin
             } else {
-                let message = (error as? NetworkError)?.errorDescription ?? error.localizedDescription
+                let message = (error as? CustomError)?.errorDescription ?? error.localizedDescription
                 model.todayEstate = .failure(message)
             }
         }
@@ -138,17 +138,17 @@ final class HomeContainer: ObservableObject {
         model.hotEstate = .loading
         do {
             let summaries = try await repository.getHotEstate()
-            let result = await AddressMappingHelper.mapHotSummariesWithAddress(summaries.data, repository: repository)
+            let result = await AddressMappingHelper.mapHotSummariesWithAddress(summaries.data)
             
             model.hotEstate = .success(result.estates)
             if let firstError = result.errors.first {
-                model.errorMessage = (firstError as? NetworkError)?.errorDescription ?? firstError.localizedDescription
+                model.errorMessage = (firstError as? CustomError)?.errorDescription ?? firstError.localizedDescription
             }
         } catch {
-            if let netError = error as? NetworkError, netError == .expiredRefreshToken {
+            if let netError = error as? CustomError, netError == .expiredRefreshToken {
                 model.hotEstate = .requiresLogin
             } else {
-                let message = (error as? NetworkError)?.errorDescription ?? error.localizedDescription
+                let message = (error as? CustomError)?.errorDescription ?? error.localizedDescription
                 model.hotEstate = .failure(message)
             }
         }
@@ -162,10 +162,10 @@ final class HomeContainer: ObservableObject {
             }
             model.topicEstate = .success(response)
         } catch {
-            if let netError = error as? NetworkError, netError == .expiredRefreshToken {
+            if let netError = error as? CustomError, netError == .expiredRefreshToken {
                 model.topicEstate = .requiresLogin
             } else {
-                let message = (error as? NetworkError)?.errorDescription ?? error.localizedDescription
+                let message = (error as? CustomError)?.errorDescription ?? error.localizedDescription
                 model.topicEstate = .failure(message)
             }
         }
