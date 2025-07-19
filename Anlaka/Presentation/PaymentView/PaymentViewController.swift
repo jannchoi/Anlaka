@@ -9,7 +9,6 @@ class PaymentViewController: UIViewController, WKNavigationDelegate {
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        print("PaymentView viewDidLoad")
         view.backgroundColor = UIColor.white
         setupNavigationBar()
         setupWebView()
@@ -35,7 +34,6 @@ class PaymentViewController: UIViewController, WKNavigationDelegate {
     }
     
     @objc private func backButtonTapped() {
-        print("뒤로가기 버튼 클릭됨")
         dismiss(animated: true)
     }
     
@@ -62,30 +60,25 @@ class PaymentViewController: UIViewController, WKNavigationDelegate {
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        print("PaymentView viewWillAppear")
     }
     
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        print("PaymentView viewDidAppear")
         requestPayment()
     }
     
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
-        print("PaymentView viewWillDisappear")
     }
     
     override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
-        print("PaymentView viewDidDisappear")
     }
     
     // 아임포트 SDK 결제 요청
     func requestPayment() {
         guard let container = container,
               let paymentData = container.model.paymentData else {
-            print("container 또는 paymentData가 존재하지 않습니다.")
             return
         }
         
@@ -103,18 +96,14 @@ class PaymentViewController: UIViewController, WKNavigationDelegate {
     
     // MARK: - WKNavigationDelegate
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
-        print("WebView 로딩 시작")
     }
     
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        print("WebView 로딩 완료")
     }
     
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-        print("WebView 로딩 실패: \(error.localizedDescription)")
     }
     
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
-        print("WebView 프로비저널 로딩 실패: \(error.localizedDescription)")
     }
 }

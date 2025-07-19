@@ -10,7 +10,6 @@ struct PaymentView: UIViewControllerRepresentable {
     private let dismissDelay: TimeInterval = 1.0
     
     func makeUIViewController(context: Context) -> UINavigationController {
-        print("PaymentView makeUIViewController")
         let viewController = PaymentViewController()
         viewController.container = container
         
@@ -20,11 +19,8 @@ struct PaymentView: UIViewControllerRepresentable {
     }
     
     func updateUIViewController(_ uiViewController: UINavigationController, context: Context) {
-        print("PaymentView updateUIViewController")
         if container.model.isPaymentCompleted {
-            print("PaymentView에서 결제 완료 감지")
             DispatchQueue.main.asyncAfter(deadline: .now() + dismissDelay) {
-                print("PaymentView dismiss")
                 showPaymentView = false
             }
         }
