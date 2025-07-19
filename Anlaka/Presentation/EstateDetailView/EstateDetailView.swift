@@ -13,6 +13,7 @@ struct EstateDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @AppStorage(TextResource.Global.isLoggedIn.text) private var isLoggedIn: Bool = true
     @StateObject private var container: EstateDetailContainer
+    @State private var path = NavigationPath()
     
     // estateId로 초기화하는 경우
     init(di: DIContainer,estateId: String) {
@@ -27,20 +28,27 @@ struct EstateDetailView: View {
     }
     
     var body: some View {
-        ZStack(alignment: .bottom) {
-            VStack(spacing: 0) {
-                navigationBar
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
-                        renderDetailEstate()
+        NavigationStack(path: $path) {
+            ZStack(alignment: .bottom) {
+                VStack(spacing: 0) {
+                    navigationBar
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 16) {
+                            renderDetailEstate()
+                        }
+                        .padding(.bottom, 80) // 예약 버튼의 높이만큼 패딩 추가
                     }
-                    .padding(.bottom, 80) // 예약 버튼의 높이만큼 패딩 추가
+                }
+                
+                if case .success(let data) = container.model.detailEstate {
+                    reservationButton(isReserved: data.detail.isReserved)
+                        .background(Color.white)
                 }
             }
-            
-            if case .success(let data) = container.model.detailEstate {
-                reservationButton(isReserved: data.detail.isReserved)
-                    .background(Color.white)
+            .navigationDestination(for: String.self) { opponent_id in
+                if !opponent_id.isEmpty {
+                    ChattingView(opponent_id: opponent_id, di: di, path: $path)
+                }
             }
         }
         .fullScreenCover(item: Binding(
@@ -51,6 +59,11 @@ struct EstateDetailView: View {
         }
         .onAppear {
             container.handle(.initialRequest)
+        }
+        .onChange(of: container.model.opponent_id) { opponent_id in
+            if let opponent_id = opponent_id {
+                path.append(opponent_id)
+            }
         }
     }
     
@@ -357,7 +370,6 @@ struct SimilarEstatesView: View {
 // MARK: - CreaterInfoView 수정 (섹션 타이틀 추가)
 extension EstateDetailView {
     private func createrInfoView(creator: UserInfoPresentation) -> some View {
-        
         return VStack(alignment: .leading, spacing: 12) {
             Text("중개사 정보")
                 .font(.headline)
@@ -385,8 +397,12 @@ extension EstateDetailView {
                 HStack(spacing: 8) {
                     Image("Call Button")
                         .frame(width: 40, height: 40)
-                    Image("Chat Button")
-                        .frame(width: 40, height: 40)
+                    Button {
+                        container.handle(.chatButtonTapped)
+                    } label: {
+                        Image("Chat Button")
+                            .frame(width: 40, height: 40)
+                    }
                 }
             }
             .padding()
