@@ -155,8 +155,10 @@ struct MainContentView: View {
                             ChatInputView(
                                 text: $messageText,
                                 selectedFiles: $selectedFiles,
+                                invalidFileIndices: container.model.invalidFileIndices,
                                 onSend: sendMessage,
                                 onImagePicker: { isShowingImagePicker = true },
+                                onDocumentPicker: { isShowingDocumentPicker = true },
                                 isSending: container.model.sendingMessageId != nil
                             )
                             .background(GeometryReader { geo in
@@ -210,8 +212,9 @@ struct ChattingView: View {
     @StateObject private var container: ChattingContainer
     @StateObject private var keyboard = KeyboardResponder()
     @State private var messageText: String = ""
-    @State private var selectedFiles: [GalleryImage] = []
+    @State private var selectedFiles: [SelectedFile] = []
     @State private var isShowingImagePicker = false
+    @State private var isShowingDocumentPicker = false
     @State private var scrollProxy: ScrollViewProxy? = nil
     @State private var isShowingProfileDetail = false
     @State private var profileDetailOffset: CGSize = .zero
@@ -220,6 +223,7 @@ struct ChattingView: View {
     // 스크롤/키보드/입력창 상태 관리
     @State private var inputViewHeight: CGFloat = 0
     @State private var didInitialScroll: Bool = false
+
     @Namespace var bottom1
     
     // 닉네임 길이 제한을 위한 computed property
@@ -304,7 +308,22 @@ struct ChattingView: View {
             container.handle(.disconnectSocket)
         }
         .sheet(isPresented: $isShowingImagePicker) {
-            ImagePicker(selectedFiles: $selectedFiles)
+            FilePicker(
+                selectedFiles: $selectedFiles, 
+                pickerType: .chat
+            )
+            .onChange(of: selectedFiles) { files in
+                container.handle(.validateFiles(files))
+            }
+        }
+        .sheet(isPresented: $isShowingDocumentPicker) {
+            DocumentPicker(
+                selectedFiles: $selectedFiles,
+                pickerType: .chat
+            )
+            .onChange(of: selectedFiles) { files in
+                container.handle(.validateFiles(files))
+            }
         }
         .alert("오류", isPresented: .constant(container.model.error != nil)) {
             Button("확인") {
@@ -345,7 +364,14 @@ struct ChattingView: View {
                 }
             }
         )
+        .toastView(toast: $container.model.toast)
+                
+
+            }
+        )
     }
+    
+
     
     private func sendMessage() {
         guard !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !selectedFiles.isEmpty else { return }
@@ -454,31 +480,56 @@ private struct MessageTimeView: View {
 // MARK: - ChatInputView
 struct ChatInputView: View {
     @Binding var text: String
-    @Binding var selectedFiles: [GalleryImage]
+    @Binding var selectedFiles: [SelectedFile]
+    let invalidFileIndices: Set<Int>
     let onSend: () -> Void
     let onImagePicker: () -> Void
+    let onDocumentPicker: () -> Void
     let isSending: Bool
     
     var body: some View {
         VStack(spacing: 8) {
+            // 파일 선택 안내
+            HStack {
+                Text(selectedFiles.isEmpty ? "파일을 선택하세요" : "\(selectedFiles.count)개 선택됨")
+                    .font(.pretendardCaption)
+                    .foregroundColor(.gray)
+                Spacer()
+            }
+            .padding(.horizontal, 4)
+            
             // 선택된 파일 미리보기
             if !selectedFiles.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack {
+                    HStack(spacing: 8) {
                         ForEach(selectedFiles.indices, id: \.self) { index in
-                            FileThumbnailView(file: selectedFiles[index]) {
+                            FileThumbnailView(
+                                file: selectedFiles[index],
+                                isInvalid: container.model.invalidFileIndices.contains(index),
+                                invalidReason: container.model.invalidFileReasons[index]
+                            ) {
                                 selectedFiles.remove(at: index)
                             }
                         }
                     }
+                    .padding(.horizontal, 4)
                 }
                 .frame(height: 80)
             }
             
             // 입력 영역
             HStack(spacing: 8) {
+                // 갤러리 버튼
                 Button(action: onImagePicker) {
                     Image(systemName: "photo")
+                        .font(.system(size: 20))
+                        .foregroundColor(Color.DeepForest)
+                }
+                .disabled(isSending)
+                
+                // 문서 선택 버튼 (채팅에서만 표시)
+                Button(action: onDocumentPicker) {
+                    Image(systemName: "doc")
                         .font(.system(size: 20))
                         .foregroundColor(Color.DeepForest)
                 }
@@ -501,7 +552,9 @@ struct ChatInputView: View {
     
     private var isValidInput: Bool {
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmedText.count >= 1
+        let hasValidText = trimmedText.count >= 1
+        let hasValidFiles = selectedFiles.isEmpty || invalidFileIndices.isEmpty
+        return hasValidText || hasValidFiles
     }
 }
 
@@ -611,84 +664,111 @@ struct FileInfoView: View {
 }
 
 struct FileThumbnailView: View {
-    let file: GalleryImage
+    let file: SelectedFile
+    let isInvalid: Bool
+    let invalidReason: String?
     let onRemove: () -> Void
     
     var body: some View {
         ZStack(alignment: .topTrailing) {
-            Image(uiImage: file.image)
-                .resizable()
-                .aspectRatio(contentMode: .fill)
-                .frame(width: 60, height: 60)
-                .cornerRadius(8)
+            // 파일 타입에 따른 썸네일 표시
+            Group {
+                switch file.fileType {
+                case .image:
+                    if let image = file.image {
+                        Image(uiImage: image)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                    } else {
+                        Color.gray.opacity(0.3)
+                    }
+                case .video:
+                    VStack(spacing: 4) {
+                        Image(systemName: "video.fill")
+                            .font(.system(size: 20))
+                            .foregroundColor(.gray)
+                        Text(file.fileExtension.uppercased())
+                            .font(.pretendardCaption2)
+                            .foregroundColor(.gray)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color.gray.opacity(0.1))
+                case .pdf:
+                    VStack(spacing: 4) {
+                        Image(systemName: "doc.text.fill")
+                            .font(.system(size: 20))
+                            .foregroundColor(.gray)
+                        Text("PDF")
+                            .font(.pretendardCaption2)
+                            .foregroundColor(.gray)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color.gray.opacity(0.1))
+                }
+            }
+            .frame(width: 60, height: 60)
+            .cornerRadius(8)
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(isInvalid ? Color.red : Color.clear, lineWidth: 2)
+            )
             
+            // 파일 크기 표시
+            VStack {
+                Spacer()
+                HStack {
+                    Spacer()
+                    Text(formatFileSize())
+                        .font(.pretendardCaption2)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 2)
+                        .background(Color.black.opacity(0.6))
+                        .cornerRadius(4)
+                }
+            }
+            .frame(width: 60, height: 60)
+            
+            // 유효하지 않은 파일 원인 표시 (선택사항)
+            if isInvalid, let reason = invalidReason {
+                VStack {
+                    HStack {
+                        Spacer()
+                        Text(reason)
+                            .font(.pretendardCaption2)
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 2)
+                            .background(Color.red.opacity(0.8))
+                            .cornerRadius(4)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.center)
+                    }
+                    Spacer()
+                }
+                .frame(width: 60, height: 60)
+            }
+            
+            // 삭제 버튼
             Button(action: onRemove) {
                 Image(systemName: "xmark.circle.fill")
-                    .foregroundColor(.gray)
+                    .foregroundColor(isInvalid ? .red : .gray)
                     .background(Color.white)
                     .clipShape(Circle())
             }
             .offset(x: 6, y: -6)
         }
     }
+    
+    private func formatFileSize() -> String {
+        let data = file.data ?? file.image?.jpegData(compressionQuality: 0.8) ?? Data()
+        let formatter = ByteCountFormatter()
+        formatter.allowedUnits = [.useKB, .useMB]
+        formatter.countStyle = .file
+        return formatter.string(fromByteCount: Int64(data.count))
+    }
 }
 
-// MARK: - ImagePicker
-struct ImagePicker: UIViewControllerRepresentable {
-    @Binding var selectedFiles: [GalleryImage]
-    @Environment(\.presentationMode) var presentationMode
-    
-    func makeUIViewController(context: Context) -> PHPickerViewController {
-        var config = PHPickerConfiguration()
-        config.selectionLimit = 5
-        config.filter = .images
-        
-        let picker = PHPickerViewController(configuration: config)
-        picker.delegate = context.coordinator
-        return picker
-    }
-    
-    func updateUIViewController(_ uiViewController: PHPickerViewController, context: Context) {}
-    
-    func makeCoordinator() -> Coordinator {
-        Coordinator(self)
-    }
-    
-    class Coordinator: NSObject, PHPickerViewControllerDelegate {
-        let parent: ImagePicker
-        
-        init(_ parent: ImagePicker) {
-            self.parent = parent
-        }
-        
-        func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
-            parent.presentationMode.wrappedValue.dismiss()
-            
-            for result in results {
-                if result.itemProvider.canLoadObject(ofClass: UIImage.self) {
-                    result.itemProvider.loadObject(ofClass: UIImage.self) { [weak self] image, error in
-                        if let image = image as? UIImage {
-                            DispatchQueue.main.async {
-                                result.itemProvider.loadFileRepresentation(forTypeIdentifier: "public.image") { url, error in
-                                    if let url = url {
-                                        // GalleryImage 생성
-                                        let galleryImage = GalleryImage(image: image, fileName: url.lastPathComponent)
-                                        DispatchQueue.main.async {
-                                            self?.parent.selectedFiles.append(galleryImage)
-                                        }
-                                    } else {
-                                        // URL이 없는 경우 임시 GalleryImage 생성
-                                        let galleryImage = GalleryImage(image: image, fileName: "image.jpg")
-                                        DispatchQueue.main.async {
-                                            self?.parent.selectedFiles.append(galleryImage)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
+
+
+
