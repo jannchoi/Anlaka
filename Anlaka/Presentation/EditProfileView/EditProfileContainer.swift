@@ -126,14 +126,14 @@ final class EditProfileContainer: ObservableObject {
                 }
                 
                 // 2. 파일 검증
-                if !FileManager.shared.validateFile(fileData, uploadType: .profile) {
+                if !FileManagerHelper.shared.validateFile(fileData, uploadType: FileUploadType.profile) {
                     model.errorMessage = "프로필 이미지가 유효하지 않습니다. (1MB 이하, jpg/png/jpeg만 가능)"
                     model.isLoading = false
                     return
                 }
                 
                 // 3. 이미지 업로드
-                let uploadedImage = try await repository.uploadProfileImage(image: fileData.data)
+                let uploadedImage = try await repository.uploadProfileImage(image: fileData)
                 
                 // 4. 업로드된 이미지 정보를 모델에 저장 (UI 업데이트용)
                 model.profileImage = uploadedImage
