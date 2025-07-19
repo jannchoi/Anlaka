@@ -11,10 +11,15 @@ struct EditProfileModel {
     var nick: String = ""
     var introduction: String = ""
     var phoneNum: String = ""
+    
+    // 닉네임 유효성 검사
+    var isNicknameValid: Bool = true
+    var nicknameValidationMessage: String = ""
 }
 
 enum EditProfileIntent {
     case initialRequest
+    case nicknameChanged(String)
     case saveProfile(EditProfileRequestEntity, Data?)
 }
 
@@ -32,6 +37,9 @@ final class EditProfileContainer: ObservableObject {
             Task {
                 await getMyProfileInfo()
             }
+        case .nicknameChanged(let newNick):
+            model.nick = newNick
+            validateNickname(newNick)
         case .saveProfile(let editProfile, let profileImageData):
             Task {
                 await handleSaveProfile(editProfile: editProfile, profileImageData: profileImageData)
@@ -48,6 +56,8 @@ final class EditProfileContainer: ObservableObject {
             model.nick = savedProfile.nick
             model.introduction = savedProfile.introduction ?? ""
             model.phoneNum = savedProfile.phoneNum ?? ""
+            // 닉네임 유효성 검사
+            validateNickname(savedProfile.nick)
         } else {
             // UserDefaults에 저장된 데이터가 없으면 네트워크에서 가져오기
             Task {
@@ -65,6 +75,8 @@ final class EditProfileContainer: ObservableObject {
             model.nick = profile.nick
             model.introduction = profile.introduction ?? ""
             model.phoneNum = profile.phoneNum ?? ""
+            // 닉네임 유효성 검사
+            validateNickname(profile.nick)
         } catch {
             model.errorMessage = error.localizedDescription
         }
@@ -122,5 +134,15 @@ final class EditProfileContainer: ObservableObject {
         }
         
         model.isLoading = false
+    }
+
+    private func validateNickname(_ nickname: String) {
+        if ValidationManager.shared.isValidNick(nickname) {
+            model.isNicknameValid = true
+            model.nicknameValidationMessage = "사용 가능한 닉네임입니다"
+        } else {
+            model.isNicknameValid = false
+            model.nicknameValidationMessage = "닉네임에 특수문자(.,?*@-)를 포함할 수 없습니다"
+        }
     }
 } 
