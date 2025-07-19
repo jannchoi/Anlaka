@@ -174,7 +174,10 @@ struct ProfileHeaderView: View {
     var body: some View {
         HStack {
             // Profile Image
-            CustomAsyncImage(imagePath: profileInfo.profileImage)
+            CustomAsyncImage(
+                imagePath: profileInfo.profileImage,
+                targetSize: CGSize(width: 80, height: 80)
+            )
                 .frame(width: 80, height: 80)
                 .clipShape(Circle())
             
@@ -320,7 +323,9 @@ struct ChattingRoomCell: View {
             HStack(spacing: 12) {
                 // Profile Image - 상대방의 프로필 이미지 사용
                 if let opponent = getOpponent(room: room) {
-                    CustomAsyncImage(imagePath: opponent.profileImage)
+                    CustomAsyncImage.profile(
+                        imagePath: opponent.profileImage
+                    )
                         .frame(width: 48, height: 48)
                         .clipShape(Circle())
                 } else {
