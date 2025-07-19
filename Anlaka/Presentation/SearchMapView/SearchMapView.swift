@@ -707,14 +707,22 @@ struct EstateScrollView: View {
 struct EstateCardView: View {
     let estate: DetailEstatePresentation
     let onTap: () -> Void
+    @State private var imageLoadError: Bool = false
     
     var body: some View {
         Button(action: onTap) {
             VStack(alignment: .leading, spacing: 8) {
-                // 썸네일 (실제로는 이미지 로딩 필요)
-                CustomAsyncImage(imagePath: estate.thumbnails.first)
-                    .frame(width: 150, height: 100)
-                    .cornerRadius(8)
+                // 썸네일
+                if let firstThumbnail = estate.thumbnails.first {
+                    CustomAsyncImage(imagePath: firstThumbnail)
+                        .frame(width: 150, height: 100)
+                        .cornerRadius(8)
+                } else {
+                    Rectangle()
+                        .fill(Color.gray.opacity(0.2))
+                        .frame(width: 150, height: 100)
+                        .cornerRadius(8)
+                }
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(estate.category)
