@@ -353,8 +353,10 @@ final class MyPageContainer: ObservableObject {
         }
         
         // 토큰 및 프로필 데이터 제거
-        UserDefaultsManager.shared.removeObject(forKey: .accessToken)
-        UserDefaultsManager.shared.removeObject(forKey: .refreshToken)
+        KeychainManager.shared.remove(forKey: .accessToken)
+        KeychainManager.shared.remove(forKey: .refreshToken)
+        KeychainManager.shared.remove(forKey: .appleIdToken)
+        KeychainManager.shared.remove(forKey: .kakaoToken)
         UserDefaultsManager.shared.removeObject(forKey: .profileData)
         
         // 알림 관련 데이터 초기화
@@ -386,8 +388,10 @@ final class MyPageContainer: ObservableObject {
         }
         
         // 토큰 및 프로필 데이터 제거
-        UserDefaultsManager.shared.removeObject(forKey: .accessToken)
-        UserDefaultsManager.shared.removeObject(forKey: .refreshToken)
+        KeychainManager.shared.remove(forKey: .accessToken)
+        KeychainManager.shared.remove(forKey: .refreshToken)
+        KeychainManager.shared.remove(forKey: .appleIdToken)
+        KeychainManager.shared.remove(forKey: .kakaoToken)
         UserDefaultsManager.shared.removeObject(forKey: .profileData)
         
         // 알림 관련 데이터 초기화

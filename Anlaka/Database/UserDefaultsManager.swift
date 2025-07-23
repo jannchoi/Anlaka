@@ -7,35 +7,13 @@
 
 import Foundation
 enum UserDefaultsKey: String {
-    case accessToken
-    case refreshToken
     case profileData
     case deviceToken
-    case appleIdToken
-    case kakaoToken
-    case expAccess
-    case expRefresh
+    case expAccess      // KeychainManager에서 관리하지만 UserDefaults에 저장
+    case expRefresh     // KeychainManager에서 관리하지만 UserDefaults에 저장
     case deviceTokenChanged
     case pendingChatRoomId
     case badgeCount
-    /// 이 키로 저장되는 값이 JWT 토큰인지 여부
-    var requiresJWTDecoding: Bool {
-        switch self {
-        case .accessToken, .refreshToken:
-            return true
-        default:
-            return false
-        }
-    }
-
-    /// JWT 디코딩 시 저장할 만료 시간 키
-    var correspondingExpKey: UserDefaultsKey? {
-        switch self {
-        case .accessToken: return .expAccess
-        case .refreshToken: return .expRefresh
-        default: return nil
-        }
-    }
 }
 
 
@@ -49,15 +27,6 @@ final class UserDefaultsManager {
 
     func set<T>(_ value: T, forKey key: UserDefaultsKey) {
         defaults.set(value, forKey: key.rawValue)
-
-        // JWT 토큰이라면 만료 시간도 저장
-        if let token = value as? String,
-           key.requiresJWTDecoding,
-           let exp = JWTDecoder.decodeExpiration(from: token),
-           let expKey = key.correspondingExpKey {
-            defaults.set(exp, forKey: expKey.rawValue)
-            print(expKey.rawValue, exp)
-        }
     }
 
     func setObject<T: Codable>(_ object: T, forKey key: UserDefaultsKey) {
@@ -100,12 +69,6 @@ final class UserDefaultsManager {
 
     func remove(forKey key: UserDefaultsKey) {
         defaults.removeObject(forKey: key.rawValue)
-        
-        // JWT 토큰이라면 만료 시간도 삭제
-        if key.requiresJWTDecoding,
-           let expKey = key.correspondingExpKey {
-            defaults.removeObject(forKey: expKey.rawValue)
-        }
     }
     
     func removeObject(forKey key: UserDefaultsKey) {
