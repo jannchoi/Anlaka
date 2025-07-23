@@ -30,6 +30,9 @@ protocol NetworkRepository {
     func uploadFiles(roomId: String, files: [FileData]) async throws -> [String]
     func getChatList(roomId: String, from: String?) async throws -> ChatListEntity
     func getMyProfileInfo() async throws -> MyProfileInfoEntity
+    
+    // MARK: - Push Notification Methods
+    func updateDeviceToken(deviceToken: String) async throws -> Bool
 
     func uploadAdminRequest(adminRequest: AdminRequestMockData) async throws -> DetailEstateEntity
 
@@ -41,7 +44,7 @@ protocol NetworkRepository {
     func uploadProfileImage(image: FileData) async throws -> ProfileImageEntity
     func getOtherProfileInfo(userId: String) async throws -> OtherProfileInfoEntity
     func searchUser(nick: String) async throws -> SearchUserEntity
-    
+
     // MARK: - Banner Methods
     func getBanners() async throws -> BannerListResponseEntity
     

@@ -47,6 +47,7 @@ struct SignUpView: View {
         ) { message in
             Alert(title: Text("오류"), message: Text(message.text), dismissButton: .default(Text("확인")))
         }
+        .toastView(toast: $container.model.toast)
         .onChange(of: container.model.goToLoginView) { go in
             if go {
                 onComplete()

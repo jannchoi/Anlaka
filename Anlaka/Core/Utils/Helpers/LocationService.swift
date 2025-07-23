@@ -28,7 +28,7 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
         super.init()
         locationManager.delegate = self
         locationManager.desiredAccuracy = kCLLocationAccuracyBest
-        print("📍 LocationService: 위치 요청 시작")
+        print(" LocationService: 위치 요청 시작")
         self.requestLocationPermission()
     }
     

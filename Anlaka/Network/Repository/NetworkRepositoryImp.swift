@@ -344,21 +344,21 @@ internal final class NetworkRepositoryImp: NetworkRepository {
         }
     }
     func kakaoLogin(kakaoLoginEntity: KakaoLoginRequestEntity) async throws{
-        print("🧶 카카오 로그인 시작, \(kakaoLoginEntity)")
+        
         guard let target = kakaoLoginEntity.toDTO() else {
             throw CustomError.nilResponse
         }
         do {
             let response = try await NetworkManager.shared.callRequest(target: UserRouter.kakaoLogin(target), model: LoginResponseDTO.self)
             let entity = response.toEntity()
-            print("🧶 카카오 로그인 성공, \(entity)")
+
             let savedProfile = UserDefaultsManager.shared.getObject(forKey: .profileData, as: MyProfileInfoEntity.self)
             if savedProfile == nil || savedProfile?.userid != entity.userId {
                 saveProfileInfo(userId: entity.userId, email: entity.email, nick: entity.nick)
             }
             saveTokens(accessToken: entity.accessToken, refreshToken: entity.refreshToken)
         } catch {
-            print("🧶 카카오 로그인 실패, \(error)")
+
             throw error
         }
     }
@@ -367,21 +367,33 @@ internal final class NetworkRepositoryImp: NetworkRepository {
         guard let target = appleLoginEntity.toDTO() else {
             throw CustomError.nilResponse
         }
-        print("🧶 애플 로그인 시작, \(target)")
+
         do {
             let response = try await NetworkManager.shared.callRequest(
                 target: UserRouter.appleLogin(target),
                 model: LoginResponseDTO.self
             )
             let entity = response.toEntity()
-            print("🧶 애플 로그인 성공, \(entity)")
+
             let savedProfile = UserDefaultsManager.shared.getObject(forKey: .profileData, as: MyProfileInfoEntity.self)
             if savedProfile == nil || savedProfile?.userid != entity.userId {
                 saveProfileInfo(userId: entity.userId, email: entity.email, nick: entity.nick)
             }
             saveTokens(accessToken: entity.accessToken, refreshToken: entity.refreshToken)
         } catch {
-            print("🧶 애플 로그인 실패, \(error)")
+
+            throw error
+        }
+    }
+
+    
+    func updateDeviceToken(deviceToken: String) async throws -> Bool {
+        do {
+            let deviceTokenRequest = DeviceTokenRequestDTO(deviceToken: deviceToken)
+            let _: EmptyResponseDTO = try await NetworkManager.shared.callRequest(target: UserRouter.deviceTokenUpdate(deviceTokenRequest), model: EmptyResponseDTO.self)
+            // 빈 응답이므로 성공으로 간주
+            return true
+        } catch {
             throw error
         }
     }
@@ -426,6 +438,18 @@ internal final class NetworkRepositoryImp: NetworkRepository {
             throw error
         }
     }
+
+    func updateDeviceToken() async throws {
+        guard let deviceToken = UserDefaultsManager.shared.getString(forKey: .deviceToken) else {
+            throw CustomError.nilResponse
+        }
+        let target = DeviceTokenRequestDTO(deviceToken: deviceToken)
+        do {
+            let _ = try await NetworkManager.shared.callRequest(target: UserRouter.deviceTokenUpdate(target), model: EmptyResponseDTO.self)
+        } catch {
+            throw error
+        }
+    }
 }
 
 extension NetworkRepositoryImp {
@@ -433,7 +457,7 @@ extension NetworkRepositoryImp {
     private func saveTokens(accessToken: String, refreshToken: String) {
         UserDefaultsManager.shared.set(accessToken, forKey: .accessToken)
         UserDefaultsManager.shared.set(refreshToken, forKey: .refreshToken)
-        print("🧶 토큰 저장 성공, \(accessToken), \(refreshToken)")
+        print("===== 토큰 저장 성공, \(accessToken), \(refreshToken)")
     }
     
     private func saveProfileInfo(userId: String, email: String, nick: String, phoneNum: String? = nil, introduction: String? = nil) {
