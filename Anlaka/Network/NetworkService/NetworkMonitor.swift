@@ -25,7 +25,7 @@ final class NetworkMonitor {
 
     func checkConnection() async throws {
         if !isConnected {
-            throw NetworkError.disconnected
+            throw CustomError.disconnected
         }
     }
 

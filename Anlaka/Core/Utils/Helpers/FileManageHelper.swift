@@ -3,7 +3,7 @@ import UIKit
 import Foundation
 
 // MARK: - 파일 업로드 타입별 설정
-enum FileUploadType {
+enum FileUploadType: CaseIterable {
     case profile    // 프로필 이미지
     case chat       // 채팅 파일
     case community  // 커뮤니티 파일
@@ -68,7 +68,7 @@ struct FileData {
 }
 
 // MARK: - FileManager
-class FileManager {
+class FileManagerHelper{
     static let shared = FileManager()
     private init() {}
     
