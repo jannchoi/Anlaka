@@ -97,7 +97,7 @@ struct ProfileView: View {
                     // Edit Button
                     Button(action: onEditProfile) {
                         Image(systemName: "pencil")
-                            .foregroundColor(.black)
+                            .foregroundColor(Color.MainTextColor)
                             .font(.system(size: 16))
                     }
                 }
@@ -155,7 +155,7 @@ struct IntroductionView: View {
             
             Text(introduction ?? "I am a good person")
                 .font(.body)
-                .foregroundColor(.black)
+                .foregroundColor(Color.MainTextColor)
                 .multilineTextAlignment(.leading)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -224,7 +224,7 @@ struct ChattingRoomCell: View {
                         Text(room.lastChat?.sender.nick ?? "")
                             .font(.body)
                             .fontWeight(.medium)
-                            .foregroundColor(.black)
+                            .foregroundColor(Color.MainTextColor)
                         
                         if hasNewChat {
                             Circle()
