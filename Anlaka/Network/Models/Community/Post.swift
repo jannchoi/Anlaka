@@ -146,7 +146,7 @@ struct PostResponseDTO: Decodable {
     let files: [String?]?
     let isLike: Bool?
     let likeCount: Int?
-    let comments: [CommentResponseDTO]?
+    let comments: [PostCommentResponseDTO]?
     let createdAt: String?
     let updatedAt: String?
 
@@ -158,7 +158,7 @@ struct PostResponseDTO: Decodable {
     }
 }
 
-struct PostResponseEntity {
+struct PostResponseEntity: Equatable, Hashable {
     let postId: String
     let category: String
     let title: String
@@ -166,9 +166,12 @@ struct PostResponseEntity {
     let geolocation: GeolocationEntity
     let creator: UserInfoEntity
     let files: [ServerFileEntity]  // 서버 파일 엔티티로 변경
-    let comments: [CommentResponseEntity]
+    var comments: [PostCommentResponseEntity]
     let createdAt: String
     let updatedAt: String
+    var isLike: Bool
+    var likeCount: Int
+    let address: String
 }
 
 extension PostResponseDTO {
@@ -180,7 +183,9 @@ extension PostResponseDTO {
               let geolocation = geolocation?.toEntity(),
               let creator = creator?.toEntity(),
               let createdAt = createdAt,
-              let updatedAt = updatedAt else {
+              let updatedAt = updatedAt,
+              let isLike = isLike,
+              let likeCount = likeCount else {
             return nil
         }
         
@@ -201,7 +206,10 @@ extension PostResponseDTO {
             files: serverFileEntities,
             comments: validComments,
             createdAt: createdAt,
-            updatedAt: updatedAt
+            updatedAt: updatedAt,
+            isLike: isLike,
+            likeCount: likeCount,
+            address: "알 수 없음" // 주소는 UseCase에서 처리
         )
     }
 }

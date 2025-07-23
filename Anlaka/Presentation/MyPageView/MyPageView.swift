@@ -47,7 +47,7 @@ struct MyPageView: View {
                     ProfileView(
                         profileInfo: container.model.profileInfo,
                         onEditProfile: {
-                            path.append(MyPageRoute.editProfile)
+                            path.append(AppRoute.MyPageRoute.editProfile)
                         },
                         onAddEstate: {
                             container.handle(.addMyEstate)
@@ -61,7 +61,7 @@ struct MyPageView: View {
                         chatRoomList: container.model.chatRoomList,
                         updatedRoomIds: container.model.updatedRoomIds,
                         onRoomTap: { roomId in
-                            path.append(MyPageRoute.chatRoom(roomId: roomId))
+                            path.append(AppRoute.MyPageRoute.chatRoom(roomId: roomId))
                         }
                     )
                     .padding(.top, 32)
@@ -73,7 +73,7 @@ struct MyPageView: View {
             }
         }
         }
-        .navigationDestination(for: MyPageRoute.self) { route in
+        .navigationDestination(for: AppRoute.MyPageRoute.self) { route in
             switch route {
             case .chatRoom(let roomId):
                 ChattingView(roomId: roomId, di: di, path: $path)

@@ -68,8 +68,8 @@ struct FileData {
 }
 
 // MARK: - FileManager
-class FileManagerHelper{
-    static let shared = FileManager()
+class FileManageHelper{
+    static let shared = FileManageHelper()
     private init() {}
     
     // MARK: - 파일 변환 메서드들

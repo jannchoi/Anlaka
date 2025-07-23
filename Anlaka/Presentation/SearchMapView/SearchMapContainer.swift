@@ -68,20 +68,21 @@ enum SearchMapIntent {
 }
 
 @MainActor
-final class SearchMapContainer: NSObject, ObservableObject {
+final class SearchMapContainer: NSObject, ObservableObject, LocationServiceDelegate {
     @Published var model = SearchMapModel()
     @Published var forceUpdate = false
     private let repository: NetworkRepository
-    private let locationManager = CLLocationManager()
+    private let locationService: LocationService // DI로 받음
     private var geoEstatesDebounceTimer: Timer?
     private var filterDebounceTimer: Timer?
     private var lastGeoEstatesCoordinate: CLLocationCoordinate2D?
     var isFilterUpdate = false
     
-    init(repository: NetworkRepository) {
+    init(repository: NetworkRepository, locationService: LocationService) {
         self.repository = repository
+        self.locationService = locationService // DI로 받음
         super.init()
-        setupLocationManager()
+        locationService.delegate = self
     }
     
     func handle(_ intent: SearchMapIntent) {
@@ -91,9 +92,19 @@ final class SearchMapContainer: NSObject, ObservableObject {
             let defaultLat = DefaultValues.Geolocation.latitude.value
             model.centerCoordinate = CLLocationCoordinate2D(latitude: defaultLat, longitude: defaultLon)
             model.shouldDrawMap = true
-            
         case .requestLocationPermission:
-            requestLocationPermission()
+            Task {
+                // 위치 권한 요청과 현재 위치 요청을 한 번에 처리
+                if let coordinate = await locationService.requestCurrentLocation() {
+                    model.currentLocation = coordinate
+                    model.centerCoordinate = coordinate
+                    model.shouldDrawMap = true
+                } else {
+                    model.currentLocation = LocationService.defaultCoordinate
+                    model.centerCoordinate = LocationService.defaultCoordinate
+                    model.shouldDrawMap = true
+                }
+            }
             
         case .updateMaxDistance(let distance):
             
@@ -359,28 +370,44 @@ final class SearchMapContainer: NSObject, ObservableObject {
         }
     }
     
-    private func setupLocationManager() {
-        locationManager.delegate = self
-        locationManager.desiredAccuracy = kCLLocationAccuracyBest
-    }
+    // 기존 locationManager 관련 메서드/Delegate 완전 제거
+    // setupLocationManager, requestLocationPermission 등 제거
+    // 위치 업데이트는 LocationServiceDelegate에서 처리
     
-    private func requestLocationPermission() {
-        switch locationManager.authorizationStatus {
-        case .notDetermined:
-            locationManager.requestWhenInUseAuthorization()
-        case .denied, .restricted:
-            model.isLocationPermissionGranted = false
-            handle(.loadDefaultLocation)
+    // MARK: - LocationServiceDelegate
+    func locationService(didUpdateLocation coordinate: CLLocationCoordinate2D) {
+        model.currentLocation = coordinate
+        model.centerCoordinate = coordinate
+        model.shouldDrawMap = true
+    }
+    func locationService(didFailWithError error: Error) {
+        model.currentLocation = LocationService.defaultCoordinate
+        model.centerCoordinate = LocationService.defaultCoordinate
+        model.shouldDrawMap = true
+    }
+    func locationService(didChangeAuthorization status: CLAuthorizationStatus) {
+        switch status {
         case .authorizedWhenInUse, .authorizedAlways:
-            model.isLocationPermissionGranted = true
-            locationManager.requestLocation()
+            Task {
+                if let coordinate = await locationService.requestCurrentLocation() {
+                    model.currentLocation = coordinate
+                    model.centerCoordinate = coordinate
+                    model.shouldDrawMap = true
+                }
+            }
+        case .denied, .restricted:
+            model.currentLocation = LocationService.defaultCoordinate
+            model.centerCoordinate = LocationService.defaultCoordinate
+            model.shouldDrawMap = true
+        case .notDetermined:
+            // 권한 요청 중이므로 대기
+            break
         @unknown default:
-            model.isLocationPermissionGranted = false
-            handle(.loadDefaultLocation)
+            model.currentLocation = LocationService.defaultCoordinate
+            model.centerCoordinate = LocationService.defaultCoordinate
+            model.shouldDrawMap = true
         }
     }
-    
-    
     
     private func handleError(_ error: Error) {
         model.pinInfoList = []
@@ -389,32 +416,5 @@ final class SearchMapContainer: NSObject, ObservableObject {
         } else {
             model.errorMessage = (error as? CustomError)?.errorDescription ?? error.localizedDescription
         }
-    }
-}
-
-extension SearchMapContainer: CLLocationManagerDelegate {
-    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-        switch manager.authorizationStatus {
-        case .authorizedWhenInUse, .authorizedAlways:
-            model.isLocationPermissionGranted = true
-            locationManager.requestLocation()
-        case .denied, .restricted:
-            model.isLocationPermissionGranted = false
-            handle(.loadDefaultLocation)
-        default:
-            break
-        }
-    }
-    
-    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        guard let location = locations.first else { return }
-        model.currentLocation = location.coordinate
-        model.centerCoordinate = location.coordinate
-        model.shouldDrawMap = true
-    }
-    
-    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        print("Location manager error: \(error.localizedDescription)")
-        handle(.loadDefaultLocation)
     }
 }

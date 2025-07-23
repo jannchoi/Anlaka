@@ -14,11 +14,17 @@ struct CommentResponseDTO: Decodable {
     }
 
 }
-struct CommentResponseEntity {
+struct CommentResponseEntity: Equatable, Hashable {
     let commentId: String
-    let content: String
+    var content: String
     let createdAt: String
     let creator: UserInfoEntity
+    let geolocation: GeolocationEntity?
+    var replies: [CommentResponseEntity]?
+    // Optimistic update 및 실패 상태 관리용
+    var sendFailed: Bool = false
+    var isTemp: Bool = false
+    var tempId: String? = nil
 }
 
 extension CommentResponseDTO {
@@ -34,7 +40,9 @@ extension CommentResponseDTO {
             commentId: commentId,
             content: content,
             createdAt: createdAt,
-            creator: creator
+            creator: creator,
+            geolocation: nil, // TODO: geolocation 정보 추가
+            replies: nil // TODO: replies 정보 추가
         )
     }
 }

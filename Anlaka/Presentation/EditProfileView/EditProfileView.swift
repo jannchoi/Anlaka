@@ -166,7 +166,6 @@ struct EditProfileView: View {
 }
 
 
-
 // MARK: - ProfileImageView
 struct ProfileImageView: View {
     let profileImageData: Data?
@@ -346,3 +345,4 @@ struct PressableButtonStyle: ButtonStyle {
             .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
     }
 }
+
