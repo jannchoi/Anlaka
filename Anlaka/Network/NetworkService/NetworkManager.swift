@@ -45,6 +45,14 @@ final class NetworkManager {
             print("⚠️ Raw 데이터 UTF-8 디코딩 실패")
         }
         
+        // ✅ 빈 응답 처리 (DELETE 요청의 경우)
+        if data.isEmpty || String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) == "" {
+            // 빈 응답인 경우 기본값으로 초기화된 객체 반환
+            if T.self == EmptyResponseDTO.self {
+                return EmptyResponseDTO() as! T
+            }
+        }
+        
         // ✅ JSON 디코딩
         do {
             let decoded = try Self.makeDecoder().decode(T.self, from: data)
