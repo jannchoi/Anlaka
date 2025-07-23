@@ -27,7 +27,7 @@ protocol NetworkRepository {
     func getChatRooms() async throws -> ChatRoomListEntity
     func getChatRoom(opponent_id: String) async throws -> ChatRoomEntity
     func sendMessage(roomId: String, target: ChatRequestEntity) async throws -> ChatEntity
-    func uploadFiles(roomId: String, files: [FileData]) async throws -> ChatFileEntity
+    func uploadFiles(roomId: String, files: [FileData]) async throws -> [String]
     func getChatList(roomId: String, from: String?) async throws -> ChatListEntity
     func getMyProfileInfo() async throws -> MyProfileInfoEntity
 

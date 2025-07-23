@@ -1,6 +1,6 @@
 import Foundation
 
 struct EditCommentRequestDTO: Codable {
-    let comment: String
+    let content: String
 }
 
