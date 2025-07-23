@@ -54,6 +54,7 @@ enum EstateRouter: AuthorizedTarget {
 
     var header: [String: String] {
         guard let accessToken = UserDefaultsManager.shared.getString(forKey: .accessToken) else {return [:]}
+        //print("accessToken: \(accessToken)")
         return [
             "SeSACKey": AppConfig.apiKey,
             "Content-Type": "application/json",
@@ -74,7 +75,7 @@ enum EstateRouter: AuthorizedTarget {
             if let category = category, !category.isEmpty {
                 params["category"] = category
             }
-            print(params)
+            //print(params)
             return params
             
         case .likeEstate(let estateId, _):

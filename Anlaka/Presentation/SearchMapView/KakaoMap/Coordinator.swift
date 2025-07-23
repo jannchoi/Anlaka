@@ -325,7 +325,7 @@ extension Coordinator {
     
     // MARK: - 클러스터링 메인 메서드
     private func performClustering(_ pinInfos: [PinInfo], zoomLevel: Int) -> ([ClusterInfo], CGFloat?) {
-        //print(#function)
+        //print(#function, pinInfos.count)
         let clusteringType = getClusteringType(for: zoomLevel)
         guard let kakaoMap = controller?.getView("mapview") as? KakaoMap else { return ([], 0) }
         
@@ -403,7 +403,7 @@ extension Coordinator {
         _ pinInfos: [PinInfo],
         kakaoMap: KakaoMap
     ) -> ([ClusterInfo], CGFloat) {
-        //print(#function)
+        //print(#function, pinInfos.count)
         guard !pinInfos.isEmpty else { return ([], 0) }
         guard let kakaoMap = controller?.getView("mapview") as? KakaoMap else { return ([], 0) }
         // 1. 화면 모서리 좌표
@@ -465,7 +465,7 @@ extension Coordinator {
             
             clusterInfos.append(cluster)
         }
-        
+        //print("🔍 clusterInfos 생성 성공: \(clusterInfos.count)")
         return (clusterInfos, maxPoiSize)
     }
     
@@ -564,7 +564,7 @@ extension Coordinator {
 extension Coordinator {
     
     @MainActor func updatePOIsWithClustering(_ pinInfos: [PinInfo], currentCenter: CLLocationCoordinate2D, maxDistance: Double, forceUpdate: Bool = false) {
-        print(#function)
+        //print(#function, "pinInfos.count: \(pinInfos.count)")
         guard let kakaoMap = controller?.getView("mapview") as? KakaoMap else {
             print("🚫 KakaoMap 객체를 가져올 수 없습니다.")
             return
@@ -595,7 +595,7 @@ extension Coordinator {
             print("변화 없음")
             return
         }
-        print("🔍 변화 있음")
+        //print("🔍 변화 있음")
         // 변화가 있을 경우에만 이전 좌표 업데이트
         previousTopLeft = topLeftLocation.coordinate
         previousBottomRight = bottomRightLocation.coordinate
@@ -605,16 +605,16 @@ extension Coordinator {
         for pinInfo in pinInfos {
             currentPinInfos[pinInfo.estateId] = pinInfo
         }
-        print("🔍 currentPinInfos 업데이트 성공")
+        //print("🔍 currentPinInfos 업데이트 성공")
         // 기존 POI 모두 제거
         clearAllPOIs()
         currentPOIs.removeAll()
         //clusters.removeAll()
-        print("🔍 기존 POI 모두 제거 성공")
+        //print("🔍 기존 POI 모두 제거 성공")
         // 클러스터링 수행
         let (clusterInfos, maxPoiSize) = performClustering(pinInfos, zoomLevel: currentZoomLevel)
         let clusteringType = getClusteringType(for: currentZoomLevel)
-        print("🔍 clusteringType 계산 성공")
+        //print("🔍 clusteringType 계산 성공")
         // zoomLevel에 따라 다른 처리
         switch clusteringType {
         case .zoomLevel6to14:
@@ -622,12 +622,12 @@ extension Coordinator {
         case .zoomLevel15Plus:
             createClusterPOIsForHighZoom(clusterInfos, zoomLevel: currentZoomLevel)
         }
-        print("🔍 클러스터링 수행 성공")
+        //print("🔍 클러스터링 수행 성공")
     }
     
     @MainActor
     private func createClusterPOIsForLowZoom(_ clusterInfos: [ClusterInfo], maxPoiSize: CGFloat?) {
-        print(#function, clusterInfos.count)
+        //print(#function, clusterInfos.count)
         guard let kakaoMap = controller?.getView("mapview") as? KakaoMap,
               let layer = kakaoMap.getLabelManager().getLabelLayer(layerID: layerID),
               let maxPoiSize = maxPoiSize else {
@@ -690,7 +690,7 @@ extension Coordinator {
     
     @MainActor
     private func createClusterPOIsForHighZoom(_ clusterInfos: [ClusterInfo], zoomLevel: Int) {
-        print(#function, clusterInfos.count)
+        //print(#function, clusterInfos.count)
         guard let kakaoMap = controller?.getView("mapview") as? KakaoMap,
               let layer = kakaoMap.getLabelManager().getLabelLayer(layerID: layerID) else {
             print("❌ 레이어 또는 맵 객체 생성 실패")
@@ -700,6 +700,12 @@ extension Coordinator {
         // 상태 초기화
         clearAllPOIs()
         //clusters.removeAll()
+
+         let counts = clusterInfos.map { $0.count }
+        guard !clusterInfos.isEmpty else {
+            print("❌ 클러스터가 비어있음")
+            return
+        }
         
         Task {
             // 모든 이미지 처리를 동시에 시작

@@ -340,4 +340,40 @@ final class DatabaseRepositoryImp: DatabaseRepository {
             }
         }
     }
+    
+    func updateUserId(oldUserId: String, newUserId: String) async throws {
+        try await withCheckedThrowingContinuation { continuation in
+            do {
+                let realm = try Realm(configuration: configuration)
+                
+                // ChatRealmModel의 senderId 업데이트
+                let chatMessages = realm.objects(ChatRealmModel.self)
+                try realm.write {
+                    for message in chatMessages {
+                        // 현재 로그인한 사용자의 메시지인 경우에만 업데이트
+                        if message.senderId == oldUserId {
+                            message.senderId = newUserId
+                            print("✅ 메시지 senderId 업데이트: \(oldUserId) -> \(newUserId)")
+                        }
+                    }
+                }
+                
+                // UserInfoRealmModel의 userId 업데이트
+                let userInfos = realm.objects(UserInfoRealmModel.self)
+                try realm.write {
+                    for userInfo in userInfos {
+                        if userInfo.userId == oldUserId {
+                            userInfo.userId = newUserId
+                            print("✅ 사용자 정보 userId 업데이트: \(oldUserId) -> \(newUserId)")
+                        }
+                    }
+                }
+                
+                continuation.resume()
+            } catch {
+                print("❌ userId 업데이트 실패: \(error.localizedDescription)")
+                continuation.resume(throwing: error)
+            }
+        }
+    }
 } 
