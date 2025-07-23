@@ -88,6 +88,7 @@ struct MyPageView: View {
         }
         .onAppear {
             container.handle(.initialRequest)
+            CurrentScreenTracker.shared.setCurrentScreen(.profile)
         }
         .alert("로그아웃", isPresented: $showLogoutAlert) {
             Button("취소", role: .cancel) { }
