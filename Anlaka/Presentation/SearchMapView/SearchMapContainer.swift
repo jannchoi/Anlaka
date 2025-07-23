@@ -23,6 +23,7 @@ struct SearchMapModel {
     var addressQuery: String = ""
     var errorMessage: String?
     var backToLogin: Bool = false
+    var searchedData: SearchListData?
 }
 
 enum SearchMapIntent {
@@ -30,7 +31,7 @@ enum SearchMapIntent {
     case requestLocationPermission
     case updateMaxDistance(Double)
     case mapDidStopMoving(CLLocationCoordinate2D, Double)
-    case searchBarSubmitted(String)
+    case searchBarSubmitted(SearchListData)
     case startMapEngine
 }
 
@@ -67,12 +68,11 @@ final class SearchMapContainer: NSObject, ObservableObject {
             model.maxDistance = maxDistance
             debounceGeoEstates(lon: center.longitude, lat: center.latitude, maxD: maxDistance)
             
-        case .searchBarSubmitted(let text):
-            model.addressQuery = text
-            if !text.isEmpty {
-                Task {
-                    await getGeoFromAddressQuery(text)
-                }
+        case .searchBarSubmitted(let searchedData):
+            print("searchmapcontainer🛠️🛠️🛠️",searchedData)
+            model.searchedData = searchedData
+            Task {
+                await getGeoEstates(lon: searchedData.longitude, lat: searchedData.latitude, maxD: model.maxDistance)
             }
             
         case .startMapEngine:
@@ -119,28 +119,7 @@ final class SearchMapContainer: NSObject, ObservableObject {
             handle(.loadDefaultLocation)
         }
     }
-    
-    private func getGeoFromAddressQuery(_ query: String) async {
-        guard !query.isEmpty else { return }
-        model.isLoading = true
-        
-        do {
-            let response = try await repository.getGeofromAddressQuery(query)
-            let coordinate = CLLocationCoordinate2D(
-                latitude: response.latitude,
-                longitude: response.longitude
-            )
-            model.centerCoordinate = coordinate
-            print("검색어 위치: \(coordinate.longitude) \(coordinate.latitude)" )
-            model.errorMessage = nil
-            await getGeoEstates(lon: response.longitude, lat: response.latitude, maxD: model.maxDistance)
-        } catch {
-            handleError(error)
-        }
-        
-        model.isLoading = false
-    }
-    
+
     private func getGeoEstates(lon: Double, lat: Double, maxD: Double) async {
         model.isLoading = true
         
