@@ -14,12 +14,17 @@ class WebSocketManager {
     private let connectionQueue = DispatchQueue(label: "com.anlaka.websocket.connection")
     private var manager: SocketManager?
     
+    // 백그라운드/포그라운드 상태 추적
+    private var isAppInBackground = false
+    private var shouldReconnectOnForeground = false
+    
     var onMessage: ((ChatMessageEntity) -> Void)?
     var onConnectionStatusChanged: ((Bool) -> Void)?
     
     init(roomId: String) {
         self.roomId = roomId
         setupNetworkMonitoring()
+        setupAppLifecycleObserver()
     }
     
     private func setupNetworkMonitoring() {
@@ -41,6 +46,13 @@ class WebSocketManager {
     func connect() {
         connectionQueue.async { [weak self] in
             guard let self = self else { return }
+            
+            // 앱이 백그라운드 상태면 연결하지 않고 플래그만 설정
+            if self.isAppInBackground {
+                print("🔵 앱이 백그라운드 상태 - 연결 지연")
+                self.shouldReconnectOnForeground = true
+                return
+            }
             
             // 이미 연결되어 있거나 연결 중이면 중복 연결 방지
             guard !self.isConnected && !self.isConnecting else {
@@ -154,6 +166,7 @@ class WebSocketManager {
         connectionQueue.async { [weak self] in
             self?.cleanupExistingConnection()
             self?.onConnectionStatusChanged?(false)
+            self?.shouldReconnectOnForeground = false
         }
     }
     
@@ -217,9 +230,51 @@ class WebSocketManager {
         }
     }
     
+    // MARK: - 앱 생명주기 이벤트 처리
+    private func setupAppLifecycleObserver() {
+        // SceneDelegate에서 전송하는 채팅 소켓 제어 알림
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(chatSocketShouldDisconnect),
+            name: .chatSocketShouldDisconnect,
+            object: nil
+        )
+        
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(chatSocketShouldReconnect),
+            name: .chatSocketShouldReconnect,
+            object: nil
+        )
+    }
+    
+    @objc private func chatSocketShouldDisconnect() {
+        print("🔵 WebSocketManager: SceneDelegate에서 소켓 해제 요청")
+        isAppInBackground = true
+        
+        // 백그라운드 진입 시 소켓 해제
+        connectionQueue.async { [weak self] in
+            self?.cleanupExistingConnection()
+            self?.onConnectionStatusChanged?(false)
+        }
+    }
+    
+    @objc private func chatSocketShouldReconnect() {
+        print("🟢 WebSocketManager: SceneDelegate에서 소켓 재연결 요청")
+        isAppInBackground = false
+        
+        // 포그라운드 복귀 시 재연결 시도
+        if shouldReconnectOnForeground {
+            print("🟢 WebSocketManager: 포그라운드 복귀 시 재연결 시도")
+            shouldReconnectOnForeground = false
+            attemptReconnect()
+        }
+    }
+    
     deinit {
         networkMonitor?.cancel()
         reconnectTimer?.invalidate()
+        NotificationCenter.default.removeObserver(self)
         disconnect()
     }
 } 

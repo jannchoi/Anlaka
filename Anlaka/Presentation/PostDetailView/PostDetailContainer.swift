@@ -25,6 +25,7 @@ enum PostDetailIntent {
     case deleteComment(String) // commentId
     case deleteReply(String, String) // parentCommentId, replyId
     case deletePost // 게시글 삭제 추가
+    case updatePost(PostResponseEntity) // 게시글 수정 추가
 }
 
 @MainActor
@@ -88,6 +89,8 @@ final class PostDetailContainer: ObservableObject {
             Task {
                 await deletePost()
             }
+        case .updatePost(let updatedPost):
+            updatePost(updatedPost)
         }
     }
     
@@ -118,6 +121,10 @@ final class PostDetailContainer: ObservableObject {
         
         do {
             try await useCase.toggleLike(postId: postId, status: model.isLiked)
+            // 좋아요 변경 성공 시 CommunityView에 알림 전송
+            if let updatedPost = model.post {
+                NotificationCenter.default.post(name: .postUpdated, object: updatedPost)
+            }
         } catch {
             // 실패 시 롤백 및 에러 메시지 저장
             model.isLiked = prevLiked
@@ -277,9 +284,23 @@ final class PostDetailContainer: ObservableObject {
     private func deleteComment(commentId: String) async {
         guard let idx = model.post?.comments.firstIndex(where: { $0.commentId == commentId }) else { return }
         let deletedComment = model.post?.comments.remove(at: idx)
+        
+        // 삭제된 댓글의 대댓글들도 함께 삭제
+        let deletedReplies = deletedComment?.replies ?? []
+        
         do {
             let success = try await useCase.deleteComment(postId: postId, commentId: commentId)
-            // 댓글 삭제 성공 시 별도 카운트 업데이트 필요 없음
+            
+            // 대댓글들도 서버에서 삭제 (실패해도 UI에서는 이미 제거됨)
+            for reply in deletedReplies {
+                do {
+                    try await useCase.deleteComment(postId: postId, commentId: reply.commentId)
+                } catch {
+                    print("⚠️ 대댓글 삭제 실패: \(reply.commentId), 에러: \(error.localizedDescription)")
+                }
+            }
+            
+
         } catch {
             // 실패 시 복구 및 sendFailed
             if let deletedComment = deletedComment {
@@ -295,7 +316,6 @@ final class PostDetailContainer: ObservableObject {
         let deleted = model.post?.comments[cIdx].replies.remove(at: rIdx)
         do {
             try await useCase.deleteComment(postId: postId, commentId: replyId)
-            // 답글 삭제 성공 시 별도 카운트 업데이트 필요 없음
         } catch {
             // 실패 시 복구 및 sendFailed
             if let deleted = deleted {
@@ -310,6 +330,8 @@ final class PostDetailContainer: ObservableObject {
         guard let post = model.post else { return }
         do {
             try await useCase.deletePost(postId: postId)
+            // 게시글 삭제 성공 시 CommunityView에 알림 전송
+            NotificationCenter.default.post(name: .postDeleted, object: postId)
             // 게시글 삭제 성공 시 toast 표시 후 화면 이동
             model.toast = FancyToast(
                 type: .success,
@@ -325,5 +347,21 @@ final class PostDetailContainer: ObservableObject {
         } catch {
             model.error = error.localizedDescription
         }
+    }
+    
+    private func updatePost(_ updatedPost: PostResponseEntity) {
+        // 현재 게시글 업데이트
+        model.post = updatedPost
+        
+        // CommunityView에 수정된 게시글 정보 전송
+        NotificationCenter.default.post(name: .postUpdated, object: updatedPost)
+        
+        // 수정 성공 toast 표시
+        model.toast = FancyToast(
+            type: .success,
+            title: "성공",
+            message: "게시글이 수정되었습니다.",
+            duration: 2.0
+        )
     }
 }

@@ -269,7 +269,7 @@ struct MyTabView: View {
                         .scaledToFit()
                         .frame(width: 30)
                     if routingStateManager.currentTab == .home {
-                        Text("홈")
+                        Text("")
                             .font(.pretendardCaption2)
                     }
                 }
@@ -285,8 +285,8 @@ struct MyTabView: View {
                         .resizable()
                         .scaledToFit()
                         .frame(width: 30)
-                    if routingStateManager.currentTab == .community {
-                        Text("커뮤니티")
+                   if routingStateManager.currentTab == .community {
+                        Text("")
                             .font(.pretendardCaption2)
                     }
                 }
@@ -303,7 +303,7 @@ struct MyTabView: View {
                         .scaledToFit()
                         .frame(width: 30)
                     if routingStateManager.currentTab == .reserved {
-                        Text("예약")
+                        Text("")
                             .font(.pretendardCaption2)
                     }
                 }
@@ -315,12 +315,12 @@ struct MyTabView: View {
                 CurrentScreenTracker.shared.setCurrentScreen(.profile)
             } label: {
                 VStack(alignment: .center) {
-                    Image(routingStateManager.currentTab == .myPage ? "Setting_Fill" : "Setting_Empty")
+                    Image(routingStateManager.currentTab == .myPage ? "User_Fill" : "User_Empty")
                         .resizable()
                         .scaledToFit()
                         .frame(width: 30)
                     if routingStateManager.currentTab == .myPage {
-                        Text("마이")
+                        Text("")
                             .font(.pretendardCaption2)
                     }
                 }

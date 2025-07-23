@@ -29,6 +29,8 @@ final class MyPageContainer: ObservableObject {
     private let repository: NetworkRepository
     private let databaseRepository: DatabaseRepository
     private var notificationObserver: NSObjectProtocol?
+    private var profileUpdatedObserver: NSObjectProtocol? // 프로필 수정 알림 observer
+    private var lastMessageUpdatedObserver: NSObjectProtocol? // 마지막 메시지 업데이트 알림 observer
 
     init(repository: NetworkRepository, databaseRepository: DatabaseRepository) {
         self.repository = repository
@@ -36,12 +38,74 @@ final class MyPageContainer: ObservableObject {
         
         // 포그라운드 진입 알림 구독
         setupNotificationObserver()
+        
+        // 프로필 수정 알림 구독
+        profileUpdatedObserver = NotificationCenter.default.addObserver(
+            forName: .profileUpdated,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            if let updatedProfile = notification.object as? MyProfileInfoEntity {
+                self?.model.profileInfo = updatedProfile
+                // UserDefaults에도 업데이트
+                UserDefaultsManager.shared.setObject(updatedProfile, forKey: .profileData)
+            }
+        }
+        
+        // 마지막 메시지 업데이트 알림 구독
+        lastMessageUpdatedObserver = NotificationCenter.default.addObserver(
+            forName: .lastMessageUpdated,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            if let (roomId, message) = notification.object as? (String, String) {
+                self?.updateLastMessage(roomId: roomId, message: message)
+            }
+        }
     }
     
     deinit {
         // 알림 구독 해제
         if let observer = notificationObserver {
             NotificationCenter.default.removeObserver(observer)
+        }
+        if let observer = profileUpdatedObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        if let observer = lastMessageUpdatedObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+    }
+    
+    private func updateLastMessage(roomId: String, message: String) {
+        // 채팅방 목록에서 해당 roomId를 찾아서 마지막 메시지 업데이트
+        if let index = model.chatRoomList.firstIndex(where: { $0.roomId == roomId }) {
+            let currentRoom = model.chatRoomList[index]
+            
+            // 새로운 마지막 메시지로 ChatEntity 생성
+            let newLastChat = ChatEntity(
+                chatId: "temp_\(UUID().uuidString)",
+                roomId: roomId,
+                content: message,
+                createdAt: PresentationMapper.formatDateToISO8601(Date()),
+                updatedAt: PresentationMapper.formatDateToISO8601(Date()),
+                sender: UserDefaultsManager.shared.getObject(forKey: .profileData, as: MyProfileInfoEntity.self)?.userid ?? "",
+                files: []
+            )
+            
+            // 새로운 ChatRoomEntity 생성 (let 상수이므로 새 인스턴스 생성)
+            let updatedRoom = ChatRoomEntity(
+                roomId: currentRoom.roomId,
+                createdAt: currentRoom.createdAt,
+                updatedAt: PresentationMapper.formatDateToISO8601(Date()),
+                participants: currentRoom.participants,
+                lastChat: newLastChat
+            )
+            
+            model.chatRoomList[index] = updatedRoom
+            
+            // updatedRoomIds에 추가하여 새 메시지 표시
+            model.updatedRoomIds.insert(roomId)
         }
     }
     
