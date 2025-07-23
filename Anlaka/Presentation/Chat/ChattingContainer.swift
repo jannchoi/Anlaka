@@ -26,6 +26,9 @@ struct ChattingModel {
     // CustomToastView 관련 상태
     var toast: FancyToast? = nil
     
+    // newMessageButton 흔들림 관련 상태
+    var shouldShakeNewMessageButton: Bool = false
+    
     // 시간순으로 정렬된 메시지 반환
     var sortedMessages: [ChatEntity] {
         // 중복 제거 (chatId 기준) - Dictionary 사용
@@ -390,11 +393,25 @@ final class ChattingContainer: ObservableObject {
                 )
                 
                 // DB 저장 및 UI 업데이트
+                do {
                 try await databaseRepository.saveMessage(chatEntity)
                 model.messages.append(chatEntity)
                 model.updateMessagesGroupedByDate()
+                    
+                    // newMessageButton 흔들림 처리
+                    handleNewMessageButtonShake()
                 
                 print("✅ 새 메시지 저장 완료: \(message.chatID)")
+                } catch {
+                    print("⚠️ 메시지 저장 중 오류 발생 (중복 가능성): \(error.localizedDescription)")
+                    // 중복 키 오류인 경우 UI에만 추가 (DB는 이미 존재할 수 있음)
+                    if error.localizedDescription.contains("primary key") || error.localizedDescription.contains("existing") {
+                        model.messages.append(chatEntity)
+                        model.updateMessagesGroupedByDate()
+                        handleNewMessageButtonShake()
+                        print("✅ 중복 메시지로 인식하여 UI에만 추가: \(message.chatID)")
+                    }
+                }
                 
                 // 채팅방 목록의 마지막 메시지는 서버 동기화 시에만 업데이트
                 // (기존 아키텍처에 맞춰 WebSocket 메시지는 DB에만 저장)
@@ -402,6 +419,26 @@ final class ChattingContainer: ObservableObject {
                 print("❌ 메시지 저장 실패: \(error.localizedDescription)")
                 // 에러가 발생해도 채팅은 계속 진행 (model.error 설정하지 않음)
             }
+        }
+    }
+    
+    // MARK: - newMessageButton 흔들림 처리
+    private func handleNewMessageButtonShake() {
+        // 이미 흔들림 상태라면 추가 흔들림
+        if model.shouldShakeNewMessageButton {
+            // 흔들림 상태를 잠시 해제했다가 다시 활성화
+            model.shouldShakeNewMessageButton = false
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                self.model.shouldShakeNewMessageButton = true
+            }
+        } else {
+            // 첫 번째 흔들림
+            model.shouldShakeNewMessageButton = true
+        }
+        
+        // 1초 후 흔들림 상태 해제
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            self.model.shouldShakeNewMessageButton = false
         }
     }
     
