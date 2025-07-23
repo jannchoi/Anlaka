@@ -111,6 +111,7 @@ struct HomeView: View {
                 get: { container.model.selectedEstateId},
                 set: { container.model.selectedEstateId = $0 }
             )) { identifiableString in
+
                 LazyView(content: EstateDetailView(di: di,estateId: identifiableString.id))
             }
             .sheet(isPresented: $container.model.showSafariSheet) {
