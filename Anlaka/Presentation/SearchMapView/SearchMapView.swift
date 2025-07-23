@@ -11,9 +11,7 @@ import CoreLocation
 struct SearchMapView: View {
     let di: DIContainer
     @StateObject private var container: SearchMapContainer
-    @State var draw: Bool = false
-    @State private var isMapReady: Bool = false
-    @State private var isSearchBarEditing: Bool = false // 검색 바 편집 상태 추가
+    @State private var isSearchBarEditing: Bool = false
     @AppStorage(TextResource.Global.isLoggedIn.text) private var isLoggedIn: Bool = true
     
     init(di: DIContainer) {
@@ -23,137 +21,108 @@ struct SearchMapView: View {
     
     var body: some View {
         ZStack {
-            if isMapReady {
-                KakaoMapView(
-                    draw: $draw,
-                    centerCoordinate: container.model.centerCoordinate,
-                    isInteractive: !isSearchBarEditing,
-                    pinInfoList: container.model.pinInfoList,
-                    onCenterChanged: { newCenter in
-                        container.handle(.updateCenterCoordinate(newCenter))
-                    },
-                    onMapReady: { maxDistance in
-                        container.handle(.mapDidStopMoving(center: container.model.centerCoordinate, maxDistance: maxDistance))
-                    },
-                    // 새로운 콜백 추가 - 지도 변화 시 즉시 호출
-                    onMapChanged: { center, maxDistance in
-                        // 즉시 getGeoEstates 호출
-                        container.handle(.mapDidStopMoving(center: center, maxDistance: maxDistance))
-                    }
-                )
-            } else {
-                Color.gray.opacity(0.1)
-                    .ignoresSafeArea(.all)
-            }
+            KakaoMapView(
+                draw: .constant(container.model.shouldDrawMap),
+                centerCoordinate: container.model.centerCoordinate,
+                isInteractive: !isSearchBarEditing,
+                pinInfoList: container.model.pinInfoList,
+                onMapReady: { maxDistance in
+                    container.handle(.updateMaxDistance(maxDistance))
+                },
+                onMapChanged: { center, maxDistance in
+                    container.handle(.mapDidStopMoving(center, maxDistance))
+                }
+            )
             
-            // Search Bar Overlay
             VStack {
-                SearchBarView(
-                    searchText: $container.model.addressQuery,
-                    onSubmitted: { text in
-                        container.handle(.searchBarSubmitted(text))
-                    },
-                    onEditingChanged: { isEditing in
-                        isSearchBarEditing = isEditing // 편집 상태 업데이트
+                SearchBar(
+                    text: $container.model.addressQuery,
+                    isEditing: $isSearchBarEditing,
+                    onSubmit: { query in
+                        container.handle(.searchBarSubmitted(query))
+                        hideKeyboard()
+                        isSearchBarEditing = false
                     }
                 )
-                .padding(.horizontal, 16)
+                .padding(.horizontal)
                 .padding(.top, 8)
                 
                 Spacer()
             }
             
-            if isSearchBarEditing {
-                Color.clear
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        // 오버레이를 터치하면 키보드 닫기
-                        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-                        isSearchBarEditing = false
-                    }
-                    .ignoresSafeArea(.all)
-            }
-            
-            // Loading Indicator
             if container.model.isLoading {
-                Color.black.opacity(0.3)
-                    .ignoresSafeArea(.all)
-                
                 ProgressView()
-                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                    .scaleEffect(1.5)
             }
             
-            // Current Location Button
-            VStack {
-                Spacer()
-                HStack {
-                    Spacer()
-                    Button(action: {
-                        if container.model.isLocationPermissionGranted {
-                            if let currentLocation = container.model.currentLocation {
-                                container.handle(.updateCenterCoordinate(currentLocation))
-                            }
-                        } else {
-                            container.handle(.requestLocationPermission)
-                        }
-                    }) {
-                        Image(systemName: container.model.isLocationPermissionGranted ? "location.fill" : "location")
-                            .font(.system(size: 20))
-                            .foregroundColor(.blue)
-                            .frame(width: 44, height: 44)
-                            .background(Color.white)
-                            .clipShape(Circle())
-                            .shadow(radius: 4)
-                    }
-                    .padding(.trailing, 16)
-                    .padding(.bottom, 100)
-                }
-            }
-            
-            // Estate Count Info (for debugging)
-            if !container.model.estates.isEmpty {
-                VStack {
-                    HStack {
-                        EstateCountView(count: container.model.estates.count)
-                        Spacer()
-                    }
-                    Spacer()
-                }
-                .padding(.top, 80)
-                .padding(.leading, 16)
+            if let errorMessage = container.model.errorMessage {
+                Text(errorMessage)
+                    .foregroundColor(.red)
+                    .padding()
+                    .background(Color.white)
+                    .cornerRadius(8)
             }
         }
-        .navigationBarHidden(true)
+        .navigationBarTitleDisplayMode(.inline)
         .onAppear {
-            print("SearchMapView appeared")
-            isMapReady = true
-            draw = true
             container.handle(.requestLocationPermission)
         }
-        .onDisappear {
-            draw = false
-            isMapReady = false
-            print("SearchMapView disappeared")
-        }
-        .onChange(of: container.model.backToLogin) { backToLogin in
-            if backToLogin {
+        .onChange(of: container.model.backToLogin) { needsLogin in
+            if needsLogin {
                 isLoggedIn = false
             }
         }
-        
-        .alert("오류", isPresented: .constant(container.model.errorMessage != nil), actions: {
-            Button("확인") {
-                container.model.errorMessage = nil
-            }
-        }, message: {
-            if let errorMessage = container.model.errorMessage {
-                Text(errorMessage)
-            }
-        })
     }
 }
 
+struct SearchBar: View {
+    @Binding var text: String
+    @Binding var isEditing: Bool
+    var onSubmit: (String) -> Void
+    
+    var body: some View {
+        HStack {
+            TextField("주소 검색", text: $text)
+                .padding(7)
+                .padding(.horizontal, 25)
+                .background(Color(.systemGray6))
+                .cornerRadius(8)
+                .overlay(
+                    HStack {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundColor(.gray)
+                            .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+                            .padding(.leading, 8)
+                    }
+                )
+                .onTapGesture {
+                    isEditing = true
+                }
+                .onSubmit {
+                    onSubmit(text)
+                }
+            
+            if isEditing {
+                Button(action: {
+                    isEditing = false
+                    text = ""
+                    hideKeyboard()
+                }) {
+                    Text("취소")
+                }
+                .padding(.trailing, 10)
+                .transition(.move(edge: .trailing))
+                .animation(.default, value: isEditing)
+            }
+        }
+    }
+}
+
+extension View {
+    func hideKeyboard() {
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder),
+                                      to: nil, from: nil, for: nil)
+    }
+}
 
 // MARK: - Estate Count View (for debugging/preview)
 struct EstateCountView: View {
@@ -173,78 +142,5 @@ struct EstateCountView: View {
         .background(Color.white.opacity(0.9))
         .cornerRadius(16)
         .shadow(radius: 2)
-    }
-}
-
-struct SearchBarView: View {
-    @Binding var searchText: String
-    let onSubmitted: (String) -> Void
-    let onEditingChanged: (Bool) -> Void // 편집 상태 변경 클로저 추가
-    let placeholder: String
-    
-    @State private var isEditing = false
-    
-    init(searchText: Binding<String>,
-         placeholder: String = "주소를 검색하세요",
-         onSubmitted: @escaping (String) -> Void,
-         onEditingChanged: @escaping (Bool) -> Void) {
-        self._searchText = searchText
-        self.placeholder = placeholder
-        self.onSubmitted = onSubmitted
-        self.onEditingChanged = onEditingChanged
-    }
-    
-    var body: some View {
-        HStack {
-            HStack {
-                Image(systemName: "magnifyingglass")
-                    .foregroundColor(.gray)
-                    .font(.system(size: 16))
-                
-                TextField(placeholder, text: $searchText) { isEditing in
-                    self.isEditing = isEditing
-                    onEditingChanged(isEditing) // 편집 상태 전달
-                } onCommit: {
-                    onSubmitted(searchText)
-                    hideKeyboard()
-                    self.isEditing = false
-                    onEditingChanged(false)
-                }
-                .textFieldStyle(PlainTextFieldStyle())
-                
-                if !searchText.isEmpty {
-                    Button(action: {
-                        searchText = ""
-                    }) {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(.gray)
-                            .font(.system(size: 16))
-                    }
-                }
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .background(Color(.systemGray6))
-            .cornerRadius(10)
-            
-            if isEditing {
-                Button("취소") {
-                    isEditing = false
-                    onEditingChanged(false)
-                    searchText = ""
-                    hideKeyboard()
-                }
-                .foregroundColor(.blue)
-                .transition(.move(edge: .trailing))
-            }
-        }
-        .animation(.easeInOut(duration: 0.2), value: isEditing)
-    }
-}
-// Helper extension to hide keyboard
-extension View {
-    func hideKeyboard() {
-        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder),
-                                        to: nil, from: nil, for: nil)
     }
 }
