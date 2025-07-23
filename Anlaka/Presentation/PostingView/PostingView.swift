@@ -70,7 +70,11 @@ struct PostingView: View {
             CustomNavigationBar(
                 title: "게시글 작성하기",
                 leftButton: {
-                    Button(action: { path.removeLast() }) {
+                    Button(action: { 
+                        if !path.isEmpty {
+                            path.removeLast()
+                        }
+                    }) {
                         Image("chevron")
                             .font(.headline)
                             .foregroundColor(.MainTextColor)
@@ -206,7 +210,9 @@ struct PostingView: View {
             if let newToast = newToast {
                 // toast 표시 후 1.2초 뒤 pop
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-                    path.removeLast()
+                    if !path.isEmpty {
+                        path.removeLast()
+                    }
                 }
             }
         }
