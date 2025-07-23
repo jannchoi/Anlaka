@@ -34,7 +34,6 @@ final class MyPageContainer: ObservableObject {
     func handle(_ intent: MyPageIntent) {
         switch intent {
         case .initialRequest:
-           
                  getMyProfileInfo()
                  getChatRoomList()
             
@@ -106,13 +105,33 @@ final class MyPageContainer: ObservableObject {
                 for serverRoom in serverRooms.rooms {
                     if let localRoom = localRooms.first(where: { $0.roomId == serverRoom.roomId }) {
                         // 기존 방이 있는 경우
+                        var shouldUpdate = false
+                        
+                        // 1) 채팅 메시지 업데이트 확인 (서버 가이드에 따름)
+                        // 서버의 updatedAt이 로컬DB의 updatedAt보다 크면 새로운 채팅이 있음을 의미
                         if serverRoom.updatedAt > localRoom.updatedAt {
-                            updatedRoomIds.insert(serverRoom.roomId)
+                            shouldUpdate = true
+                            updatedRoomIds.insert(serverRoom.roomId) // hasNewChat 표시용
+                            print("🆕 새로운 채팅 발견: \(serverRoom.roomId), 서버: \(serverRoom.updatedAt), 로컬: \(localRoom.updatedAt)")
                         }
-                        roomsToUpdate.append(serverRoom)
+                        
+                        // 2) 프로필 정보 변경 확인 (채팅 메시지는 없지만 프로필이 변경된 경우)
+                        let profileChanged = hasProfileChanged(serverRoom: serverRoom, localRoom: localRoom)
+                        if profileChanged {
+                            shouldUpdate = true
+                            print("👤 프로필 정보 변경: \(serverRoom.roomId)")
+                        }
+                        
+                        if shouldUpdate {
+                            roomsToUpdate.append(serverRoom)
+                        } else {
+                            // 업데이트가 필요없으면 기존 로컬 데이터 사용
+                            roomsToUpdate.append(localRoom)
+                        }
                     } else {
                         // 새로운 방인 경우
                         roomsToUpdate.append(serverRoom)
+                        print("🆕 새로운 채팅방: \(serverRoom.roomId)")
                     }
                 }
                 
@@ -129,7 +148,9 @@ final class MyPageContainer: ObservableObject {
                 
                 // 5. UI 갱신
                 model.chatRoomList = roomsToUpdate
-                model.updatedRoomIds = updatedRoomIds
+                model.updatedRoomIds = updatedRoomIds // hasNewChat 표시할 채팅방 ID들
+                
+                print("📱 UI 업데이트 완료 - 새로운 채팅이 있는 방: \(updatedRoomIds)")
                 
             } catch {
                 print("❌ Failed to get chat room list: \(error)")
@@ -141,6 +162,31 @@ final class MyPageContainer: ObservableObject {
                 }
             }
         }
+    }
+    
+    // 프로필 정보 변경 확인 헬퍼 메서드
+    private func hasProfileChanged(serverRoom: ChatRoomEntity, localRoom: ChatRoomEntity) -> Bool {
+        // 서버와 로컬의 participants 수가 다르면 변경된 것으로 간주
+        if serverRoom.participants.count != localRoom.participants.count {
+            return true
+        }
+        
+        // 각 participant의 프로필 정보 비교
+        for serverParticipant in serverRoom.participants {
+            if let localParticipant = localRoom.participants.first(where: { $0.userId == serverParticipant.userId }) {
+                // 프로필 정보가 다르면 변경된 것으로 간주
+                if serverParticipant.nick != localParticipant.nick ||
+                   serverParticipant.introduction != localParticipant.introduction ||
+                   serverParticipant.profileImage != localParticipant.profileImage {
+                    return true
+                }
+            } else {
+                // 새로운 참여자가 추가된 경우
+                return true
+            }
+        }
+        
+        return false
     }
 }
     

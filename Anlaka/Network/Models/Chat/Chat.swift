@@ -39,7 +39,7 @@ struct ChatResponseDTO: Codable {
             content: content,
             createdAt: createdAt,
             updatedAt: updatedAt,
-            sender: sender.toEntity(),
+            sender: sender.userId,
             files: files
         )
     }
@@ -52,12 +52,12 @@ struct ChatEntity: Identifiable {
     let content: String
     let createdAt: String
     let updatedAt: String
-    let sender: UserInfoEntity
+    let sender: String
     let files: [String]
       
     var isMine: Bool {
         if let userInfo = UserDefaultsManager.shared.getObject(forKey: .profileData, as: MyProfileInfoEntity.self) {
-            return sender.userId == userInfo.userid
+            return sender == userInfo.userid
         }
         return false
     }
