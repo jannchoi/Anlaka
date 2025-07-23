@@ -67,6 +67,50 @@ enum TextResource {
             }
         }
     }
+    
+    enum Community {
+        
+        enum Sort: String, CaseIterable {
+            case createdAt = "createdAt"
+            case likes = "likes"
+            
+            var text: String {
+                switch self {
+                case .createdAt:
+                    return "최신순"
+                case .likes:
+                    return "좋아요순"
+                }
+            }
+        }
+        
+        enum Category: String, CaseIterable {
+            case all = "전체"
+            case info = "정보"
+            case social = "친목"
+            case issue = "이슈"
+            case animal = "동물"
+            case lost = "분실"
+            case food = "맛집"
+            
+            var text: String {
+                return self.rawValue
+            }
+            
+            var displayName: String {
+                return self.rawValue
+            }
+            
+            var serverValue: String? {
+                switch self {
+                case .all:
+                    return nil
+                default:
+                    return self.rawValue
+                }
+            }
+        }
+    }
 }
 
 enum DefaultValues {
@@ -89,3 +133,4 @@ enum DefaultValues {
         }
     }
 }
+

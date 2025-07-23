@@ -32,6 +32,7 @@ extension Font {
     static let pretendardFootnote = pretendard(size: 12, weight: .regular)
     static let pretendardCaption = pretendard(size: 11, weight: .regular)
     static let pretendardCaption2 = pretendard(size: 10, weight: .regular)
+    static let pretendardCaption3 = pretendard(size: 9, weight: .regular)
     
     // SOYO 폰트 스타일들 (제목 및 강조용)
     static let soyoLargeTitle = soyo(size: 34, weight: .bold)
@@ -41,4 +42,6 @@ extension Font {
     static let soyoHeadline = soyo(size: 14, weight: .bold)
     static let soyoSubheadline = soyo(size: 13, weight: .bold) // 추가된 작은 크기
     static let soyoBody = soyo(size: 12, weight: .regular)
-} 
+    static let soyoCaption = soyo(size: 10, weight: .regular)
+    static let soyoCaption2 = soyo(size: 9, weight: .regular)
+}

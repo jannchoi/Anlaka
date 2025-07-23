@@ -27,12 +27,12 @@ enum SearchAddressIntent {
 
 class SearchAddressContainer: ObservableObject {
     @Published var model = SearchAddressModel()
-    private let repository: NetworkRepository
+    private let repository: AddressNetworkRepository
     
     // 선택된 주소를 전달하기 위한 클로저 추가
     var onAddressSelected: ((SearchListData) -> Void)?
     
-    init(repository: NetworkRepository) {
+    init(repository: AddressNetworkRepository) {
         self.repository = repository
     }
     
@@ -127,7 +127,7 @@ class SearchAddressContainer: ObservableObject {
     }
     
     private func handleError(_ error: Error) {
-        if let netError = error as? NetworkError {
+        if let netError = error as? CustomError {
             model.errorMessage = netError.errorDescription
         } else {
             model.errorMessage = error.localizedDescription

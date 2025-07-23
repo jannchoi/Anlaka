@@ -25,7 +25,9 @@ final class NetworkMonitor {
 
     func checkConnection() async throws {
         if !isConnected {
-            throw NetworkError.disconnected
+            print("❌ 네트워크 연결 에러:")
+            print("   인터넷 연결이 없습니다.")
+            throw CustomError.disconnected
         }
     }
 
