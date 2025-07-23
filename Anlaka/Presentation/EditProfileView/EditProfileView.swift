@@ -13,25 +13,36 @@ struct EditProfileView: View {
     }
     
     var body: some View {
-        ScrollView {
-            VStack(spacing: 24) {
-                // 프로필 이미지 섹션
-                profileImageSection
-                
-                // 입력 필드들
-                inputFieldsSection
-                
-                // 저장 버튼
-                saveButton
+        VStack(spacing: 0) {
+            // CustomNavigationBar 추가
+            CustomNavigationBar(title: "프로필 수정", leftButton: {
+                // 뒤로가기 버튼
+                Button(action: {
+                    print("EditProfileView - 뒤로가기 버튼 클릭, 현재 path.count: \(path.count)")
+                    path.removeLast()
+                    print("EditProfileView - path.removeLast() 후 path.count: \(path.count)")
+                }) {
+                    Image(systemName: "chevron.left")
+                        .foregroundColor(Color.MainTextColor)
+                }
+            })
+            
+            ScrollView {
+                VStack(spacing: 24) {
+                    // 프로필 이미지 섹션
+                    profileImageSection
+                    
+                    // 입력 필드들
+                    inputFieldsSection
+                    
+                    // 저장 버튼
+                    saveButton
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 16)
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 16)
         }
-        .navigationBarTitleDisplayMode(.large)
-        .navigationBarBackButtonHidden(true)
-        .toolbar {
-            EditProfileToolbar(path: $path)
-        }
+        .navigationBarHidden(true)
         .onAppear {
             container.handle(.initialRequest)
         }
@@ -109,45 +120,6 @@ struct EditProfileView: View {
         
         // 컨테이너에 저장 요청
         container.handle(.saveProfile(editProfile, profileImageData))
-    }
-}
-
-// MARK: - EditProfileToolbar
-struct EditProfileToolbar: ToolbarContent {
-    @Binding var path: NavigationPath
-    
-    var body: some ToolbarContent {
-        ToolbarItem(placement: .navigationBarLeading) {
-            BackButton(path: $path)
-        }
-        
-        ToolbarItem(placement: .principal) {
-            NavigationTitle()
-        }
-    }
-}
-
-// MARK: - BackButton
-struct BackButton: View {
-    @Binding var path: NavigationPath
-    
-    var body: some View {
-        Button(action: {
-            path.removeLast()
-        }) {
-            Image(systemName: "chevron.left")
-                .foregroundColor(Color.MainTextColor)
-                .font(.system(size: 18, weight: .medium))
-        }
-    }
-}
-
-// MARK: - NavigationTitle
-struct NavigationTitle: View {
-    var body: some View {
-        Text("프로필 수정")
-            .font(.system(size: 18, weight: .semibold))
-            .foregroundColor(Color.MainTextColor)
     }
 }
 

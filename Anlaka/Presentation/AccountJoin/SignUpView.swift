@@ -19,17 +19,27 @@ struct SignUpView: View {
     }
     
     var body: some View {
-        ZStack {
-            Color("WarmLinen")
-                .ignoresSafeArea()
+        VStack(spacing: 0) {
+            CustomNavigationBar(title: "회원가입", leftButton:  {
+                Button(action: {
+                    // 뒤로가기 로직
+                }) {
+                    Image(systemName: "chevron.left")
+                        .foregroundColor(Color.MainTextColor)
+                }
+            })
             
-            ScrollView {
-                SignUpFormView(container: container)
-                    .dismissKeyboardToolbar()
-                    .padding(20)
+            ZStack {
+                Color("WarmLinen")
+                    .ignoresSafeArea()
+                
+                ScrollView {
+                    SignUpFormView(container: container)
+                        .dismissKeyboardToolbar()
+                        .padding(20)
+                }
             }
         }
-        .navigationTitle("회원가입")
         .alert(item: Binding(
             get: { container.model.errorMessage.map { Message(text: $0) } },
             set: { _ in container.model.errorMessage = nil })
