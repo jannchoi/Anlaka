@@ -13,6 +13,7 @@
 		CE6C85402DD71F22009E9343 /* KakaoSDKUser in Frameworks */ = {isa = PBXBuildFile; productRef = CE6C853F2DD71F22009E9343 /* KakaoSDKUser */; };
 		CE7707602DF6CC770003A053 /* RealmSwift in Frameworks */ = {isa = PBXBuildFile; productRef = CE77075F2DF6CC770003A053 /* RealmSwift */; };
 		CE9291A62DF994E4000981B5 /* SocketIO in Frameworks */ = {isa = PBXBuildFile; productRef = CE9291A52DF994E4000981B5 /* SocketIO */; };
+		CE98A8F52DFD040B005279D3 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = CE98A8F42DFD040B005279D3 /* FirebaseMessaging */; };
 		CEBF07B62DF97A160073A761 /* RealmSwift in Embed Frameworks */ = {isa = PBXBuildFile; productRef = CE77075F2DF6CC770003A053 /* RealmSwift */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		CEE183352DCF69D800A33B15 /* .gitignore in Resources */ = {isa = PBXBuildFile; fileRef = CEE183342DCF69D800A33B15 /* .gitignore */; };
 /* End PBXBuildFile section */
@@ -65,6 +66,7 @@
 			files = (
 				CE6C853E2DD71F22009E9343 /* KakaoSDKCommon in Frameworks */,
 				CE6C853C2DD71F22009E9343 /* KakaoSDKAuth in Frameworks */,
+				CE98A8F52DFD040B005279D3 /* FirebaseMessaging in Frameworks */,
 				CE6C85402DD71F22009E9343 /* KakaoSDKUser in Frameworks */,
 				CE7707602DF6CC770003A053 /* RealmSwift in Frameworks */,
 				CE5F4D8A2DDF4CF90066C970 /* KakaoMapsSDK-SPM in Frameworks */,
@@ -120,6 +122,7 @@
 				CE5F4D892DDF4CF90066C970 /* KakaoMapsSDK-SPM */,
 				CE77075F2DF6CC770003A053 /* RealmSwift */,
 				CE9291A52DF994E4000981B5 /* SocketIO */,
+				CE98A8F42DFD040B005279D3 /* FirebaseMessaging */,
 			);
 			productName = Anlaka;
 			productReference = CEE183232DCF698300A33B15 /* Anlaka.app */;
@@ -155,6 +158,7 @@
 				CE5F4D882DDF4CF90066C970 /* XCRemoteSwiftPackageReference "KakaoMapsSDK-SPM" */,
 				CE77075E2DF6CC770003A053 /* XCRemoteSwiftPackageReference "realm-swift" */,
 				CE9291A42DF994E4000981B5 /* XCRemoteSwiftPackageReference "socket.io-client-swift" */,
+				CE98A8F32DFD040B005279D3 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = CEE183242DCF698300A33B15 /* Products */;
@@ -336,7 +340,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = me.choi.jeongan.Anlaka;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jann.Anlaka;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
@@ -373,7 +377,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = me.choi.jeongan.Anlaka;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jann.Anlaka;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
@@ -441,6 +445,14 @@
 				version = 16.1.1;
 			};
 		};
+		CE98A8F32DFD040B005279D3 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 11.14.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -473,6 +485,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = CE9291A42DF994E4000981B5 /* XCRemoteSwiftPackageReference "socket.io-client-swift" */;
 			productName = SocketIO;
+		};
+		CE98A8F42DFD040B005279D3 /* FirebaseMessaging */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = CE98A8F32DFD040B005279D3 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseMessaging;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
