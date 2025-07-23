@@ -14,6 +14,7 @@ struct HomeView: View {
     @Binding var path: NavigationPath
     @AppStorage(TextResource.Global.isLoggedIn.text) private var isLoggedIn: Bool = true
     @State private var searchText = ""
+    @State private var toast: FancyToast?
     
     init(di: DIContainer, path: Binding<NavigationPath>) {
         self.di = di
@@ -122,11 +123,31 @@ struct HomeView: View {
                     SafariWebView(url: url)
                 }
             }
+            .sheet(isPresented: $container.model.showBannerWebSheet) {
+                if let url = container.model.bannerWebURL {
+                    BannerWebView(
+                        url: url,
+                        onAttendanceComplete: { attendanceCount in
+                            // 출석 완료 처리
+                            handleAttendanceComplete(attendanceCount)
+                        },
+                        onError: { errorMessage in
+                            // 에러 처리
+                            handleBannerWebError(errorMessage)
+                        },
+                        onDismiss: {
+                            // WebView 닫기
+                            container.handle(.dismissBannerWeb)
+                        }
+                    )
+                }
+            }
         
         .onAppear {
             container.handle(.initialRequest)
         }
         .edgesIgnoringSafeArea(.top) // 상단 SafeArea 무시
+        .toastView(toast: $toast)
     }
     
     private var searchBar: some View {
@@ -546,36 +567,75 @@ struct HotEstateView: View {
         }
     }
 }
+// MARK: - TopicItem Enum
+enum TopicItem {
+    case topic(Int)
+    case banner(Int)
+}
+
 // 6. 토픽 부동산 뷰
 struct TopicEstateView: View {
     let entity: TopicEstateEntity
+    let banners: [BannerResponseEntity]
     let onTap: (URL?) -> Void
+    let onBannerTap: (BannerResponseEntity) -> Void
     
     var body: some View {
         VStack(spacing: 0) {
-            ForEach(0..<entity.items.count, id: \.self) { index in
-                Button(action: {
-                    if let linkString = entity.items[index].link, let url = URL(string: linkString) {
-                        onTap(url)
-                    } else {
-                        // If no link, pass nil
-                        onTap(nil)
-                    }
-                }) {
-                    topicCell(for: index)
-                }
-                .buttonStyle(PlainButtonStyle())
+            ForEach(0..<getTotalItems().count, id: \.self) { index in
+                let item = getTotalItems()[index]
                 
-                if index < entity.items.count - 1 {
+                switch item {
+                case .topic(let topicIndex):
+                    Button(action: {
+                        if let linkString = entity.items[topicIndex].link, let url = URL(string: linkString) {
+                            onTap(url)
+                        } else {
+                            onTap(nil)
+                        }
+                    }) {
+                        topicCell(for: topicIndex)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    
+                case .banner(let bannerIndex):
+                    Button(action: {
+                        onBannerTap(banners[bannerIndex])
+                    }) {
+                        bannerCell(for: bannerIndex)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+                
+                if index < getTotalItems().count - 1 {
                     Divider()
                         .padding(.horizontal, 16)
                 }
             }
         }
-        //.background(Color.white)
         .cornerRadius(12)
         .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 1)
         .padding(.horizontal)
+    }
+    
+    private func getTotalItems() -> [TopicItem] {
+        var items: [TopicItem] = []
+        
+        for (index, _) in entity.items.enumerated() {
+            items.append(.topic(index))
+            
+            // 첫 번째 아이템 다음에 배너 추가
+            if index == 0 && !banners.isEmpty {
+                items.append(.banner(0))
+            }
+            
+            // 세 번째 아이템 다음에 두 번째 배너 추가
+            if index == 2 && banners.count > 1 {
+                items.append(.banner(1))
+            }
+        }
+        
+        return items
     }
     
     private func topicCell(for index: Int) -> some View {
@@ -597,6 +657,16 @@ struct TopicEstateView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 16)
         .background(Color.Alabaster)
+    }
+    
+    private func bannerCell(for bannerIndex: Int) -> some View {
+        CustomAsyncImage.detail(
+            imagePath: banners[bannerIndex].imageUrl
+        )
+        .frame(width: 330, height: 70) 
+        .clipped()
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .padding(.vertical, 8)
     }
 }
 
@@ -670,14 +740,24 @@ extension HomeView {
             ProgressView("Topic 로딩 중…")
                 .frame(height: 200)
         case .success(let data):
-            TopicEstateView(entity: data, onTap: { url in
-                if let url = url {
-                    container.handle(.goToTopicWeb(url: url))
-                } else {
-                    // If no URL, we can navigate to a detail view or do nothing
-                    // For now, we'll just not navigate anywhere
+            TopicEstateView(
+                entity: data,
+                banners: getBanners(),
+                onTap: { url in
+                    if let url = url {
+                        container.handle(.goToTopicWeb(url: url))
+                    } else {
+                        // If no URL, we can navigate to a detail view or do nothing
+                        // For now, we'll just not navigate anywhere
+                    }
+                },
+                onBannerTap: { banner in
+                    // 배너 클릭 처리
+                    if banner.payload.type == "WEBVIEW", let url = URL(string: banner.payload.value) {
+                        container.handle(.goToBannerWeb(url: url))
+                    }
                 }
-            })
+            )
         case .failure(let message):
             Text("에러: \(message)")
                 .foregroundColor(Color.TomatoRed)
@@ -690,6 +770,40 @@ extension HomeView {
                     isLoggedIn = false
                 }
             
+        }
+    }
+    
+    private func getBanners() -> [BannerResponseEntity] {
+        switch container.model.banners {
+        case .success(let banners):
+            return banners
+        default:
+            return []
+        }
+    }
+    
+    // MARK: - Banner WebView Handlers
+    private func handleAttendanceComplete(_ attendanceCount: Int) {
+        // 출석 완료 처리
+        DispatchQueue.main.async {
+            toast = FancyToast(
+                type: .success,
+                title: "출석 완료!",
+                message: "\(attendanceCount)번째 출석이 완료되었습니다.",
+                duration: 3.0
+            )
+        }
+    }
+    
+    private func handleBannerWebError(_ errorMessage: String) {
+        // 에러 처리
+        DispatchQueue.main.async {
+            toast = FancyToast(
+                type: .error,
+                title: "오류",
+                message: errorMessage,
+                duration: 3.0
+            )
         }
     }
     @ViewBuilder
