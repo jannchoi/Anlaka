@@ -154,7 +154,7 @@ final class CommunityContainer: NSObject, ObservableObject, LocationServiceDeleg
                     next: nil,
                     order: model.selectedSort.rawValue
                 )
-                print("📍 게시물 로드 성공 - \(posts.data.count)개")
+                //print("📍 게시물 로드 성공 - \(posts.data.count)개")
                 model.allPosts = posts.data
                 model.nextCursor = posts.next == "0" ? nil : posts.next
                 model.posts = .success(posts.data)

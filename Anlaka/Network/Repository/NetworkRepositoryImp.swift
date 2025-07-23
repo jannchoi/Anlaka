@@ -386,6 +386,19 @@ internal final class NetworkRepositoryImp: NetworkRepository {
         }
     }
     
+    // MARK: - Banner Methods
+    func getBanners() async throws -> BannerListResponseEntity {
+        do {
+            let response = try await NetworkManager.shared.callRequest(target: BannerRouter.getBanners, model: BannerListResponseDTO.self)
+            guard let entity = response.entity() else {
+                throw CustomError.nilResponse
+            }
+            return entity
+        } catch {
+            throw error
+        }
+    }
+    
     // MARK: - File Download Methods
     func downloadFile(from serverPath: String) async throws -> ServerFileEntity {
         do {
