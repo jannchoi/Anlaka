@@ -40,8 +40,9 @@ struct MyPageView: View {
                         
                         ChattingRoomListView(
                             chatRoomList: container.model.chatRoomList,
+                            updatedRoomIds: container.model.updatedRoomIds,
                             onRoomTap: { roomId in
-                                path.append(MyPageRoute.chatRoom(roomId: roomId, di: di))
+                                    path.append(MyPageRoute.chatRoom(roomId: roomId, di: di))
                             }
                         )
                     }
@@ -53,7 +54,7 @@ struct MyPageView: View {
             .navigationDestination(for: MyPageRoute.self) { route in
                 switch route {
                 case .chatRoom(let roomId, let di):
-                    ChattingView(roomId: roomId, di: di)
+                    ChattingView(roomId: roomId, di: di, path: $path)
                 case .editProfile(let di):
                     EditProfileView(di: di)
                 }
@@ -63,6 +64,9 @@ struct MyPageView: View {
             if backToLogin {
                 isLoggedIn = false
             }
+        }
+        .onAppear {
+            container.handle(.initialRequest)
         }
     }
 }
@@ -162,6 +166,7 @@ struct IntroductionView: View {
 // MARK: - ChattingRoomListView
 struct ChattingRoomListView: View {
     let chatRoomList: [ChatRoomEntity]
+    let updatedRoomIds: Set<String>
     let onRoomTap: (String) -> Void
     
     var body: some View {
@@ -171,7 +176,8 @@ struct ChattingRoomListView: View {
                     room: room,
                     onTap: {
                         onRoomTap(room.roomId)
-                    }
+                    },
+                    hasNewChat: updatedRoomIds.contains(room.roomId)
                 )
                 
                 if index < chatRoomList.count - 1 {
@@ -190,6 +196,7 @@ struct ChattingRoomListView: View {
 struct ChattingRoomCell: View {
     let room: ChatRoomEntity
     let onTap: () -> Void
+    let hasNewChat: Bool
     
     var body: some View {
         Button(action: onTap) {
@@ -213,10 +220,18 @@ struct ChattingRoomCell: View {
                 
                 // Chat Info
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(room.lastChat?.sender.nick ?? "")
-                        .font(.body)
-                        .fontWeight(.medium)
-                        .foregroundColor(.black)
+                    HStack {
+                        Text(room.lastChat?.sender.nick ?? "")
+                            .font(.body)
+                            .fontWeight(.medium)
+                            .foregroundColor(.black)
+                        
+                        if hasNewChat {
+                            Circle()
+                                .fill(Color.tomatoRed)
+                                .frame(width: 8, height: 8)
+                        }
+                    }
                     
                     Text(room.lastChat?.content ?? "")
                         .font(.caption)

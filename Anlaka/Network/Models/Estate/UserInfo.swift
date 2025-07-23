@@ -11,6 +11,10 @@ struct UserInfoResponseDTO: Codable {
     let nick: String
     let introduction: String?
     let profileImage: String?
+    enum CodingKeys: String, CodingKey {
+        case userId = "user_id"
+        case nick, introduction, profileImage
+    }
     
     func toEntity() -> UserInfoEntity {
         return UserInfoEntity(
