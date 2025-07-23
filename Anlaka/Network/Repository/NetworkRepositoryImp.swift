@@ -7,7 +7,17 @@
 
 import Foundation
 
-final class NetworkRepositoryImp: NetworkRepository {
+// MARK: - NetworkRepository Factory
+// internal 접근제어로 같은 모듈 내에서만 접근 가능
+internal enum NetworkRepositoryFactory {
+    static func create() -> NetworkRepository {
+        return NetworkRepositoryImp()
+    }
+}
+
+// MARK: - NetworkRepository Implementation
+// internal 접근제어로 같은 모듈 내에서만 접근 가능
+internal final class NetworkRepositoryImp: NetworkRepository {
 
     func searchUser(nick: String) async throws -> SearchUserEntity {
         do {

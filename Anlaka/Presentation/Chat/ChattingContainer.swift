@@ -81,12 +81,14 @@ final class ChattingContainer: ObservableObject {
     }
     
     private func setupSocket() {
+        print("🔧 WebSocketManager 생성: roomId = \(model.roomId)")
         socket = WebSocketManager(roomId: model.roomId)
         socket?.onMessage = { [weak self] message in
             self?.handleIncomingMessage(message)
         }
         socket?.onConnectionStatusChanged = { [weak self] isConnected in
             DispatchQueue.main.async {
+                print("🔌 WebSocket 연결 상태 변경: \(isConnected)")
                 self?.model.isConnected = isConnected
             }
         }
@@ -132,9 +134,13 @@ final class ChattingContainer: ObservableObject {
                 // roomId 업데이트
                 model.roomId = chatRoom.roomId
                 
+                // WebSocketManager를 새로운 roomId로 다시 생성
+                setupSocket()
+                
                 // 2. 상대방 프로필 정보 가져오기
                 let opponentProfile = try await repository.getOtherProfileInfo(userId: opponent_id)
                     model.opponentProfile = opponentProfile
+                    print("👤 상대방 프로필 정보 로드 완료: \(opponentProfile)")
             }
             
             // 3. 현재 사용자가 해당 채팅방에 존재하는지 확인
@@ -174,6 +180,7 @@ final class ChattingContainer: ObservableObject {
             model.updateMessagesGroupedByDate()
             
             // 11. WebSocket 연결
+            print("🔌 WebSocket 연결 시도: roomId = \(model.roomId)")
             socket?.connect()
             
         } catch {
@@ -374,7 +381,7 @@ final class ChattingContainer: ObservableObject {
                 print("✅ 새 메시지 저장 완료: \(message.chatID)")
             } catch {
                 print("❌ 메시지 저장 실패: \(error.localizedDescription)")
-                model.error = error.localizedDescription
+                // 에러가 발생해도 채팅은 계속 진행 (model.error 설정하지 않음)
             }
         }
     }
