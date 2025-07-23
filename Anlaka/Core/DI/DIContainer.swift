@@ -26,4 +26,7 @@ final class DIContainer: ObservableObject {
     func makeSearchMapContainer() -> SearchMapContainer {
         SearchMapContainer(repository: networkRepository)
     }
+    func makeSearchAddressContainer() -> SearchAddressContainer {
+        SearchAddressContainer(repository: networkRepository)
+    }
 }
