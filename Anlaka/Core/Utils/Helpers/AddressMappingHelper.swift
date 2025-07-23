@@ -190,8 +190,9 @@ extension AddressMappingHelper {
     static func mapPostSummariesWithAddressWithDefault(
         _ summaries: [PostSummaryResponseEntity]
     ) async -> AddressMappingResult<PostSummaryResponseEntity> {
-        await withTaskGroup(of: Result<PostSummaryResponseEntity?, Error>.self) { group in
-            for summary in summaries {
+        // 원본 순서를 유지하기 위해 인덱스와 함께 처리
+        await withTaskGroup(of: (Int, Result<PostSummaryResponseEntity?, Error>).self) { group in
+            for (index, summary) in summaries.enumerated() {
                 group.addTask {
                     let geo = summary.geolocation
                     do {
@@ -211,7 +212,7 @@ extension AddressMappingHelper {
                             updatedAt: summary.updatedAt,
                             address: address
                         )
-                        return .success(updatedSummary)
+                        return (index, .success(updatedSummary))
                     } catch {
                         // 주소 매핑 실패 시 기본값 제공
                         let updatedSummary = PostSummaryResponseEntity(
@@ -228,24 +229,28 @@ extension AddressMappingHelper {
                             updatedAt: summary.updatedAt,
                             address: "알 수 없음"
                         )
-                        return .success(updatedSummary) 
+                        return (index, .success(updatedSummary)) 
                     }
                 }
             }
 
-            var posts: [PostSummaryResponseEntity?] = []
+            var indexedResults: [(Int, PostSummaryResponseEntity?)] = []
             var errors: [Error] = []
 
-            for await result in group {
+            for await (index, result) in group {
                 switch result {
                 case .success(let post):
-                    posts.append(post)
+                    indexedResults.append((index, post))
                 case .failure(let error):
                     errors.append(error)
                 }
             }
 
-            return AddressMappingResult(estates: posts.compactMap{$0}, errors: errors)
+            // 원본 순서대로 정렬
+            indexedResults.sort { $0.0 < $1.0 }
+            let posts = indexedResults.compactMap { $0.1 }
+
+            return AddressMappingResult(estates: posts, errors: errors)
         }
     }
     
@@ -253,8 +258,8 @@ extension AddressMappingHelper {
         _ summaries: [PostSummaryResponseEntity]
     ) async -> AddressMappingResult<PostSummaryResponseEntity> {
         // 주소 매핑 실패 시 데이터 제외
-        await withTaskGroup(of: Result<PostSummaryResponseEntity?, Error>.self) { group in
-            for summary in summaries {
+        await withTaskGroup(of: (Int, Result<PostSummaryResponseEntity?, Error>).self) { group in
+            for (index, summary) in summaries.enumerated() {
                 group.addTask {
                     let geo = summary.geolocation
                     do {
@@ -274,26 +279,30 @@ extension AddressMappingHelper {
                             updatedAt: summary.updatedAt,
                             address: address
                         )
-                        return .success(updatedSummary)
+                        return (index, .success(updatedSummary))
                     } catch {
-                        return .failure(error)
+                        return (index, .failure(error))
                     }
                 }
             }
 
-            var posts: [PostSummaryResponseEntity?] = []
+            var indexedResults: [(Int, PostSummaryResponseEntity?)] = []
             var errors: [Error] = []
 
-            for await result in group {
+            for await (index, result) in group {
                 switch result {
                 case .success(let post):
-                    posts.append(post)
+                    indexedResults.append((index, post))
                 case .failure(let error):
                     errors.append(error)
                 }
             }
 
-            return AddressMappingResult(estates: posts.compactMap{$0}, errors: errors)
+            // 원본 순서대로 정렬
+            indexedResults.sort { $0.0 < $1.0 }
+            let posts = indexedResults.compactMap { $0.1 }
+
+            return AddressMappingResult(estates: posts, errors: errors)
         }
     }
     
