@@ -8,6 +8,7 @@
 import Foundation
 import UIKit
 
+
 // MARK: - 대기 요청을 위한 타입 정보를 포함한 구조체
 struct PendingRequest {
     let request: NetworkRequestConvertible
@@ -58,20 +59,19 @@ final class TokenRefreshManager {
     /// 토큰 만료 트리거 설정
     func setTokenExpired(_ expired: Bool) {
         isTokenExpired = expired
-        print("🔒 토큰 만료 상태: \(isTokenExpired ? "만료됨" : "유효함")")
     }
     
     /// 토큰 갱신 시작
     func startTokenRefresh() async throws {
         guard !isRefreshingToken else {
-            print("🔒 이미 토큰 갱신이 진행 중입니다 - 대기 중...")
+            print("이미 토큰 갱신이 진행 중입니다 - 대기 중...")
             return
         }
         
         let now = Date().timeIntervalSince1970
         isRefreshingToken = true
         lastRefreshTime = now
-        print("🔒 토큰 갱신 시작")
+
         
         do {
             // refreshToken 유효성 확인
@@ -90,7 +90,7 @@ final class TokenRefreshManager {
             
             // 갱신 완료 및 트리거 해제
             completeTokenRefresh()
-            print("✅ 토큰 갱신 성공")
+            print(" 토큰 갱신 성공")
         } catch {
             failTokenRefresh(error: error)
             if error as? CustomError == .expiredRefreshToken {
@@ -105,14 +105,14 @@ final class TokenRefreshManager {
         isRefreshingToken = false
         isTokenExpired = false
         executePendingRequests()
-        print("🔒 토큰 갱신 완료, 만료 트리거 해제")
+        print("토큰 갱신 완료, 만료 트리거 해제")
     }
     
     /// 토큰 갱신 실패 (Lock 해제 및 대기 요청 처리)
     private func failTokenRefresh(error: Error) {
         isRefreshingToken = false
         isTokenExpired = false
-        print("🔒 토큰 갱신 실패: \(error)")
+        print(" 토큰 갱신 실패: \(error)")
         
         let requests = pendingRequests
         pendingRequests.removeAll()
@@ -153,7 +153,7 @@ final class TokenRefreshManager {
             
             let pendingRequest = PendingRequest(request: request, model: model, completion: completion)
             pendingRequests.append(pendingRequest)
-            print("📋 대기 요청 추가: \(requestIdentifier) (총 \(pendingRequests.count)개)")
+            print("대기 요청 추가: \(requestIdentifier) (총 \(pendingRequests.count)개)")
         } catch {
             completion(.failure(error))
             print("❌ 대기 요청 추가 실패: \(error)")
@@ -165,7 +165,7 @@ final class TokenRefreshManager {
         let requests = pendingRequests
         pendingRequests.removeAll()
         
-        print("🚀 대기 중인 \(requests.count)개 요청 실행")
+        print(" 대기 중인 \(requests.count)개 요청 실행")
         
         for pendingRequest in requests {
             Task {
@@ -216,7 +216,7 @@ final class NetworkManager {
         }
         
         if shouldWait {
-            print("⏳ 토큰 갱신 대기 중 - 요청을 큐에 추가")
+            print("토큰 갱신 대기 중 - 요청을 큐에 추가")
             
             return try await withCheckedThrowingContinuation { continuation in
                 var hasResumed = false
@@ -252,7 +252,7 @@ final class NetworkManager {
                                 continuation.resume(throwing: error)
                             }
                         } else {
-                            print("🔒 토큰 갱신이 이미 진행 중 - 대기 중...")
+                            print("토큰 갱신이 이미 진행 중 - 대기 중...")
                         }
                     }
                 }
@@ -302,10 +302,10 @@ final class NetworkManager {
             let decoded = try Self.makeDecoder().decode(T.self, from: data)
             return decoded
         } catch let decodingError as DecodingError {
-            print("🔍 디코딩 실패: \(decodingError)")
+            print(" 디코딩 실패: \(decodingError)")
             throw CustomError.unknown(code: 500, message: "디코딩 실패: \(decodingError.localizedDescription)")
         } catch {
-            print("🔍 기타 에러: \(error)")
+            print(" 기타 에러: \(error)")
             throw CustomError.unknown(code: 500, message: error.localizedDescription)
         }
     }
@@ -318,7 +318,16 @@ final class NetworkManager {
     
     // MARK: - RefreshToken 만료 처리
     func handleRefreshTokenExpiration() async {
-        print("🔐 Refresh Token 만료 - 자동 로그아웃 처리")
+        print(" Refresh Token 만료 - 자동 로그아웃 처리")
+        
+        // Refresh Token 만료 시에도 디바이스 토큰 무효화 (서버에 빈 문자열 전송)
+        do {
+            let emptyDeviceToken = DeviceTokenRequestDTO(deviceToken: "")
+            let _: EmptyResponseDTO = try await NetworkManager.shared.callRequest(target: UserRouter.deviceTokenUpdate(emptyDeviceToken), model: EmptyResponseDTO.self)
+            print(" Refresh Token 만료 시 디바이스 토큰 무효화 성공")
+        } catch {
+            print("❌ Refresh Token 만료 시 디바이스 토큰 무효화 실패: \(error.localizedDescription)")
+        }
         
         await MainActor.run {
             // 토큰 및 프로필 데이터 제거
@@ -370,7 +379,7 @@ final class NetworkManager {
         }
         
         if shouldWait {
-            print("⏳ 이미지 다운로드 대기 중 - 토큰 갱신 진행 중")
+            print("이미지 다운로드 대기 중 - 토큰 갱신 진행 중")
             
             return try await withCheckedThrowingContinuation { continuation in
                 var hasResumed = false
@@ -413,7 +422,7 @@ final class NetworkManager {
                                 continuation.resume(throwing: error)
                             }
                         } else {
-                            print("🔒 토큰 갱신이 이미 진행 중 - 대기 중...")
+                            print(" 토큰 갱신이 이미 진행 중 - 대기 중...")
                         }
                     }
                 }

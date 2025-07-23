@@ -84,9 +84,9 @@ struct MyPageView: View {
             }
         }
         .onChange(of: container.model.backToLogin) { backToLogin in
-            print("🔐 MyPageView onChange 감지: backToLogin = \(backToLogin)")
+            print(" MyPageView onChange 감지: backToLogin = \(backToLogin)")
             if backToLogin {
-                print("🔐 MyPageView에서 isLoggedIn을 false로 설정")
+                print(" MyPageView에서 isLoggedIn을 false로 설정")
                 isLoggedIn = false
             }
         }
@@ -108,7 +108,7 @@ struct MyPageView: View {
         .alert("로그아웃", isPresented: $showLogoutAlert) {
             Button("취소", role: .cancel) { }
             Button("로그아웃", role: .destructive) {
-                print("🔐 로그아웃 버튼 클릭됨")
+                print(" 로그아웃 버튼 클릭됨")
                 // container에서 로그아웃 처리 (isLoggedIn 설정 포함)
                 container.handle(.logout)
             }
@@ -385,13 +385,10 @@ func getOpponentFromRoom(_ room: ChatRoomEntity) -> UserInfoEntity? {
         print("❌ 현재 사용자 정보를 찾을 수 없음")
         return nil
     }
-    
-    //print("📱 채팅방 \(room.roomId) - 현재 사용자 ID: \(currentUser.userid)")
-    //print("📱 채팅방 \(room.roomId) - 참여자들: \(room.participants.map { "\($0.userId): \($0.nick)" })")
-    
+  
     // participants 중에서 currentUser가 아닌 상대방 찾기
     let opponent = room.participants.first { $0.userId != currentUser.userid }
-    //print("📱 채팅방 \(room.roomId) - 상대방: \(opponent?.nick ?? "nil") (ID: \(opponent?.userId ?? "nil"))")
+  
     
     return opponent
 }

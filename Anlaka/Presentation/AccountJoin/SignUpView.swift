@@ -48,15 +48,9 @@ struct SignUpView: View {
             Alert(title: Text("오류"), message: Text(message.text), dismissButton: .default(Text("확인")))
         }
         .toastView(toast: $container.model.toast)
-        .onChange(of: container.model.toast) { toast in
-            print("🔍 [DEBUG] 토스트 상태 변경: \(toast?.title ?? "nil")")
-        }
         .onChange(of: container.model.goToLoginView) { go in
-            print("🔍 [DEBUG] goToLoginView 변경 감지: \(go)")
             if go {
-                print("🔍 [DEBUG] onComplete() 호출 시작")
                 onComplete()
-                print("🔍 [DEBUG] onComplete() 호출 완료")
             }
         }
     }
@@ -197,12 +191,6 @@ private struct SignUpButtonView: View {
     
     var body: some View {
         Button(action: {
-            print("🔍 [DEBUG] 완료 버튼 클릭됨")
-            print("🔍 [DEBUG] 버튼 활성화 상태: \(container.model.isSignUpButtonEnabled)")
-            print("🔍 [DEBUG] 이메일 유효성: \(container.model.isEmailValid)")
-            print("🔍 [DEBUG] 비밀번호 유효성: \(container.model.isPasswordValid)")
-            print("🔍 [DEBUG] 닉네임 유효성: \(container.model.isNicknameValid)")
-            print("🔍 [DEBUG] 이메일 서버 유효성: \(container.model.isEmailValidServer)")
             container.handle(.SignUpButtonTapped)
         }) {
                                     Text("완료")

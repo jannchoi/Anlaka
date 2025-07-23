@@ -80,7 +80,6 @@ struct SearchMapView: View {
                     container.handle(.searchBarSubmitted(selectedAddress))
                 },
                 onDismiss: {
-                    print("onDismiss")
                 }
             )
         }
@@ -109,7 +108,6 @@ struct SearchMapView: View {
             .onChange(of: container.model.pinInfoList) { newList in
                 // 필터 업데이트로 인한 변경인 경우에만 forceUpdate 실행
                 if container.isFilterUpdate && newList.count != previousPinCount {
-                    print("필터업데이트")
                     forceUpdate = true
                     previousPinCount = newList.count
                     // 다음 프레임에서 forceUpdate를 다시 false로 설정

@@ -191,8 +191,6 @@ class DeepLinkProcessor: ObservableObject {
     
     /// 부동산 딥링크 처리
     private func handleEstateDeepLink(_ data: DeepLinkData) {
-        print("📱 부동산 딥링크 처리: \(data.id)")
-        
         // RoutingStateManager를 통해 처리
         let routingManager = RoutingStateManager.shared
         routingManager.pendingNavigation = .estateDetail(estateId: data.id)
@@ -200,8 +198,6 @@ class DeepLinkProcessor: ObservableObject {
     
     /// 게시글 딥링크 처리
     private func handlePostDeepLink(_ data: DeepLinkData) {
-        print("📱 게시글 딥링크 처리: \(data.id)")
-        
         // RoutingStateManager를 통해 처리
         let routingManager = RoutingStateManager.shared
         routingManager.pendingNavigation = .postDetail(postId: data.id)
@@ -209,8 +205,6 @@ class DeepLinkProcessor: ObservableObject {
     
     /// 프로필 딥링크 처리
     private func handleProfileDeepLink(_ data: DeepLinkData) {
-        print("📱 프로필 딥링크 처리: \(data.id)")
-        
         // RoutingStateManager를 통해 처리
         let routingManager = RoutingStateManager.shared
         routingManager.pendingNavigation = .profile
@@ -218,8 +212,6 @@ class DeepLinkProcessor: ObservableObject {
     
     /// 설정 딥링크 처리
     private func handleSettingsDeepLink(_ data: DeepLinkData) {
-        print("📱 설정 딥링크 처리: \(data.id)")
-        
         // RoutingStateManager를 통해 처리
         let routingManager = RoutingStateManager.shared
         routingManager.pendingNavigation = .settings
@@ -230,7 +222,6 @@ class DeepLinkProcessor: ObservableObject {
         processingQueue.removeAll()
         isProcessing = false
         isProcessingQueue = false
-        print("📱 딥링크 처리 큐 초기화")
     }
     
     /// 테스트용 딥링크 생성
@@ -241,7 +232,6 @@ class DeepLinkProcessor: ObservableObject {
     /// 테스트용 채팅방 딥링크 처리
     func processTestChatDeepLink(roomId: String) {
         if let testURL = DeepLinkProcessor.createTestDeepLink(type: .chat, id: roomId) {
-            print("📱 테스트 채팅 딥링크 생성: \(testURL)")
             processDeepLink(testURL)
         }
     }

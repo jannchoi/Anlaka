@@ -27,12 +27,10 @@ struct PostSummaryUseCase {
             next: next,
             order: order
         )
-        // print("📍 PostSummaryUseCase: 위치 기반 게시글 조회 성공")
-        // print("📍 PostSummaryUseCase: 게시글 수: \(response.data.count)")
-        // print("📍 PostSummaryUseCase: 다음 페이지: \(response.next)")
+
         // 2. 주소 매핑 (실패 시 기본값 제공)
         let mappedResult = await AddressMappingHelper.mapPostSummariesWithAddress(response.data)
-        //print("📍 PostSummaryUseCase: 주소 매핑 후 게시글 수: \(mappedResult.estates.count)")
+
         // 3. 결과 반환
         return PostSummaryPaginationResponseEntity(
             data: mappedResult.estates,
@@ -58,12 +56,9 @@ struct PostSummaryUseCase {
             next: next,
             order: order
         )
-        print("📍 PostSummaryUseCase: 위치 기반 게시글 조회 성공")
-        print("📍 PostSummaryUseCase: 게시글 수: \(response.data.count)")
-        print("📍 PostSummaryUseCase: 다음 페이지: \(response.next)")
+
         // 2. 주소 매핑 (실패 시 데이터 제외)
         let mappedResult = await AddressMappingHelper.mapPostSummariesWithAddressExcludeFailed(response.data)
-        print("📍 PostSummaryUseCase: 주소 매핑 후 게시글 수: \(mappedResult.estates.count)")
         // 3. 결과 반환
         return PostSummaryPaginationResponseEntity(
             data: mappedResult.estates,
