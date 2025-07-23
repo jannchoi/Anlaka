@@ -118,12 +118,8 @@ struct LoginView: View {
                     isLoggedIn = true
                 }
             }
-            
             .navigationDestination(for: LoginRoute.self) { route in
                 switch route {
-                case .home:
-                    HomeView(di: di)
-                    
                 case .signUp:
                     SignUpView(
                         di: di,
@@ -138,7 +134,7 @@ struct LoginView: View {
             container.model.onNavigate = { route in
                 path.append(route)
             }
-            
+
         }
     }
 }
