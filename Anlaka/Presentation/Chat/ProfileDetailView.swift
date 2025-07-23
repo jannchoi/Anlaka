@@ -9,7 +9,7 @@ struct ProfileDetailView: View {
     var body: some View {
         VStack(spacing: 20) {
             // 프로필 이미지
-            CustomAsyncImage(imagePath: profileImage)
+            CustomAsyncImage.profile(imagePath: profileImage)
                 .frame(width: 80, height: 80)
                 .clipShape(Circle())
                 .shadow(radius: 5)

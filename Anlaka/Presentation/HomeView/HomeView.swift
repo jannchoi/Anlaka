@@ -165,7 +165,9 @@ var body: some View {
             TabView(selection: $currentPage) {
                 ForEach(Array(entity.enumerated()), id: \.offset) { index, item in
                     ZStack(alignment: .bottom) {
-                        CustomAsyncImage(imagePath: item.summary.thumbnail) { image in
+                        CustomAsyncImage.detail(
+                            imagePath: item.summary.thumbnail
+                        ) { image in
                             // 이미지 로드 완료 시 밝기 확인
                             if let image = image {
                                 checkImageBrightness(for: index, image: image)
@@ -340,7 +342,8 @@ struct FavoriteView: View {
                 ForEach(0..<entity.count, id: \.self) { index in
                     VStack(alignment: .leading, spacing: 0) {
                         // 썸네일 이미지
-                        CustomAsyncImage(imagePath: entity[index].summary.thumbnail
+                        CustomAsyncImage.thumbnail(
+                            imagePath: entity[index].summary.thumbnail
                         )
                         .frame(width: 166, height: 130) // width를 200에서 176으로 줄임 (좌우 패딩 12씩 고려)
                         .clipShape(RoundedRectangle(cornerRadius: 12))
@@ -407,7 +410,9 @@ struct HotEstateItemView: View {
         VStack(alignment: .leading, spacing: 0) {
             // 썸네일 이미지 with overlays
             ZStack {
-                CustomAsyncImage(imagePath: item.summary.thumbnail)
+                CustomAsyncImage.detail(
+                    imagePath: item.summary.thumbnail
+                )
                     .frame(width: 235, height: 130)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                 
@@ -610,6 +615,11 @@ extension HomeView {
                     container.handle(.goToDetail(estateId: firstItem.summary.estateId))
                 }
             })
+            .onAppear {
+                // 이미지 프리로딩
+                let imagePaths = data.map { $0.summary.thumbnail }
+                CustomAsyncImage.preloadImages(imagePaths)
+            }
         case .failure(let message):
             Text("에러: \(message)")
                 .foregroundColor(Color.TomatoRed)
@@ -634,6 +644,11 @@ extension HomeView {
             HotEstateView(entity: data, onTap: { estateId in
                 container.handle(.goToDetail(estateId: estateId))
             })
+            .onAppear {
+                // 이미지 프리로딩
+                let imagePaths = data.map { $0.summary.thumbnail }
+                CustomAsyncImage.preloadImages(imagePaths)
+            }
         case .failure(let message):
             Text("에러: \(message)")
                 .foregroundColor(Color.TomatoRed)
@@ -687,6 +702,11 @@ extension HomeView {
             FavoriteView(entity: data, onTap: { estateId in
                 container.handle(.goToDetail(estateId: estateId))
             })
+            .onAppear {
+                // 이미지 프리로딩
+                let imagePaths = data.map { $0.summary.thumbnail }
+                CustomAsyncImage.preloadImages(imagePaths)
+            }
         case .failure(let message):
             Text("에러: \(message)")
                 .foregroundColor(Color.TomatoRed)
