@@ -38,16 +38,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, MessagingDelegate {
         // FCM 설정
         Messaging.messaging().delegate = self
         
-        // UNUserNotificationCenter delegate는 SceneDelegate에서 설정
-        // UNUserNotificationCenter.current().delegate = self
-        
-        // 앱이 알림을 통해 실행된 경우 처리 (앱 완전 종료 상태)
-        // content-available이 없어서 앱 종료 시 호출되지 않음
-        // if let notification = launchOptions?[.remoteNotification] as? [String: Any] {
-        //     print("📱 앱이 알림을 통해 실행됨 (완전 종료 상태): \(notification)")
-        //     handleNotificationData(notification)
-        // }
-        
         return true
     }
     func application(
@@ -183,7 +173,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, MessagingDelegate {
 
 // MARK: - NotificationCenter Extension
 extension Notification.Name {
-    static let appDidEnterForeground = Notification.Name("appDidEnterForeground")
     static let chatNotificationUpdate = Notification.Name("chatNotificationUpdate")
 }
 
