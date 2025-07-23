@@ -37,6 +37,9 @@ enum AdminRouter: AuthorizedTarget {
         
         return headers
     }
+    var parameters: [String : Any?] {
+        return [:]
+    }
     
     func asURLRequest() throws -> URLRequest {
         var url = baseURL.appendingPathComponent(path)
