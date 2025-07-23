@@ -86,7 +86,7 @@ struct DateDivider: View {
                 .frame(height: 1)
             
             Text(dateString)
-                .font(.caption)
+                .font(.pretendardCaption)
                 .foregroundColor(.gray)
                 .padding(.horizontal, 8)
             
@@ -127,6 +127,7 @@ struct MainContentView: View {
                             ProgressView()
                                 .progressViewStyle(CircularProgressViewStyle())
                             Text("채팅방을 불러오는 중...")
+                    .font(.pretendardBody)
                                 .foregroundColor(.gray)
                                 .padding(.top, 8)
                             Spacer()
@@ -186,6 +187,7 @@ struct MainContentView: View {
                             Image(systemName: "wifi.slash")
                                 .foregroundColor(.TomatoRed)
                             Text(container.model.isReconnecting ? "재연결 시도 중..." : "연결이 끊어졌습니다")
+                    .font(.pretendardBody)
                                 .foregroundColor(.TomatoRed)
                             if container.model.isReconnecting {
                                 ProgressView()
@@ -264,8 +266,9 @@ struct ChattingView: View {
                         HStack(spacing: 4) {
                             Image(systemName: "chevron.left")
                                 .foregroundColor(.MainTextColor)
-                            Text("뒤로")
-                                .foregroundColor(.MainTextColor)
+                                                    Text("뒤로")
+                            .font(.pretendardBody)
+                            .foregroundColor(.MainTextColor)
                         }
                     }
                 } rightButton: {
@@ -308,7 +311,8 @@ struct ChattingView: View {
                 container.handle(.initialLoad)
             }
         } message: {
-            Text(container.model.error ?? "")
+                            Text(container.model.error ?? "")
+                    .font(.pretendardBody)
         }
         .overlay(
             Group {
@@ -424,6 +428,7 @@ private struct MessageText: View {
     
     var body: some View {
         Text(content)
+            .font(.pretendardBody)
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
             .background(isMine ? Color.OliveMist : Color.gray.opacity(0.2))
@@ -438,7 +443,7 @@ private struct MessageTimeView: View {
     
     var body: some View {
         Text(PresentationMapper.formatISO8601ToTimeString(createdAt))
-            .font(.caption2)
+            .font(.pretendardCaption2)
             .foregroundColor(.gray)
     }
 }
@@ -574,9 +579,10 @@ struct FileInfoView: View {
                 .foregroundColor(.gray)
             VStack(alignment: .leading) {
                 Text(file.path.components(separatedBy: "/").last ?? "")
+                    .font(.pretendardCaption)
                     .lineLimit(1)
                 Text("파일")
-                    .font(.caption)
+                    .font(.pretendardCaption)
                     .foregroundColor(.gray)
             }
         }

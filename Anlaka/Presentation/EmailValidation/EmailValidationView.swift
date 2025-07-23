@@ -30,7 +30,7 @@ struct EmailValidationView: View {
                 VStack(spacing: 20) {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("이메일")
-                            .font(.headline)
+                            .font(.soyoHeadline)
 
                         TextField("example@email.com", text: $email)
                             .keyboardType(.emailAddress)
@@ -47,7 +47,7 @@ struct EmailValidationView: View {
                     if let errorMessage = errorMessage {
                         Text(errorMessage)
                             .foregroundColor(.red)
-                            .font(.caption)
+                            .font(.pretendardCaption)
                     }
 
                     Button("다음") {
@@ -60,7 +60,7 @@ struct EmailValidationView: View {
                             errorMessage = "유효한 이메일 형식이 아닙니다."
                         }
                     }
-                    .font(.headline)
+                    .font(.soyoHeadline)
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding()
