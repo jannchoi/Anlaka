@@ -6,9 +6,10 @@
 //
 
 import Foundation
+
 struct UserInfoDTO: Decodable {
-    let userId: String
-    let nick: String
+    let userId: String?
+    let nick: String?
     let introduction: String?
     let profileImage: String?
 
@@ -21,12 +22,37 @@ struct UserInfoDTO: Decodable {
 struct UserInfoEntity {
     let userId: String
     let nick: String
-    let introduction: String?
-    let profileImage: String?
+    let introduction: String
+    let profileImage: String
+}
+
+struct UserInfoPresentation {
+    let userId: String
+    let nick: String
+    let introduction: String
+    let profileImage: String
 }
 
 extension UserInfoDTO {
-    func toEntity() -> UserInfoEntity {
-        .init(userId: userId, nick: nick, introduction: introduction, profileImage: profileImage)
+    func toEntity() -> UserInfoEntity? {
+        guard let userId = userId else { return nil }
+        
+        return UserInfoEntity(
+            userId: userId,
+            nick: nick ?? "알 수 없음",
+            introduction: introduction ?? "알 수 없음",
+            profileImage: profileImage ?? "알 수 없음"
+        )
+    }
+}
+
+extension UserInfoEntity {
+    func toPresentationModel() -> UserInfoPresentation {
+        return UserInfoPresentation(
+            userId: userId,
+            nick: nick,
+            introduction: introduction,
+            profileImage: profileImage
+        )
     }
 }

@@ -177,7 +177,7 @@ class ImageDownsampler {
         //print("🌐 이미지 다운로드 시작: \(url)")
         
         var request = URLRequest(url: url)
-        request.addValue(Environment.apiKey, forHTTPHeaderField: "SeSACKey")
+        request.addValue(AppConfig.apiKey, forHTTPHeaderField: "SeSACKey")
         if let accessToken = UserDefaultsManager.shared.getString(forKey: .refreshToken) {
             request.addValue(accessToken, forHTTPHeaderField: "Authorization")
         }
