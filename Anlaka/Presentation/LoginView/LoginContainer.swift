@@ -154,7 +154,7 @@ final class LoginContainer: NSObject, ObservableObject {
 
                 let fullName = appleIDCredential.fullName
                 let name = (fullName?.familyName ?? "") + (fullName?.givenName ?? "")
-
+                print(name)
                 UserDefaultsManager.shared.set(tokenString, forKey: .appleIdToken)
                 await callAppleLogin(name)
             case .failure(let error):

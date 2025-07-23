@@ -8,6 +8,15 @@
 import Foundation
 
 final class NetworkRepositoryImp: NetworkRepository {
+    func getGeofromAddressQuery(_ query: String) async throws -> GeolocationEntity {
+        do {
+            let response = try await NetworkManager.shared.callRequest(target: GeoRouter.getGeolocation(query: query), model: KakaoGeolocationDTO.self)
+            return response.toEntity()
+        } catch {
+            throw error
+        }
+    }
+    
     func getRoad3FromGeo(_ geo: GeolocationEntity) async throws -> RoadRegion3Entity {
         let (x,y) = (geo.longitude, geo.latitude)
         do {
@@ -54,10 +63,10 @@ final class NetworkRepositoryImp: NetworkRepository {
         }
     }
     
-    func getGeoEstate(category: String?, lon: String?, lat: String?, maxD: String?) async throws -> GeoEstateEntity {
+    func getGeoEstate(category: CategoryType?, lon: Double, lat: Double, maxD: Double) async throws -> GeoEstateEntity {
         do {
             let response = try await NetworkManager.shared.callRequest(
-                target: EstateRouter.geoEstate(category: category, lon: lon, lat: lat, maxD: maxD),
+                target: EstateRouter.geoEstate(category: category?.rawValue, lon: String(lon), lat: String(lat), maxD: String(maxD)),
                 model: GeoEstateResponseDTO.self
             )
             return response.toEntity()
