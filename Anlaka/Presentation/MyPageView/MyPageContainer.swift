@@ -281,8 +281,8 @@ final class MyPageContainer: ObservableObject {
             // 이전 타이머 취소
             updateTimer?.invalidate()
             
-            // 0.5초 후에 업데이트 실행 (디바운싱)
-            updateTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) { _ in
+            // 0.1초 후에 업데이트 실행 (디바운싱)
+            updateTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: false) { _ in
                 self?.updateChatRoomListFromBackground()
             }
         }

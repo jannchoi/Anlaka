@@ -347,15 +347,23 @@ final class NetworkManager {
     
     // MARK: - File Download (이미지 캐싱과 통합)
     func downloadFile(from serverPath: String) async throws -> (localPath: String, image: UIImage?) {
-        guard let baseURL = URL(string: BaseURL.baseURL) else {
+        // 빈 경로 체크
+        guard !serverPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            print("⚠️ [NetworkManager] serverPath가 빈 문자열입니다")
             throw CustomError.invalidURL
         }
         
-        let fullURL = baseURL.appendingPathComponent(serverPath)
+        guard let fullURL = URL(string: BaseURL.baseV1 + serverPath) else {
+            throw CustomError.invalidURL
+        }
         var request = URLRequest(url: fullURL)
         
+        // SeSACKey 헤더 추가 (API 키 인증)
+        request.setValue(AppConfig.apiKey, forHTTPHeaderField: "SeSACKey")
+        
+        // Authorization 헤더 추가 (토큰 인증)
         if let accessToken = UserDefaultsManager.shared.getString(forKey: .accessToken) {
-            request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+            request.setValue(accessToken, forHTTPHeaderField: "Authorization")
         }
         
         let networkRequest = SimpleNetworkRequest(urlRequest: request)
