@@ -15,7 +15,7 @@ enum UserDefaultsKey: String {
     case kakaoToken
     case expAccess
     case expRefresh
-    case fcmToken
+    case deviceTokenChanged
     /// 이 키로 저장되는 값이 JWT 토큰인지 여부
     var requiresJWTDecoding: Bool {
         switch self {

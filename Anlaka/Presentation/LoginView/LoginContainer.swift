@@ -143,6 +143,9 @@ final class LoginContainer: NSObject, ObservableObject {
             try await repository.kakaoLogin(kakaoLoginEntity: target)
             model.loginCompleted = true
             model.isLoading = false
+            
+            // 로그인 성공 후 디바이스 토큰 서버 업데이트
+            await updateDeviceTokenOnServer()
         } catch {
             if let error = error as? CustomError {
                 model.errorMessage = error.errorDescription
@@ -193,6 +196,9 @@ final class LoginContainer: NSObject, ObservableObject {
             try await repository.appleLogin(appleLoginEntity: target)
             model.loginCompleted = true
             model.isLoading = false
+            
+            // 로그인 성공 후 디바이스 토큰 서버 업데이트
+            await updateDeviceTokenOnServer()
         } catch {
             print("🧤 애플 로그인 실패, \(error)")
             if let error = error as? CustomError {
@@ -222,8 +228,42 @@ final class LoginContainer: NSObject, ObservableObject {
             try await repository.emailLogin(emailLoginEntity: entity)
             model.loginCompleted = true
             model.isLoading = false
+            
+            // 로그인 성공 후 디바이스 토큰 서버 업데이트
+            await updateDeviceTokenOnServer()
         } catch {
             model.errorMessage = "Login failed: \(error.localizedDescription)"
+        }
+    }
+    
+    // MARK: - Device Token Update
+    private func updateDeviceTokenOnServer() async {
+        // 디바이스 토큰 변경 플래그 확인
+        let isTokenChanged = UserDefaultsManager.shared.getBool(forKey: .deviceTokenChanged)
+        
+        if !isTokenChanged {
+            print("📱 로그인 성공 후 디바이스 토큰 변경 없음 - 서버 업데이트 건너뜀")
+            return
+        }
+        
+        guard let deviceToken = UserDefaultsManager.shared.getString(forKey: .deviceToken) else {
+            print("📱 저장된 디바이스 토큰이 없습니다.")
+            return
+        }
+        
+        print("📱 로그인 성공 후 디바이스 토큰 변경 감지 - 서버 업데이트 시작: \(deviceToken.prefix(20))...")
+        
+        do {
+            let success = try await repository.updateDeviceToken(deviceToken: deviceToken)
+            if success {
+                print("✅ 로그인 성공 후 서버에 디바이스 토큰 업데이트 성공")
+                // 서버 업데이트 성공 후 플래그 리셋
+                UserDefaultsManager.shared.set(false, forKey: .deviceTokenChanged)
+            } else {
+                print("❌ 로그인 성공 후 서버에 디바이스 토큰 업데이트 실패")
+            }
+        } catch {
+            print("❌ 로그인 성공 후 서버에 디바이스 토큰 업데이트 중 오류: \(error.localizedDescription)")
         }
     }
 
