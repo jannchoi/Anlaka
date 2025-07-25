@@ -386,6 +386,24 @@ internal final class NetworkRepositoryImp: NetworkRepository {
         }
     }
     
+    // MARK: - Push Notification Methods
+    func sendPushNotification(pushRequest: PushRequestDTO) async throws {
+        // 서버에서 빈 응답을 반환하므로 EmptyResponseDTO 사용
+        let _ = try await NetworkManager.shared.callRequest(target: ChatRouter.pushNotification(pushRequest), model: EmptyResponseDTO.self)
+        print("🦺 푸시 알림 전송 성공", pushRequest)
+    }
+    
+    func updateDeviceToken(deviceToken: String) async throws -> Bool {
+        do {
+            let deviceTokenRequest = DeviceTokenRequestDTO(deviceToken: deviceToken)
+            let _: EmptyResponseDTO = try await NetworkManager.shared.callRequest(target: UserRouter.deviceTokenUpdate(deviceTokenRequest), model: EmptyResponseDTO.self)
+            // 빈 응답이므로 성공으로 간주
+            return true
+        } catch {
+            throw error
+        }
+    }
+    
     // MARK: - Banner Methods
     func getBanners() async throws -> BannerListResponseEntity {
         do {
@@ -422,6 +440,18 @@ internal final class NetworkRepositoryImp: NetworkRepository {
                 }
                 return file
             }
+        } catch {
+            throw error
+        }
+    }
+
+    func updateDeviceToken() async throws {
+        guard let deviceToken = UserDefaultsManager.shared.getString(forKey: .deviceToken) else {
+            throw CustomError.nilResponse
+        }
+        let target = DeviceTokenRequestDTO(deviceToken: deviceToken)
+        do {
+            let _ = try await NetworkManager.shared.callRequest(target: UserRouter.deviceTokenUpdate(target), model: EmptyResponseDTO.self)
         } catch {
             throw error
         }

@@ -19,6 +19,7 @@ enum UserRouter: AuthorizedTarget {
     case editProfile(EditProfileRequestDTO)
     case profileImageUpload(FileData)
     case searchUser(String)
+    case deviceTokenUpdate(DeviceTokenRequestDTO)
     
     var baseURL: URL {
         let urlStr = BaseURL.baseV1 + "/users"
@@ -27,7 +28,7 @@ enum UserRouter: AuthorizedTarget {
 
     var requiresAuthorization: Bool {
         switch self {
-        case .emailValidation, .signUp, .emailLogin, .kakaoLogin, .appleLogin:
+        case .emailValidation, .signUp, .emailLogin, .kakaoLogin, .appleLogin, .deviceTokenUpdate:
             return false
         default:
             return true
@@ -56,6 +57,8 @@ enum UserRouter: AuthorizedTarget {
             return "/profile/image"
         case .searchUser:
             return "/search"
+        case .deviceTokenUpdate:
+            return "/deviceToken"
         }
     }
 
@@ -63,7 +66,7 @@ enum UserRouter: AuthorizedTarget {
         switch self {
         case .getMyProfileInfo, .getOtherProfileInfo, .searchUser:
             return "GET"
-        case .editProfile:
+        case .editProfile, .deviceTokenUpdate:
             return "PUT"
         default:
             return "POST"
@@ -83,7 +86,7 @@ enum UserRouter: AuthorizedTarget {
 
     var header: [String: String] {
         switch self {
-        case .getMyProfileInfo, .getOtherProfileInfo, .searchUser, .profileImageUpload, .editProfile:
+        case .getMyProfileInfo, .getOtherProfileInfo, .searchUser, .profileImageUpload, .editProfile, .deviceTokenUpdate:
             guard let accessToken = UserDefaultsManager.shared.getString(forKey: .accessToken) else { return [:] }
             return [
                 "SeSACKey": AppConfig.apiKey,
@@ -185,6 +188,8 @@ extension UserRouter {
                 case .appleLogin(let dto):
                     request.httpBody = try encoder.encode(dto)
                 case .editProfile(let dto):
+                    request.httpBody = try encoder.encode(dto)
+                case .deviceTokenUpdate(let dto):
                     request.httpBody = try encoder.encode(dto)
                 default:
                     break

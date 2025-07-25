@@ -8,6 +8,7 @@ enum ChatRouter: AuthorizedTarget {
     case sendMessage(roomId: String, ChatRequestDTO)
     case getChatList(roomId: String, from: String?)
     case uploadFiles(roomId: String, [FileData])
+    case pushNotification(PushRequestDTO)
     
     var baseURL: URL { URL(string: BaseURL.baseV1)!}
     
@@ -25,12 +26,14 @@ enum ChatRouter: AuthorizedTarget {
             return "/chats/\(roomId)"
         case .uploadFiles(let roomId, _):
             return "/chats/\(roomId)/files"
+        case .pushNotification:
+            return "/notifications/push/group"
         }
     }
     
     var method: String {
         switch self {
-        case .getChatRoom, .sendMessage, .uploadFiles:
+        case .getChatRoom, .sendMessage, .uploadFiles, .pushNotification:
             return "POST"
         case .getChatRooms, .getChatList:
             return "GET"
@@ -160,6 +163,8 @@ extension ChatRouter {
                 case .getChatRoom(let dto):
                     request.httpBody = try encoder.encode(dto)
                 case .sendMessage(_, let dto):
+                    request.httpBody = try encoder.encode(dto)
+                case .pushNotification(let dto):
                     request.httpBody = try encoder.encode(dto)
                 default:
                     break

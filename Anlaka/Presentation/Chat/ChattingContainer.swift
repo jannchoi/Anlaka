@@ -174,7 +174,11 @@ final class ChattingContainer: ObservableObject {
                 if let chatRoom = chatRooms.rooms.first(where: { $0.roomId == model.roomId }) {
                     // 2. participants에서 상대방 찾기
                     if let opponent = chatRoom.participants.first(where: { $0.userId != userInfo.userid }) {
-                        // 3. 상대방 프로필 정보 가져오기
+                        // 3. opponent_id 설정
+                        model.opponent_id = opponent.userId
+                        print("👤 opponent_id 설정: \(opponent.userId)")
+                        
+                        // 4. 상대방 프로필 정보 가져오기
                         let opponentProfile = try await repository.getOtherProfileInfo(userId: opponent.userId)
                         model.opponentProfile = opponentProfile
                         print("👤 상대방 프로필 정보 로드 완료 (roomId): \(opponentProfile)")
@@ -326,6 +330,29 @@ final class ChattingContainer: ObservableObject {
                             self?.model.sendingMessageId = nil
                             self?.model.updateMessagesGroupedByDate()
                             print("✅ 메시지 전송 및 저장 완료: \(message.chatId)")
+                            
+                            // 푸시 알림 전송
+                            if let opponent_id = self?.model.opponent_id {
+                                do {
+                                    // subtitle 설정 (첨부파일이 있는 경우)
+                                    var subtitle: String? = nil
+                                    if !uploadedFiles.isEmpty {
+                                        let fileCount = uploadedFiles.count
+                                        subtitle = "첨부파일 \(fileCount)개"
+                                    }
+                                    
+                                    let pushRequest = PushRequestDTO(
+                                        user_ids: [opponent_id],
+                                        title: userInfo.nick,
+                                        subtitle: subtitle,
+                                        body: text
+                                    )
+                                    try await self?.repository.sendPushNotification(pushRequest: pushRequest)
+                                } catch {
+                                    print("❌ 푸시 알림 전송 실패: \(error.localizedDescription)")
+                                    // 푸시 알림 실패는 메시지 전송에 영향을 주지 않음
+                                }
+                            }
                         } else {
                             print("❌ 메시지 전송 실패: 응답이 없음")
                             self?.model.error = "메시지 전송에 실패했습니다."
