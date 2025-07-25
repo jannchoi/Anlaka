@@ -13,6 +13,7 @@ struct MyPageView: View {
     let di: DIContainer
     @AppStorage(TextResource.Global.isLoggedIn.text) private var isLoggedIn: Bool = true
     @Binding var path: NavigationPath
+    @State private var showLogoutAlert = false
     
     init(di: DIContainer, path: Binding<NavigationPath>) {
         self.di = di
@@ -21,37 +22,55 @@ struct MyPageView: View {
     }
     
     var body: some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                // Profile Section
-                ProfileView(
-                    profileInfo: container.model.profileInfo,
-                    onEditProfile: {
-                        path.append(MyPageRoute.editProfile)
-                    },
-                    onAddEstate: {
-                        container.handle(.addMyEstate)
+        VStack(spacing: 0) {
+            // 커스텀 Navigation Bar
+            CustomNavigationBar(
+                title: "마이 페이지",
+                rightButton: {
+                    Button(action: {
+                        showLogoutAlert = true
+                    }) {
+                        Text("로그아웃")
+                            .font(.system(size: 14))
+                            .foregroundColor(Color.MainTextColor)
                     }
-                )
-                .padding(.top, 20)
-                .padding(.horizontal, 16)
-                
-                // Chatting Section
-                ChattingSectionView(
-                    chatRoomList: container.model.chatRoomList,
-                    updatedRoomIds: container.model.updatedRoomIds,
-                    onRoomTap: { roomId in
-                        path.append(MyPageRoute.chatRoom(roomId: roomId, di: di))
-                    }
-                )
-                .padding(.top, 32)
+                }
+            )
+            
+            ScrollView {
+                VStack(spacing: 0) {
+                    // Profile Section
+                    ProfileView(
+                        profileInfo: container.model.profileInfo,
+                        onEditProfile: {
+                            path.append(MyPageRoute.editProfile)
+                        },
+                        onAddEstate: {
+                            container.handle(.addMyEstate)
+                        }
+                    )
+                    .padding(.top, 20)
+                    .padding(.horizontal, 16)
+                    
+                    // Chatting Section
+                    ChattingSectionView(
+                        chatRoomList: container.model.chatRoomList,
+                        updatedRoomIds: container.model.updatedRoomIds,
+                        onRoomTap: { roomId in
+                            path.append(MyPageRoute.chatRoom(roomId: roomId))
+                        }
+                    )
+                    .padding(.top, 32)
+                }
+            }
+            .refreshable {
+                // 사용자가 스크롤을 당겨서 새로고침할 때
+                container.handle(.refreshData)
             }
         }
-        .navigationTitle("마이 페이지")
-        .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(for: MyPageRoute.self) { route in
             switch route {
-            case .chatRoom(let roomId, let di):
+            case .chatRoom(let roomId):
                 ChattingView(roomId: roomId, di: di, path: $path)
             case .editProfile:
                 EditProfileView(di: di, path: $path)
@@ -64,6 +83,14 @@ struct MyPageView: View {
         }
         .onAppear {
             container.handle(.initialRequest)
+        }
+        .alert("로그아웃", isPresented: $showLogoutAlert) {
+            Button("취소", role: .cancel) { }
+            Button("로그아웃", role: .destructive) {
+                container.handle(.logout)
+            }
+        } message: {
+            Text("정말 로그아웃하시겠습니까?")
         }
     }
 }

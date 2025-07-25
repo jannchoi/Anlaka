@@ -98,6 +98,16 @@ final class UserDefaultsManager {
 
     func remove(forKey key: UserDefaultsKey) {
         defaults.removeObject(forKey: key.rawValue)
+        
+        // JWT 토큰이라면 만료 시간도 삭제
+        if key.requiresJWTDecoding,
+           let expKey = key.correspondingExpKey {
+            defaults.removeObject(forKey: expKey.rawValue)
+        }
+    }
+    
+    func removeObject(forKey key: UserDefaultsKey) {
+        remove(forKey: key)
     }
 
     // MARK: - Check Existence

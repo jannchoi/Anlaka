@@ -13,11 +13,14 @@ struct MyPageModel {
     var backToLogin: Bool = false
     var errorMessage: String? = nil
     var updatedRoomIds: Set<String> = []
+    var isInitialized: Bool = false
 }
 
 enum MyPageIntent {
     case initialRequest
+    case refreshData
     case addMyEstate
+    case logout
 }
 
 @MainActor
@@ -34,11 +37,31 @@ final class MyPageContainer: ObservableObject {
     func handle(_ intent: MyPageIntent) {
         switch intent {
         case .initialRequest:
-                 getMyProfileInfo()
-                 getChatRoomList()
+            // 이미 초기화된 경우 중복 로드 방지
+            guard !model.isInitialized else { return }
+            
+            getMyProfileInfo()
+            getChatRoomList()
+            
+            model.isInitialized = true
+            
+        case .refreshData:
+            // 기존 데이터를 초기화한 후 다시 로드
+            model.profileInfo = nil
+            model.chatRoomList = []
+            model.updatedRoomIds = []
+            model.isInitialized = false
+            
+            getMyProfileInfo()
+            getChatRoomList()
+            
+            model.isInitialized = true
             
         case .addMyEstate:
             uploadAdminRequest()
+        case .logout:
+            // 로그아웃 처리
+            logout()
         }
     }
     private func uploadAdminRequest() {
@@ -187,6 +210,13 @@ final class MyPageContainer: ObservableObject {
         }
         
         return false
+    }
+
+    private func logout() {
+        UserDefaultsManager.shared.removeObject(forKey: .accessToken)
+        UserDefaultsManager.shared.removeObject(forKey: .refreshToken)
+        UserDefaultsManager.shared.removeObject(forKey: .profileData)
+        model.backToLogin = true
     }
 }
     

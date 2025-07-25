@@ -27,6 +27,7 @@ struct ChatMessagesView: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
             }
+            .navigationBarHidden(true)
             .simultaneousGesture(
                 DragGesture().onChanged { _ in
                     UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
@@ -145,65 +146,65 @@ struct ChattingView: View {
         }
 
         // 네비게이션 및 시트 수정자 적용
-        mainContent
-            .navigationTitle("채팅")
-            .toolbarBackground(.visible, for: .navigationBar)
-            .toolbarBackground(Color.white, for: .navigationBar)
-            .navigationBarTitleDisplayMode(.inline)
-            .navigationBarBackButtonHidden(true)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button(action: {
-                        path.removeLast()
-                    }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "chevron.left")
-                                .foregroundColor(.MainTextColor)
-                            Text("뒤로")
-                                .foregroundColor(.MainTextColor)
-                        }
+        VStack(spacing: 0) {
+            // CustomNavigationBar 추가
+            CustomNavigationBar(title: "채팅") {
+                // 뒤로가기 버튼
+                Button(action: {
+                    print("ChattingView - 뒤로가기 버튼 클릭, 현재 path.count: \(path.count)")
+                    path.removeLast()
+                    print("ChattingView - path.removeLast() 후 path.count: \(path.count)")
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "chevron.left")
+                            .foregroundColor(.MainTextColor)
+                        Text("뒤로")
+                            .foregroundColor(.MainTextColor)
                     }
                 }
-                
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    HStack(spacing: 4) {
-                        Image(systemName: container.model.isConnected ? "wifi" : "wifi.slash")
-                            .foregroundColor(container.model.isConnected ? .SteelBlue : .TomatoRed)
-                        if isReconnecting {
-                            ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle())
-                                .scaleEffect(0.7)
-                        }
+            } rightButton: {
+                // 연결 상태 표시
+                HStack(spacing: 4) {
+                    Image(systemName: container.model.isConnected ? "wifi" : "wifi.slash")
+                        .foregroundColor(container.model.isConnected ? .SteelBlue : .TomatoRed)
+                    if isReconnecting {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle())
+                            .scaleEffect(0.7)
                     }
                 }
             }
-            .onAppear {
+            
+            mainContent
+        }
+        .onAppear {
+            container.handle(.initialLoad)
+        }
+        .onDisappear {
+            print("ChattingView - onDisappear 호출됨")
+            container.handle(.disconnectSocket)
+        }
+        .onChange(of: container.model.isConnected) { isConnected in
+            if !isConnected {
+                attemptReconnect()
+            } else {
+                isReconnecting = false
+                reconnectAttempts = 0
+            }
+        }
+        .sheet(isPresented: $isShowingImagePicker) {
+            ImagePicker(selectedFiles: $selectedFiles)
+        }
+        .alert("오류", isPresented: .constant(container.model.error != nil)) {
+            Button("확인") {
+                container.model.error = nil
+            }
+            Button("재시도") {
                 container.handle(.initialLoad)
             }
-            .onDisappear {
-                container.handle(.disconnectSocket)
-            }
-            .onChange(of: container.model.isConnected) { isConnected in
-                if !isConnected {
-                    attemptReconnect()
-                } else {
-                    isReconnecting = false
-                    reconnectAttempts = 0
-                }
-            }
-            .sheet(isPresented: $isShowingImagePicker) {
-                ImagePicker(selectedFiles: $selectedFiles)
-            }
-            .alert("오류", isPresented: .constant(container.model.error != nil)) {
-                Button("확인") {
-                    container.model.error = nil
-                }
-                Button("재시도") {
-                    container.handle(.initialLoad)
-                }
-            } message: {
-                Text(container.model.error ?? "")
-            }
+        } message: {
+            Text(container.model.error ?? "")
+        }
     }
 
     private func sendMessage() {
