@@ -22,20 +22,24 @@ struct MyPageView: View {
     }
     
     var body: some View {
-        VStack(spacing: 0) {
-            // 커스텀 Navigation Bar
-            CustomNavigationBar(
-                title: "마이 페이지",
-                rightButton: {
-                    Button(action: {
-                        showLogoutAlert = true
-                    }) {
-                        Text("로그아웃")
-                            .font(.pretendardCaption)
-                            .foregroundColor(Color.MainTextColor)
+        ZStack {
+            Color.WarmLinen
+                .ignoresSafeArea()
+            
+            VStack(spacing: 0) {
+                // 커스텀 Navigation Bar
+                CustomNavigationBar(
+                    title: "마이 페이지",
+                    rightButton: {
+                        Button(action: {
+                            showLogoutAlert = true
+                        }) {
+                            Text("로그아웃")
+                                .font(.pretendardCaption)
+                                .foregroundColor(Color.MainTextColor)
+                        }
                     }
-                }
-            )
+                )
             
             ScrollView {
                 VStack(spacing: 0) {
@@ -67,6 +71,7 @@ struct MyPageView: View {
                 // 사용자가 스크롤을 당겨서 새로고침할 때
                 container.handle(.refreshData)
             }
+        }
         }
         .navigationDestination(for: MyPageRoute.self) { route in
             switch route {

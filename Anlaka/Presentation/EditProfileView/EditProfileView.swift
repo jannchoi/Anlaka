@@ -13,33 +13,38 @@ struct EditProfileView: View {
     }
     
     var body: some View {
-        VStack(spacing: 0) {
-            // CustomNavigationBar 추가
-            CustomNavigationBar(title: "프로필 수정", leftButton: {
-                // 뒤로가기 버튼
-                Button(action: {
-                    print("EditProfileView - 뒤로가기 버튼 클릭, 현재 path.count: \(path.count)")
-                    path.removeLast()
-                    print("EditProfileView - path.removeLast() 후 path.count: \(path.count)")
-                }) {
-                    Image(systemName: "chevron.left")
-                        .foregroundColor(Color.MainTextColor)
-                }
-            })
+        ZStack {
+            Color.WarmLinen
+                .ignoresSafeArea()
             
-            ScrollView {
-                VStack(spacing: 24) {
-                    // 프로필 이미지 섹션
-                    profileImageSection
-                    
-                    // 입력 필드들
-                    inputFieldsSection
-                    
-                    // 저장 버튼
-                    saveButton
+            VStack(spacing: 0) {
+                // CustomNavigationBar 추가
+                CustomNavigationBar(title: "프로필 수정", leftButton: {
+                    // 뒤로가기 버튼
+                    Button(action: {
+                        print("EditProfileView - 뒤로가기 버튼 클릭, 현재 path.count: \(path.count)")
+                        path.removeLast()
+                        print("EditProfileView - path.removeLast() 후 path.count: \(path.count)")
+                    }) {
+                        Image(systemName: "chevron.left")
+                            .foregroundColor(Color.MainTextColor)
+                    }
+                })
+                
+                ScrollView {
+                    VStack(spacing: 24) {
+                        // 프로필 이미지 섹션
+                        profileImageSection
+                        
+                        // 입력 필드들
+                        inputFieldsSection
+                        
+                        // 저장 버튼
+                        saveButton
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 16)
                 }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 16)
             }
         }
         .navigationBarHidden(true)
@@ -80,7 +85,7 @@ struct EditProfileView: View {
             PhotosPicker(selection: $selectedImage, matching: .images) {
                 Text("프로필 이미지 변경")
                     .font(.pretendardCallout)
-                    .foregroundColor(.blue)
+                    .foregroundColor(.OliveMist)
             }
         }
     }

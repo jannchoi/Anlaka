@@ -25,24 +25,29 @@ struct SearchMapView: View {
     }
     
     var body: some View {
-        VStack(spacing: 0) {
-            // CustomNavigationBar 추가
-            CustomNavigationBar(title: "매물 찾기", leftButton: {
-                // 뒤로가기 버튼
-                Button(action: {
-                    path.removeLast()
-                }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "chevron.left")
-                            .foregroundColor(.MainTextColor)
-                        Text("뒤로")
-                            .foregroundColor(.MainTextColor)
-                    }
-                    .padding(.leading, 8)
-                }
-            })
+        ZStack {
+            Color.WarmLinen
+                .ignoresSafeArea()
             
-            mainContent
+            VStack(spacing: 0) {
+                // CustomNavigationBar 추가
+                CustomNavigationBar(title: "매물 찾기", leftButton: {
+                    // 뒤로가기 버튼
+                    Button(action: {
+                        path.removeLast()
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "chevron.left")
+                                .foregroundColor(.MainTextColor)
+                            Text("뒤로")
+                                .foregroundColor(.MainTextColor)
+                        }
+                        .padding(.leading, 8)
+                    }
+                })
+                
+                mainContent
+            }
         }
         .navigationBarHidden(true)
         .fullScreenCover(item: Binding(

@@ -22,7 +22,7 @@ struct SignUpView: View {
         VStack(spacing: 0) {
             CustomNavigationBar(title: "회원가입", leftButton:  {
                 Button(action: {
-                    // 뒤로가기 로직
+                    onComplete()
                 }) {
                     Image(systemName: "chevron.left")
                         .foregroundColor(Color.MainTextColor)
@@ -40,6 +40,7 @@ struct SignUpView: View {
                 }
             }
         }
+        .navigationBarHidden(true)
         .alert(item: Binding(
             get: { container.model.errorMessage.map { Message(text: $0) } },
             set: { _ in container.model.errorMessage = nil })
@@ -84,12 +85,18 @@ private struct SignUpInputFieldsView: View {
                 container.handle(.emailChanged($0))
             }
             
-            Button("이메일 중복 확인") {
+            Button(action: {
                 container.handle(.emailValidateButtonTapped)
+            }) {
+                Text("이메일 중복 확인")
+                    .font(.pretendardSubheadline)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(container.model.isEmailValid ? Color.oliveMist : Color.Deselected)
+                    .cornerRadius(8)
             }
             .disabled(!container.model.isEmailValid)
-            .font(.subheadline)
-            .foregroundColor(container.model.isEmailValid ? Color.oliveMist : Color.Deselected)
             
             CustomTextField(
                 title: "비밀번호",
