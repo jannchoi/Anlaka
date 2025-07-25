@@ -29,7 +29,7 @@ final class ChatNotificationCountManager: ObservableObject {
         saveNotificationCounts()
         
         // 앱 아이콘 배지 업데이트
-        updateAppIconBadge()
+        // updateAppIconBadge()
     }
     
     /// 특정 채팅방의 알림 카운트 초기화 (채팅방 진입 시)
@@ -39,7 +39,7 @@ final class ChatNotificationCountManager: ObservableObject {
             saveNotificationCounts()
             
             // 앱 아이콘 배지 업데이트
-            updateAppIconBadge()
+            // updateAppIconBadge()
         }
     }
     
@@ -65,7 +65,7 @@ final class ChatNotificationCountManager: ObservableObject {
         saveNotificationCounts()
         
         // 앱 아이콘 배지 업데이트
-        updateAppIconBadge()
+        // updateAppIconBadge()
         
         // @Published 속성이 변경되었음을 알림
         objectWillChange.send()
@@ -82,23 +82,23 @@ final class ChatNotificationCountManager: ObservableObject {
     }
     
     /// 앱 아이콘 배지 업데이트
-    private func updateAppIconBadge() {
-        DispatchQueue.main.async {
-            UIApplication.shared.applicationIconBadgeNumber = self.totalCount
-        }
-    }
+    // private func updateAppIconBadge() {
+    //     DispatchQueue.main.async {
+    //         UIApplication.shared.applicationIconBadgeNumber = self.totalCount
+    //     }
+    // }
     
     /// 강제로 배지 업데이트 (iOS가 자동 처리하므로 로그만 출력)
-    func forceUpdateBadge() {
-        updateAppIconBadge()
-    }
+    // func forceUpdateBadge() {
+    //     updateAppIconBadge()
+    // }
     
     /// 테스트용 배지 설정
-    func setTestBadge() {
-        notificationCounts["test_room"] = 3
-        saveNotificationCounts()
-        updateAppIconBadge()
-    }
+    // func setTestBadge() {
+    //     notificationCounts["test_room"] = 3
+    //     saveNotificationCounts()
+    //     updateAppIconBadge()
+    // }
     
     // MARK: - Private Methods
     
