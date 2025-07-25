@@ -402,7 +402,7 @@ final class MyPageContainer: ObservableObject {
     private func logout() {
         print(" 로그아웃 시작")
         
-        // 로그아웃 시 디바이스 토큰 무효화 (서버에 빈 문자열 전송)
+        // 로그아웃 시 디바이스 토큰 무효화를 먼저 처리 (토큰 삭제 전)
         Task {
             do {
                 let success = try await repository.updateDeviceToken(deviceToken: "")
@@ -414,30 +414,33 @@ final class MyPageContainer: ObservableObject {
             } catch {
                 print("❌ 로그아웃 시 디바이스 토큰 무효화 실패: \(error.localizedDescription)")
             }
+            
+            // 디바이스 토큰 업데이트 완료 후 토큰 삭제 처리
+            await MainActor.run {
+                // 토큰 및 프로필 데이터 제거
+                KeychainManager.shared.remove(forKey: .accessToken)
+                KeychainManager.shared.remove(forKey: .refreshToken)
+                KeychainManager.shared.remove(forKey: .appleIdToken)
+                KeychainManager.shared.remove(forKey: .kakaoToken)
+                UserDefaultsManager.shared.removeObject(forKey: .profileData)
+                
+                // 알림 관련 데이터 초기화
+                ChatNotificationCountManager.shared.clearAllCounts()
+                TemporaryLastMessageManager.shared.clearAllTemporaryMessages()
+                CustomNotificationManager.shared.clearAllNotifications()
+                
+                // model 업데이트 (View에서 @AppStorage 처리)
+                model.backToLogin = true
+                print(" model.backToLogin 설정 완료: true")
+            }
         }
-        
-        // 토큰 및 프로필 데이터 제거
-        KeychainManager.shared.remove(forKey: .accessToken)
-        KeychainManager.shared.remove(forKey: .refreshToken)
-        KeychainManager.shared.remove(forKey: .appleIdToken)
-        KeychainManager.shared.remove(forKey: .kakaoToken)
-        UserDefaultsManager.shared.removeObject(forKey: .profileData)
-        
-        // 알림 관련 데이터 초기화
-        ChatNotificationCountManager.shared.clearAllCounts()
-        TemporaryLastMessageManager.shared.clearAllTemporaryMessages()
-        CustomNotificationManager.shared.clearAllNotifications()
-        
-        // model 업데이트 (View에서 @AppStorage 처리)
-        model.backToLogin = true
-        print(" model.backToLogin 설정 완료: true")
     }
     
     /// Refresh Token 만료 시 자동 로그아웃 처리
     private func handleRefreshTokenExpiration() {
         print(" Refresh Token 만료 - 자동 로그아웃 처리 시작")
         
-        // Refresh Token 만료 시에도 디바이스 토큰 무효화 (서버에 빈 문자열 전송)
+        // Refresh Token 만료 시에도 디바이스 토큰 무효화를 먼저 처리 (토큰 삭제 전)
         Task {
             do {
                 let success = try await repository.updateDeviceToken(deviceToken: "")
@@ -449,23 +452,26 @@ final class MyPageContainer: ObservableObject {
             } catch {
                 print("❌ Refresh Token 만료 시 디바이스 토큰 무효화 실패: \(error.localizedDescription)")
             }
+            
+            // 디바이스 토큰 업데이트 완료 후 토큰 삭제 처리
+            await MainActor.run {
+                // 토큰 및 프로필 데이터 제거
+                KeychainManager.shared.remove(forKey: .accessToken)
+                KeychainManager.shared.remove(forKey: .refreshToken)
+                KeychainManager.shared.remove(forKey: .appleIdToken)
+                KeychainManager.shared.remove(forKey: .kakaoToken)
+                UserDefaultsManager.shared.removeObject(forKey: .profileData)
+                
+                // 알림 관련 데이터 초기화
+                ChatNotificationCountManager.shared.clearAllCounts()
+                TemporaryLastMessageManager.shared.clearAllTemporaryMessages()
+                CustomNotificationManager.shared.clearAllNotifications()
+                
+                // model 업데이트 (View에서 @AppStorage 처리)
+                model.backToLogin = true
+                print(" Refresh Token 만료 - model.backToLogin 설정 완료: true")
+            }
         }
-        
-        // 토큰 및 프로필 데이터 제거
-        KeychainManager.shared.remove(forKey: .accessToken)
-        KeychainManager.shared.remove(forKey: .refreshToken)
-        KeychainManager.shared.remove(forKey: .appleIdToken)
-        KeychainManager.shared.remove(forKey: .kakaoToken)
-        UserDefaultsManager.shared.removeObject(forKey: .profileData)
-        
-        // 알림 관련 데이터 초기화
-        ChatNotificationCountManager.shared.clearAllCounts()
-        TemporaryLastMessageManager.shared.clearAllTemporaryMessages()
-        CustomNotificationManager.shared.clearAllNotifications()
-        
-        // model 업데이트 (View에서 @AppStorage 처리)
-        model.backToLogin = true
-        print(" Refresh Token 만료 - model.backToLogin 설정 완료: true")
     }
 
 }

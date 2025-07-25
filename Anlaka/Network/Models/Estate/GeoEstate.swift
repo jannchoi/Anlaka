@@ -24,10 +24,13 @@ extension GeoEstateEntity {
     func toPinInfoList() -> [PinInfo] {
         return data.map { estate in
             PinInfo(
-                estateId: estate.estateId, image: estate.thumbnails.first ,longitude: estate.geolocation.longitude,
+                estateId: estate.estateId, 
+                image: estate.thumbnails.first,
+                longitude: estate.geolocation.longitude,
                 latitude: estate.geolocation.latitude,
-                title: estate.title
-               
+                title: estate.title,
+                deposit: estate.deposit,
+                monthlyRent: estate.monthlyRent
             )
         }
     }
