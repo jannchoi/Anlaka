@@ -4,6 +4,7 @@ import SwiftUI
 
 struct ChattingModel {
     var opponent_id: String?
+    var opponentProfile: OtherProfileInfoEntity? = nil
     var roomId: String
     var messages: [ChatEntity] = []
     var isLoading: Bool = false
@@ -130,31 +131,35 @@ final class ChattingContainer: ObservableObject {
                 let chatRoom = try await repository.getChatRoom(opponent_id: opponent_id)
                 // roomId 업데이트
                 model.roomId = chatRoom.roomId
+                
+                // 2. 상대방 프로필 정보 가져오기
+                let opponentProfile = try await repository.getOtherProfileInfo(userId: opponent_id)
+                    model.opponentProfile = opponentProfile
             }
             
-            // 2. 현재 사용자가 해당 채팅방에 존재하는지 확인
+            // 3. 현재 사용자가 해당 채팅방에 존재하는지 확인
             let userInChatRoom = try await databaseRepository.isUserInChatRoom(roomId: model.roomId, userId: userInfo.userid)
             
             if !userInChatRoom {
-                // 3. 현재 사용자가 채팅방에 없는 경우 채팅방 삭제
+                // 4. 현재 사용자가 채팅방에 없는 경우 채팅방 삭제
                 try await databaseRepository.deleteChatRoom(roomId: model.roomId)
                 
-                // 4. 서버에서 전체 채팅 내역 가져오기
+                // 5. 서버에서 전체 채팅 내역 가져오기
                 let chatList = try await repository.getChatList(roomId: model.roomId, from: nil)
                 try await databaseRepository.saveMessages(chatList.chats)
                 model.messages = chatList.chats
             } else {
-                // 5. 기존 사용자인 경우 로컬 DB에서 채팅 내역 조회
+                // 6. 기존 사용자인 경우 로컬 DB에서 채팅 내역 조회
                 let localMessages = try await databaseRepository.getMessages(roomId: model.roomId)
                 model.messages = localMessages
                 
-                // 6. 마지막 메시지 날짜 가져오기
+                // 7. 마지막 메시지 날짜 가져오기
                 if let lastDate = try await databaseRepository.getLastMessageDate(roomId: model.roomId) {
-                    // 7. 서버에서 최신 메시지 동기화
+                    // 8. 서버에서 최신 메시지 동기화
                     let formattedDate = PresentationMapper.formatDateToISO8601(lastDate)
                     let chatList = try await repository.getChatList(roomId: model.roomId, from: formattedDate)
                     
-                    // 8. 새 메시지 저장 및 UI 업데이트
+                    // 9. 새 메시지 저장 및 UI 업데이트
                     try await databaseRepository.saveMessages(chatList.chats)
                     
                     // 중복되지 않은 새 메시지만 추가
@@ -165,10 +170,10 @@ final class ChattingContainer: ObservableObject {
                 }
             }
             
-            // 9. 메시지 그룹화 업데이트
+            // 10. 메시지 그룹화 업데이트
             model.updateMessagesGroupedByDate()
             
-            // 10. WebSocket 연결
+            // 11. WebSocket 연결
             socket?.connect()
             
         } catch {
@@ -195,12 +200,7 @@ final class ChattingContainer: ObservableObject {
             content: text,
             createdAt: PresentationMapper.formatDateToISO8601(Date()),
             updatedAt: PresentationMapper.formatDateToISO8601(Date()),
-            sender: UserInfoEntity(
-                userId: userInfo.userid,
-                nick: userInfo.nick,
-                introduction: userInfo.introduction ?? "",
-                profileImage: userInfo.profileImage ?? ""
-            ),
+            sender: userInfo.userid,
             files: []
         )
         
@@ -236,12 +236,14 @@ final class ChattingContainer: ObservableObject {
                 print("✅ 파일 업로드 성공 - 업로드된 파일 URL: \(uploadedFiles)")
             }
             
-            // 3. Socket.IO를 통한 메시지 전송
+            // 3. Socket.IO를 통한 메시지 전송 (업로드된 파일 URL을 그대로 전송)
             let messageData: [String: Any] = [
                 "content": text,
-                "files": uploadedFiles,
+                "files": uploadedFiles,  // 서버에서 받은 파일 URL 그대로 사용
                 "roomId": model.roomId
             ]
+            
+            print("📤 WebSocket으로 전송할 메시지 데이터: \(messageData)")
             
             socket?.emit("chat", with: [messageData]) { [weak self] in
                 // 메시지 전송 완료 후 처리
@@ -250,7 +252,7 @@ final class ChattingContainer: ObservableObject {
                         // Socket.IO 전송 완료 후 HTTP로 실제 메시지 ID 받아오기
                         let chatRequest = ChatRequestEntity(
                             content: text,
-                            files: uploadedFiles
+                            files: uploadedFiles  // 업로드된 파일 URL 그대로 사용
                         )
                         
                         let message = try await self?.repository.sendMessage(
@@ -266,7 +268,7 @@ final class ChattingContainer: ObservableObject {
                             }
                             
                             // DB 저장
-                                try await self?.databaseRepository.saveMessage(message)
+                            try await self?.databaseRepository.saveMessage(message)
                             
                             // 전송 상태 업데이트
                             self?.model.sendingMessageId = nil
@@ -361,12 +363,7 @@ final class ChattingContainer: ObservableObject {
                     content: message.content,
                     createdAt: message.createdAt,
                     updatedAt: message.updatedAt,
-                    sender: UserInfoEntity(
-                        userId: message.sender.userID,
-                        nick: message.sender.nick,
-                        introduction: message.sender.introduction,
-                        profileImage: message.sender.profileImage
-                    ),
+                    sender: message.sender,
                     files: message.files
                 )
                 
