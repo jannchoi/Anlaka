@@ -74,23 +74,14 @@ struct LoginView: View {
                         if container.model.isLoading {
                             ProgressView()
                         }
-                        HStack(spacing: 35) {
-                            Image(systemName: "apple.logo")
-                                .padding(.leading, 47)
-                            Text("Apple로 로그인")
-                                .foregroundStyle(.white)
+                        SignInWithAppleButton { request in
+                            request.requestedScopes = [.email, .fullName]
+                        } onCompletion: { result in
+                            container.handle(.handleAppleLogin(result))
                         }
-                        .overlay {
-                            SignInWithAppleButton { request in
-                                request.requestedScopes = [.email, .fullName]
-                            } onCompletion: { result in
-                                container.handle(.handleAppleLogin(result))
-                            }
-                            .frame(height: 50)
-                            .frame(maxWidth: .infinity)
-                            .cornerRadius(8)
-                            .blendMode(.overlay)
-                        }
+                        .frame(height: 50)
+                        .frame(maxWidth: .infinity)
+                        .cornerRadius(8)
                         Button {
                             container.handle(.handleKakaoLogin)
                         } label: {
@@ -103,7 +94,7 @@ struct LoginView: View {
                         .cornerRadius(8)
                         
 
-                        Button("Create an account") {
+                        Button("계정 만들기") {
                             container.handle(.signUpButtontTapped)
                         }
                         .foregroundColor(.gray)
@@ -129,7 +120,7 @@ struct LoginView: View {
             .navigationDestination(for: LoginRoute.self) { route in
                 switch route {
                 case .home:
-                    HomeView()
+                    HomeView(di: di)
 
                 case .signUp:
                     SignUpView(
@@ -147,9 +138,10 @@ struct LoginView: View {
             }
             
             container.model.onLoginSuccess = {
+                
                 if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
                    let window = windowScene.windows.first {
-                    window.rootViewController = UIHostingController(rootView: HomeView())
+                    window.rootViewController = UIHostingController(rootView: HomeView(di: di))
                     window.makeKeyAndVisible()
                 }
             }
