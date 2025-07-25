@@ -77,6 +77,8 @@ struct ChattingView: View {
     @State private var scrollProxy: ScrollViewProxy? = nil
     @State private var reconnectAttempts = 0
     @State private var isReconnecting = false
+    @State private var isShowingProfileDetail = false
+    @State private var profileDetailOffset: CGSize = .zero
     @Binding var path: NavigationPath
     
     init(opponent_id: String, di: DIContainer, path: Binding<NavigationPath>) {
@@ -148,7 +150,7 @@ struct ChattingView: View {
         // 네비게이션 및 시트 수정자 적용
         VStack(spacing: 0) {
             // CustomNavigationBar 추가
-            CustomNavigationBar(title: "채팅") {
+            CustomNavigationBar(title: container.model.opponentProfile?.nick ?? "채팅") {
                 // 뒤로가기 버튼
                 Button(action: {
                     print("ChattingView - 뒤로가기 버튼 클릭, 현재 path.count: \(path.count)")
@@ -163,14 +165,21 @@ struct ChattingView: View {
                     }
                 }
             } rightButton: {
-                // 연결 상태 표시
-                HStack(spacing: 4) {
-                    Image(systemName: container.model.isConnected ? "wifi" : "wifi.slash")
-                        .foregroundColor(container.model.isConnected ? .SteelBlue : .TomatoRed)
-                    if isReconnecting {
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle())
-                            .scaleEffect(0.7)
+                // 상대방 프로필 이미지
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        isShowingProfileDetail = true
+                    }
+                }) {
+                    if let profileImage = container.model.opponentProfile?.profileImage {
+                        CustomAsyncImage(imagePath: profileImage)
+                            .frame(width: 32, height: 32)
+                            .clipShape(Circle())
+                    } else {
+                        // 프로필 이미지가 없는 경우 기본 이미지
+                        Image(systemName: "person.circle.fill")
+                            .font(.system(size: 32))
+                            .foregroundColor(.gray)
                     }
                 }
             }
@@ -205,6 +214,38 @@ struct ChattingView: View {
         } message: {
             Text(container.model.error ?? "")
         }
+        .overlay(
+            // ProfileDetailView Overlay
+            Group {
+                if isShowingProfileDetail {
+                    ZStack {
+                        // 배경 어둡게 처리
+                        Color.black.opacity(0.5)
+                            .ignoresSafeArea()
+                            .onTapGesture {
+                                withAnimation(.easeInOut(duration: 0.3)) {
+                                    isShowingProfileDetail = false
+                                }
+                            }
+                        
+                        // ProfileDetailView
+                        if let opponentProfile = container.model.opponentProfile {
+                            ProfileDetailView(
+                                profileImage: opponentProfile.profileImage,
+                                nick: opponentProfile.nick,
+                                introduction: opponentProfile.introduction,
+                                isPresented: $isShowingProfileDetail
+                            )
+                            .offset(profileDetailOffset)
+                            .scaleEffect(isShowingProfileDetail ? 1.0 : 0.1)
+                            .opacity(isShowingProfileDetail ? 1.0 : 0.0)
+                            .animation(.easeInOut(duration: 0.3), value: isShowingProfileDetail)
+                        }
+                    }
+                    .transition(.opacity)
+                }
+            }
+        )
     }
 
     private func sendMessage() {
