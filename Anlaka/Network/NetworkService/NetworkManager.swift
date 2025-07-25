@@ -17,7 +17,7 @@ final class NetworkManager {
         try await prepareAuthorizationIfNeeded(for: target)
         
         let request = try target.asURLRequest()
-        //print("📦 Request:\n\(request)")
+        print("🧶 Request:\n\(request)")
         let (data, response) = try await URLSession.shared.data(for: request)
 
         // ✅ 응답 타입 확인
@@ -32,7 +32,7 @@ final class NetworkManager {
         }
 
         if let rawJSON = String(data: data, encoding: .utf8) {
-            //print("📦 Raw Response:\n\(rawJSON)")
+            print("🧤Raw Response:\n\(rawJSON)")
         } else {
             print("⚠️ Raw 데이터 UTF-8 디코딩 실패")
         }
