@@ -201,6 +201,15 @@ struct NicknameInputField: View {
 struct IntroductionInputField: View {
     @Binding var introduction: String
     
+    // 글자수 계산을 위한 computed properties
+    private var characterCount: Int {
+        introduction.count
+    }
+    
+    private var isOverLimit: Bool {
+        characterCount > 60
+    }
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("자기소개")
@@ -210,6 +219,27 @@ struct IntroductionInputField: View {
             TextField("자기소개를 입력하세요", text: $introduction, axis: .vertical)
                 .textFieldStyle(RoundedBorderTextFieldStyle())
                 .lineLimit(3...6)
+                .onChange(of: introduction) { newValue in
+                    // 글자수 제한 적용 (공백 포함 60자)
+                    let charCount = newValue.count
+                    
+                    if charCount > 60 {
+                        // 제한을 초과하면 이전 값으로 되돌리기
+                        introduction = String(newValue.prefix(60))
+                    }
+                }
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(isOverLimit ? Color.TomatoRed : Color.gray.opacity(0.2), lineWidth: 1)
+                )
+            
+            // 글자수 카운터
+            HStack {
+                Spacer()
+                Text("\(characterCount)/60")
+                    .font(.pretendardCaption)
+                    .foregroundColor(isOverLimit ? Color.TomatoRed : Color.SubText)
+            }
         }
     }
 }
