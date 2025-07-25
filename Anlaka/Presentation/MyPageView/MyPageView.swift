@@ -28,6 +28,9 @@ struct MyPageView: View {
                         profileInfo: container.model.profileInfo,
                         onEditProfile: {
                             path.append(MyPageRoute.editProfile(di: di))
+                        },
+                        onAddEstate: {
+                            container.handle(.addMyEstate)
                         }
                     )
                     .padding(.top, 20)
@@ -75,6 +78,7 @@ struct MyPageView: View {
 struct ProfileView: View {
     let profileInfo: MyProfileInfoEntity?
     let onEditProfile: () -> Void
+    let onAddEstate: () -> Void
     
     var body: some View {
         if let profileInfo = profileInfo {
@@ -93,6 +97,19 @@ struct ProfileView: View {
                     .clipShape(Circle())
                     
                     Spacer()
+                    
+                    // Add Estate Button
+                    Button(action: onAddEstate) {
+                        Text("매물 추가하기")
+                            .font(.system(size: 11))
+                            .foregroundColor(Color.MainTextColor)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 4)
+                                    .stroke(Color.MainTextColor, lineWidth: 1)
+                            )
+                    }
                     
                     // Edit Button
                     Button(action: onEditProfile) {

@@ -14,9 +14,15 @@ public enum AppConfig {
             static let apiKey = "API_KEY"
             static let baseURL = "BASE_URL"
             static let kakaoRestKey = "KAKAO_REST_KEY"
+            static let userCode = "USER_CODE"
         }
     }
-
+    public static let userCode: String = {
+        guard let key = infoDict[Keys.Plist.userCode] as? String else {
+            fatalError("USER_CODE not set in plist")
+        }
+        return key
+    }()
     private static let infoDict: [String: Any] = {
         guard let dict = Bundle.main.infoDictionary else {
             fatalError("Plist file not found")

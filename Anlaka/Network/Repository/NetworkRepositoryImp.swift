@@ -8,6 +8,77 @@
 import Foundation
 
 final class NetworkRepositoryImp: NetworkRepository {
+    func createOrder(order: CreateOrderRequestDTO) async throws -> CreateOrderEntity {
+        do {
+            let response = try await NetworkManager.shared.callRequest(target: OrderRouter.createOrder(orderRequestDTO: order), model: CreateOrderResponseDTO.self)
+            guard let entity = response.toEntity() else {
+                throw CustomError.nilResponse
+            }
+            return entity
+        } catch {
+            throw error
+        }
+    }
+    func getOrders() async throws -> GetOrdersResponseEntity {
+        do {
+            let response = try await NetworkManager.shared.callRequest(target: OrderRouter.getOrders, model: GetOrdersResponseDTO.self)
+            return response.toEntity()
+        } catch {
+            throw error
+        }
+    }
+    func validatePayment(payment: ReceiptPaymentRequestDTO) async throws -> ReceiptOrderResponseEntity {
+        do {
+            let response = try await NetworkManager.shared.callRequest(target: PaymentRouter.validatePayment(paymentRequestDTO: payment), model: ReceiptOrderResponseDTO.self)
+            guard let entity = response.toEntity() else {
+                throw CustomError.nilResponse
+            }
+            return entity
+        } catch {
+            throw error
+        }
+    }
+    func getPayment(orderCode: String) async throws -> PaymentResponseEntity {
+        do {
+            let response = try await NetworkManager.shared.callRequest(target: PaymentRouter.getPayment(orderCode: orderCode), model: PaymentResponseDTO.self)
+            guard let entity = response.toEntity() else {
+                throw CustomError.nilResponse
+            }
+            return entity
+        } catch {
+            throw error
+        }
+    }
+    // MARK: - Private Methods
+    private func saveTokens(accessToken: String, refreshToken: String) {
+        UserDefaultsManager.shared.set(accessToken, forKey: .accessToken)
+        UserDefaultsManager.shared.set(refreshToken, forKey: .refreshToken)
+    }
+    
+    private func saveProfileInfo(userId: String, email: String, nick: String, phoneNum: String? = nil, introduction: String? = nil) {
+        let profile = MyProfileInfoEntity(
+            userid: userId,
+            email: email,
+            nick: nick,
+            profileImage: nil,
+            phoneNum: phoneNum,
+            introduction: introduction
+        )
+
+        UserDefaultsManager.shared.setObject(profile, forKey: .profileData)
+    }
+
+    func uploadAdminRequest(adminRequest: AdminRequestMockData) async throws -> DetailEstateEntity {
+        do {
+            let response = try await NetworkManager.shared.callRequest(target: AdminRouter.uploadAdminRequest(adminRequest), model: DetailEstateResponseDTO.self)
+             guard let entity = response.toEntity() else {
+                throw CustomError.nilResponse
+            }
+            return entity
+        } catch {
+            throw error
+        }
+    }
 
     func getMyProfileInfo() async throws -> MyProfileInfoEntity {
         do {
@@ -140,10 +211,11 @@ final class NetworkRepositoryImp: NetworkRepository {
         }
     }
     
-    func getGeoEstate(category: CategoryType?, lon: Double, lat: Double, maxD: Double) async throws -> GeoEstateEntity {
+    func getGeoEstate(category: String? = nil, lon: Double, lat: Double, maxD: Double) async throws -> GeoEstateEntity {
+        
         do {
             let response = try await NetworkManager.shared.callRequest(
-                target: EstateRouter.geoEstate(category: category?.rawValue, lon: String(lon), lat: String(lat), maxD: String(maxD)),
+                target: EstateRouter.geoEstate(category: category, lon: String(lon), lat: String(lat), maxD: String(maxD)),
                 model: GeoEstateResponseDTO.self
             )
             return response.toEntity()
@@ -230,8 +302,13 @@ final class NetworkRepositoryImp: NetworkRepository {
         do {
             let response = try await NetworkManager.shared.callRequest(target: UserRouter.signUp(target) , model: SignUpResponseDTO.self)
             let entity = response.toEntity()
-            let profile = MyProfileInfoEntity(userid: entity.userId, email: entity.email, nick: entity.nick, profileImage: nil, phoneNum: phoneNum, introduction: intro)
-            UserDefaultsManager.shared.setObject(profile, forKey: .profileData)
+            saveProfileInfo(
+                userId: entity.userId,
+                email: entity.email,
+                nick: entity.nick,
+                phoneNum: phoneNum,
+                introduction: intro
+            )
             return response.toEntity()
         }  catch {
             throw error
@@ -243,8 +320,7 @@ final class NetworkRepositoryImp: NetworkRepository {
         do {
             let response = try await NetworkManager.shared.callRequest(target: UserRouter.emailLogin(target), model: LoginResponseDTO.self)
             let entity = response.toEntity()
-            UserDefaultsManager.shared.set(entity.accessToken, forKey: .accessToken)
-            UserDefaultsManager.shared.set(entity.refreshToken, forKey: .refreshToken)
+            saveTokens(accessToken: entity.accessToken, refreshToken: entity.refreshToken)
         } catch {
             throw error
         }
@@ -256,12 +332,11 @@ final class NetworkRepositoryImp: NetworkRepository {
             let response = try await NetworkManager.shared.callRequest(target: UserRouter.kakaoLogin(target), model: LoginResponseDTO.self)
             let entity = response.toEntity()
             
-            if UserDefaultsManager.shared.getObject(forKey: .profileData, as: MyProfileInfoEntity.self) == nil {
-                let profile = MyProfileInfoEntity(userid: entity.userId, email: entity.email, nick: entity.nick, profileImage: nil, phoneNum: nil, introduction: nil)
-                UserDefaultsManager.shared.setObject(profile, forKey: .profileData)
+            let savedProfile = UserDefaultsManager.shared.getObject(forKey: .profileData, as: MyProfileInfoEntity.self)
+            if savedProfile == nil || savedProfile?.userid != entity.userId {
+                saveProfileInfo(userId: entity.userId, email: entity.email, nick: entity.nick)
             }
-            UserDefaultsManager.shared.set(entity.accessToken, forKey: .accessToken)
-            UserDefaultsManager.shared.set(entity.refreshToken, forKey: .refreshToken)
+            saveTokens(accessToken: entity.accessToken, refreshToken: entity.refreshToken)
         } catch {
             throw error
         }
@@ -276,12 +351,11 @@ final class NetworkRepositoryImp: NetworkRepository {
                 model: LoginResponseDTO.self
             )
             let entity = response.toEntity()
-            if UserDefaultsManager.shared.getObject(forKey: .profileData, as: MyProfileInfoEntity.self) == nil {
-                let profile = MyProfileInfoEntity(userid: entity.userId, email: entity.email, nick: entity.nick, profileImage: nil, phoneNum: nil, introduction: nil)
-                UserDefaultsManager.shared.setObject(profile, forKey: .profileData)
+            let savedProfile = UserDefaultsManager.shared.getObject(forKey: .profileData, as: MyProfileInfoEntity.self)
+            if savedProfile == nil || savedProfile?.userid != entity.userId {
+                saveProfileInfo(userId: entity.userId, email: entity.email, nick: entity.nick)
             }
-            UserDefaultsManager.shared.set(entity.accessToken, forKey: .accessToken)
-            UserDefaultsManager.shared.set(entity.refreshToken, forKey: .refreshToken)
+            saveTokens(accessToken: entity.accessToken, refreshToken: entity.refreshToken)
         } catch {
             throw error
         }
