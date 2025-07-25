@@ -12,7 +12,8 @@ struct ClusterInfo {
     let centerCoordinate: CLLocationCoordinate2D
     let count: Int
     let representativeImage: String?
-    let area: Double? // 클러스터 면적 (제곱미터), nil이면 계산되지 않음
+    let opacity: CGFloat? // 클러스터의 투명도 (0.4 ~ 1.0), nil이면 계산되지 않음
+    let maxRadius: Double // 클러스터의 최대 반지름 (미터 단위)
 }
 
 enum ClusteringType {
