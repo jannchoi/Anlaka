@@ -92,30 +92,60 @@ class FileManageHelper{
     
     /// UIImage를 FileData로 변환
     func convertUIImage(_ image: UIImage, fileName: String, uploadType: FileUploadType) -> FileData? {
-        guard let imageData = image.jpegData(compressionQuality: 0.8) else {
+        let fileExtension = (fileName as NSString).pathExtension.lowercased()
+        
+        // 확장자에 따라 적절한 포맷으로 변환
+        let imageData: Data?
+        let mimeType: String
+        let finalExtension: String
+        
+        switch fileExtension {
+        case "png":
+            imageData = image.pngData()
+            mimeType = "image/png"
+            finalExtension = "png"
+        case "webp":
+            // WebP는 JPEG로 변환 (iOS에서 WebP 인코딩 지원 제한)
+            imageData = image.jpegData(compressionQuality: 0.8)
+            mimeType = "image/jpeg"
+            finalExtension = "jpg"
+        default:
+            // jpg, jpeg, gif 등은 JPEG로 변환
+            imageData = image.jpegData(compressionQuality: 0.8)
+            mimeType = "image/jpeg"
+            finalExtension = "jpg"
+        }
+        
+        guard let data = imageData else {
+            print("❌ [FileManageHelper] 이미지 데이터 변환 실패: \(fileName)")
             return nil
         }
         
-        let fileExtension = (fileName as NSString).pathExtension.lowercased()
-        
-        return FileData(
-            data: imageData,
-            fileName: fileName,
-            mimeType: "image/jpeg",
-            fileExtension: fileExtension
-        )
-    }
-    
-    /// Data를 FileData로 변환 (PDF 등)
-    func convertData(_ data: Data, fileName: String, uploadType: FileUploadType) -> FileData? {
-        let fileExtension = (fileName as NSString).pathExtension.lowercased()
-        let mimeType = getMimeType(for: fileExtension)
+        // 확장자가 없는 경우 기본값으로 처리 (이미 FilePicker에서 처리됨)
+        let finalFileName = fileName
         
         return FileData(
             data: data,
-            fileName: fileName,
+            fileName: finalFileName,
             mimeType: mimeType,
-            fileExtension: fileExtension
+            fileExtension: finalExtension
+        )
+    }
+    
+    /// Data를 FileData로 변환 (PDF, 비디오 등)
+    func convertData(_ data: Data, fileName: String, uploadType: FileUploadType) -> FileData? {
+        let fileExtension = (fileName as NSString).pathExtension.lowercased()
+        
+        // 확장자가 없는 경우 기본값으로 처리 (이미 FilePicker에서 처리됨)
+        let finalExtension = fileExtension
+        let mimeType = getMimeType(for: finalExtension)
+        let finalFileName = fileName
+        
+        return FileData(
+            data: data,
+            fileName: finalFileName,
+            mimeType: mimeType,
+            fileExtension: finalExtension
         )
     }
     
