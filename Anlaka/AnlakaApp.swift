@@ -18,8 +18,8 @@ struct AnlakaApp: App {
     
     
     init() {
-        KakaoSDK.initSDK(appKey: Environment.kakaoNativeKey)
-        SDKInitializer.InitSDK(appKey: Environment.kakaoNativeKey)
+        KakaoSDK.initSDK(appKey: AppConfig.kakaoNativeKey)
+        SDKInitializer.InitSDK(appKey: AppConfig.kakaoNativeKey)
     }
     
     var body: some Scene {
