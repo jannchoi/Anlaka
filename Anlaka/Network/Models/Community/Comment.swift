@@ -20,3 +20,23 @@ struct CommentResponseEntity {
     let createdAt: String
     let creator: UserInfoEntity
 }
+
+extension CommentResponseDTO {
+    func toEntity() -> CommentResponseEntity? {
+        guard let commentId = commentId,
+              let content = content,
+              let createdAt = createdAt,
+              let creator = creator?.toEntity() else {
+            return nil
+        }
+        
+        return CommentResponseEntity(
+            commentId: commentId,
+            content: content,
+            createdAt: createdAt,
+            creator: creator
+        )
+    }
+}
+
+

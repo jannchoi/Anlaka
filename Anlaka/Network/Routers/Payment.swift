@@ -29,7 +29,7 @@ enum PaymentRouter: AuthorizedTarget {
             return "GET"
         }
     }
-    var headers: [String: String] {
+    var header: [String: String] {
          guard let accessToken = UserDefaultsManager.shared.getString(forKey: .accessToken) else {return [:]}
         return [
             "SeSACKey": AppConfig.apiKey,
@@ -37,7 +37,7 @@ enum PaymentRouter: AuthorizedTarget {
             "Authorization" : accessToken
         ]
     }
-    var parameters: [String: Any] {
+    var parameters: [String: Any?] {
         switch self {
         case .validatePayment:
             return [:]
@@ -62,7 +62,7 @@ enum PaymentRouter: AuthorizedTarget {
         }
         var request = URLRequest(url: url)
         request.httpMethod = method
-        headers.forEach { request.setValue($0.value, forHTTPHeaderField: $0.key) }
+        header.forEach { request.setValue($0.value, forHTTPHeaderField: $0.key) }
         switch self {
         case .validatePayment(let dto):
             let encoder = JSONEncoder()

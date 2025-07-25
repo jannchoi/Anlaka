@@ -127,7 +127,7 @@ class SearchAddressContainer: ObservableObject {
     }
     
     private func handleError(_ error: Error) {
-        if let netError = error as? NetworkError {
+        if let netError = error as? CustomError {
             model.errorMessage = netError.errorDescription
         } else {
             model.errorMessage = error.localizedDescription
