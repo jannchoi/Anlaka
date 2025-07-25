@@ -65,7 +65,7 @@ class WebSocketManager {
                 .reconnectWait(1),
                 .extraHeaders([
                     "SeSACKey": AppConfig.apiKey,
-                    "Authorization": UserDefaultsManager.shared.getString(forKey: .accessToken) ?? ""
+                    "Authorization": KeychainManager.shared.getString(forKey: .accessToken) ?? ""
                 ])
             ]
             
