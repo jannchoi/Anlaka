@@ -30,7 +30,7 @@ struct MyTabView: View {
     
     var body: some View {
         ZStack(alignment: .bottom) {
-            // 모든 뷰를 미리 생성하고 opacity로 숨김/표시
+            // LazyView를 사용하여 선택된 탭만 생성하되, 한 번 생성된 뷰는 재사용
             ZStack {
                 // Home Tab
                 NavigationStack(path: $homePath) {
@@ -38,10 +38,10 @@ struct MyTabView: View {
                         if let homeView = homeView {
                             homeView
                         } else {
-                            HomeView(di: di, path: $homePath)
+                            LazyView(content: HomeView(di: di, path: $homePath))
                                 .onAppear {
                                     if homeView == nil {
-                                        homeView = HomeView(di: di, path: $homePath)
+                                        self.homeView = HomeView(di: di, path: $homePath)
                                     }
                                 }
                         }
@@ -56,10 +56,10 @@ struct MyTabView: View {
                         if let reservedView = reservedView {
                             reservedView
                         } else {
-                            RerservedEstatesView(di: di, path: $reservedPath)
+                            LazyView(content: RerservedEstatesView(di: di, path: $reservedPath))
                                 .onAppear {
                                     if reservedView == nil {
-                                        reservedView = RerservedEstatesView(di: di, path: $reservedPath)
+                                        self.reservedView = RerservedEstatesView(di: di, path: $reservedPath)
                                     }
                                 }
                         }
@@ -74,10 +74,10 @@ struct MyTabView: View {
                         if let myPageView = myPageView {
                             myPageView
                         } else {
-                            MyPageView(di: di, path: $myPagePath)
+                            LazyView(content: MyPageView(di: di, path: $myPagePath))
                                 .onAppear {
                                     if myPageView == nil {
-                                        myPageView = MyPageView(di: di, path: $myPagePath)
+                                        self.myPageView = MyPageView(di: di, path: $myPagePath)
                                     }
                                 }
                         }
