@@ -174,18 +174,15 @@ final class SearchMapContainer: NSObject, ObservableObject {
         return (range.lowerBound * factor)...(range.upperBound * factor)
     }
     private func applyFiltersAndUpdateMap() {
-        print(#function)
         isFilterUpdate = true
         // 현재 로드된 데이터가 있다면 필터를 적용하여 맵 업데이트
         if let geoEstates = model.curEstatesData {
-            print(geoEstates.data.count)
             let data = estateDataFiltering(geoEstates)
             let newPinInfoList = data.toPinInfoList()
             
             // 데이터가 변경된 경우에만 pinInfoList 업데이트
             if newPinInfoList != model.pinInfoList {
                 model.pinInfoList = newPinInfoList
-                print(model.pinInfoList.count)
                 // forceUpdate를 true로 설정하고 다음 프레임에서 false로 설정
                 DispatchQueue.main.async {
                     self.forceUpdate = true
