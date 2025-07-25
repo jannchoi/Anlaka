@@ -393,7 +393,11 @@ final class ChattingContainer: ObservableObject {
                 try await databaseRepository.saveMessage(chatEntity)
                 model.messages.append(chatEntity)
                 model.updateMessagesGroupedByDate()
+                
                 print("✅ 새 메시지 저장 완료: \(message.chatID)")
+                
+                // 채팅방 목록의 마지막 메시지는 서버 동기화 시에만 업데이트
+                // (기존 아키텍처에 맞춰 WebSocket 메시지는 DB에만 저장)
             } catch {
                 print("❌ 메시지 저장 실패: \(error.localizedDescription)")
                 // 에러가 발생해도 채팅은 계속 진행 (model.error 설정하지 않음)

@@ -10,6 +10,7 @@ import FirebaseMessaging
 import UIKit
 import UserNotifications
 import iamport_ios
+import AudioToolbox
 
 class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate,
   MessagingDelegate
@@ -55,9 +56,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
           
           // 앱 완전 종료 상태에서 알림 처리
           handleNotificationData(notification)
+          
+          // 백그라운드 알림 처리도 함께 수행
+          handleBackgroundNotification(notification)
       }
       
-      // 앱 시작 시 배지 카운트는 초기화하지 않음 (채팅방 진입 시에만 차감)
+      // 앱 시작 시 배지 상태 확인 및 복원
+      restoreBadgeCount()
     
     return true
     }
@@ -131,20 +136,18 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     let userInfo = notification.request.content.userInfo
     print("📱 포그라운드 알림 데이터: \(userInfo)")
     
-    // 채팅 알림인지 확인
-    if isChatNotification(userInfo) {
-        handleChatNotificationInForeground(userInfo)
+            // 채팅 알림인지 확인
+        if isChatNotification(userInfo) {
+            // 포그라운드에서 채팅 알림 처리 (카운트 증가 포함)
+            handleChatNotificationInForeground(userInfo)
+            
+            // 채팅 알림 업데이트 이벤트 전송
+            NotificationCenter.default.post(name: .chatNotificationUpdate, object: nil)
+            print("📱 포그라운드 채팅 알림 수신 - MyPageContainer에 이벤트 전송")
         
-        // 채팅 알림인 경우: 배너/배지만 표시 (사운드 없음)
-        // 단, 채팅방 내부에 있지 않은 경우에만 사운드 재생
-        guard let chatData = parseChatNotificationData(userInfo) else {
-            completionHandler([.banner, .badge])
-            return
-        }
-        
-        let shouldPlaySound = !isInChatRoom(roomId: chatData.roomId)
-        let options: UNNotificationPresentationOptions = shouldPlaySound ? [.banner, .sound, .badge] : [.banner, .badge]
-        completionHandler(options)
+        // 채팅 알림인 경우: 커스텀 배너만 표시 (시스템 배너 숨김)
+        // 사운드는 커스텀 배너에서만 재생하므로 시스템 사운드 비활성화
+        completionHandler([.badge]) // .banner, .sound 제거
     } else {
         // 일반 알림인 경우: 배지 카운트 관리
         manageBadgeCount(userInfo)
@@ -161,6 +164,57 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     }
   }
   
+  // MARK: - 백그라운드에서 원격 알림 수신 처리
+  func application(
+    _ application: UIApplication,
+    didReceiveRemoteNotification userInfo: [AnyHashable: Any],
+    fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
+  ) {
+    print("📱 백그라운드에서 원격 알림 수신: \(userInfo)")
+    
+    // 앱이 백그라운드 상태일 때만 처리 (포그라운드에서는 willPresent에서 처리됨)
+    if application.applicationState == .background {
+        handleBackgroundNotification(userInfo)
+        completionHandler(.newData)
+    } else {
+        print("📱 포그라운드에서 원격 알림 수신 - 이미 willPresent에서 처리됨")
+        completionHandler(.noData)
+    }
+  }
+
+  // MARK: - 백그라운드 알림 처리를 위한 별도 메서드
+  private func handleBackgroundNotification(_ userInfo: [AnyHashable: Any]) {
+    print("😡 백그라운드 알림 처리 시작")
+    
+    // 채팅 알림인지 확인
+    if isChatNotification(userInfo) {
+        print("📱 백그라운드 채팅 알림 처리")
+
+        
+        // 채팅 알림 카운트 증가 및 임시 마지막 메시지 저장
+        if let chatData = parseChatNotificationData(userInfo) {
+            ChatNotificationCountManager.shared.incrementCount(for: chatData.roomId)
+            
+            // 알림 body를 임시 마지막 메시지로 저장
+            TemporaryLastMessageManager.shared.setTemporaryLastMessage(
+                roomId: chatData.roomId,
+                content: chatData.message,
+                senderId: chatData.senderId,
+                senderNick: chatData.senderId,
+                hasFiles: false
+            )
+            
+            // 채팅 알림 업데이트 이벤트 전송
+            NotificationCenter.default.post(name: .chatNotificationUpdate, object: nil)
+            print("📱 백그라운드 채팅 알림 수신 - MyPageContainer에 이벤트 전송")
+        } else {
+            print("⚠️ 백그라운드 채팅 알림 데이터 파싱 실패")
+        }
+    } else {
+        print("📱 백그라운드 일반 알림 처리")
+    }
+  }
+  
   // MARK: - 사용자가 알림을 탭했을 때 처리 (백그라운드 상태)
   func userNotificationCenter(
     _ center: UNUserNotificationCenter,
@@ -173,9 +227,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     let userInfo = response.notification.request.content.userInfo
     print("📱 백그라운드 알림 데이터: \(userInfo)")
     
-    // 채팅 알림인지 확인하고 처리
-    if isChatNotification(userInfo) {
-        handleBackgroundNotificationData(userInfo)
+            // 채팅 알림인지 확인하고 처리
+        if isChatNotification(userInfo) {
+            print("📱 채팅 알림 감지 - 처리 시작")
+            
+            // 백그라운드 알림 데이터 처리 (카운트 증가 포함)
+            handleBackgroundNotificationData(userInfo)
+    } else {
+        print("📱 일반 알림 - 채팅 알림이 아님")
     }
     
     completionHandler()
@@ -218,25 +277,21 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
           return nil
       }
       
-      let timestamp = Date()
-      let notificationType: ChatNotificationType
-      
-      // 첨부파일 여부 확인 (aps.alert.subtitle에 "첨부파일" 포함 여부로 판단)
-      if let subtitle = alert["subtitle"] as? String,
-         subtitle.contains("첨부파일") {
-          notificationType = .fileUpload
-      } else if stringUserInfo["isSystem"] as? Bool == true {
-          notificationType = .systemMessage
-      } else {
-          notificationType = .newMessage
+      // aps.alert.subtitle로 발신자 닉네임 추출
+      guard let senderName = alert["subtitle"] as? String else {
+          print("❌ 채팅 알림 데이터 파싱 실패: aps.alert.subtitle 필드 누락")
+          return nil
       }
+      
+      let timestamp = Date()
       
       return ChatNotificationData(
           roomId: roomId,
           senderId: senderId,
+          senderName: senderName,
           message: message,
           timestamp: timestamp,
-          notificationType: notificationType
+          notificationType: .newMessage
       )
   }
   
@@ -297,55 +352,72 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
       // 2. 배지 카운트 관리
       manageBadgeCount(userInfo)
       
-      // 3. 로그인 상태 확인
+      // 3. 채팅 알림 카운트 증가 및 임시 메시지 설정 (중복 제거)
+      // ChatNotificationCountManager.shared.incrementCount(for: roomId) // 이미 handleBackgroundNotification에서 처리됨
+      
+      // 4. 임시 마지막 메시지 설정 (알림 데이터에서 추출)
+      if let aps = userInfo["aps"] as? [String: Any],
+         let alert = aps["alert"] as? [String: Any],
+         let message = alert["body"] as? String,
+         let senderName = alert["subtitle"] as? String {
+          TemporaryLastMessageManager.shared.setTemporaryLastMessage(
+              roomId: roomId,
+              content: message,
+              senderId: stringUserInfo["google.c.sender.id"] as? String ?? "",
+              senderNick: senderName
+          )
+      }
+      
+      // 5. 로그인 상태 확인
       let isLoggedIn = UserDefaults.standard.bool(forKey: TextResource.Global.isLoggedIn.text)
       print("📱 백그라운드 로그인 상태 확인: \(isLoggedIn)")
       
       if isLoggedIn {
-          // 4. SwiftUI 상태 객체를 통한 화면 전환
+          // 6. SwiftUI 상태 객체를 통한 화면 전환
           Task { @MainActor in
               // 라우팅 큐에 등록하여 화면 전환
               NotificationRoutingQueue.shared.enqueueChatRoom(roomId)
               print("📱 백그라운드 로그인 상태 - 라우팅 큐에 채팅방 등록 완료: \(roomId)")
+              
+              // 디버깅: 큐 상태 출력
+              NotificationRoutingQueue.shared.printQueueStatus()
           }
       } else {
-          // 5. 비로그인 상태: 로그인 후 처리할 수 있도록 저장
+          // 7. 비로그인 상태: 로그인 후 처리할 수 있도록 저장
           UserDefaultsManager.shared.set(roomId, forKey: .pendingChatRoomId)
           print("📱 백그라운드 비로그인 상태 - 채팅방 ID 저장 완료: \(roomId)")
       }
   }
   
-  /// 배지 카운트 관리
+  /// 배지 카운트 관리 (iOS가 자동으로 처리하므로 로그만 출력)
   private func manageBadgeCount(_ userInfo: [AnyHashable: Any]) {
-      // aps.badge 값 추출
+      // aps.badge 값 추출 (로그용)
       if let aps = userInfo["aps"] as? [String: Any],
          let badge = aps["badge"] as? Int {
-          
-          print("📱 배지 카운트 업데이트: \(badge)")
-          
-          // 앱 배지 카운트 설정
-          DispatchQueue.main.async {
-              UIApplication.shared.applicationIconBadgeNumber = badge
-          }
-          
-          // 배지 카운트를 UserDefaults에 저장 (선택적)
-          UserDefaultsManager.shared.set(badge, forKey: .badgeCount)
+          print("📱 서버 배지 값: \(badge) (iOS가 자동 처리)")
       } else {
-          print("📱 배지 카운트 정보 없음")
+          print("📱 서버 배지 값 없음 (iOS가 자동으로 +1)")
       }
   }
   
-  /// 배지 카운트 초기화 (앱 시작 시에는 사용하지 않음)
+  /// 채팅 알림 카운트를 기반으로 앱 아이콘 배지 업데이트 (iOS가 자동 처리하므로 로그만 출력)
+  private func updateAppIconBadge() {
+      let totalCount = ChatNotificationCountManager.shared.totalCount
+      print("📱 앱 내부 알림 카운트: \(totalCount) (iOS가 배지 자동 처리)")
+  }
+  
+  /// 배지 카운트 초기화 (iOS가 자동으로 처리하므로 로그만 출력)
   private func resetBadgeCount() {
-      print("📱 배지 카운트 초기화")
+      print("📱 배지 카운트 초기화 (iOS가 자동 처리)")
+  }
+  
+  /// 앱 시작 시 배지 상태 확인 (iOS가 자동으로 처리하므로 로그만 출력)
+  private func restoreBadgeCount() {
+      let totalCount = ChatNotificationCountManager.shared.totalCount
+      print("📱 앱 시작 시 내부 알림 카운트: \(totalCount) (iOS가 배지 자동 처리)")
       
-      // 앱 아이콘 배지 카운트 초기화
-      DispatchQueue.main.async {
-          UIApplication.shared.applicationIconBadgeNumber = 0
-      }
-      
-      // UserDefaults의 배지 카운트도 초기화
-      UserDefaultsManager.shared.set(0, forKey: .badgeCount)
+      // 디버깅 정보 출력
+      ChatNotificationCountManager.shared.debugBadgeStatus()
   }
   
   /// 포그라운드에서 채팅 알림 처리
@@ -361,15 +433,29 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
       // 채팅방 내부에서 알림 사운드 재생 여부 확인
       let shouldPlaySound = !isInChatRoom(roomId: chatData.roomId)
       
+      // 다른 탭/화면에서는 사운드 재생
+      if shouldPlaySound {
+          playNotificationSound()
+      }
+      
+      // 채팅 알림 카운트 증가 및 임시 메시지 설정
+      ChatNotificationCountManager.shared.incrementCount(for: chatData.roomId)
+      TemporaryLastMessageManager.shared.setTemporaryLastMessage(
+          roomId: chatData.roomId,
+          content: chatData.message,
+          senderId: chatData.senderId,
+          senderNick: chatData.senderName
+      )
+      
       if permissionManager.isPermissionGranted {
           // 권한이 허용된 경우: 시스템 알림 표시 (단, 채팅방 내부에서는 사운드 없음)
           print("📱 포그라운드 채팅 알림 (시스템): \(chatData.message)")
           
-          // 시스템 알림과 함께 커스텀 인앱 배너도 표시 (선택적)
+          // 시스템 알림과 함께 커스텀 인앱 배너도 표시
           Task { @MainActor in
               InAppNotificationManager.shared.addChatNotification(
                   roomId: chatData.roomId,
-                  senderName: chatData.senderId,
+                  senderName: chatData.senderName,
                   message: chatData.message
               ) {
                   // 알림 탭 시 채팅방으로 이동
@@ -381,7 +467,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
           Task { @MainActor in
               InAppNotificationManager.shared.addChatNotification(
                   roomId: chatData.roomId,
-                  senderName: chatData.senderId,
+                  senderName: chatData.senderName,
                   message: chatData.message
               ) {
                   // 알림 탭 시 채팅방으로 이동
@@ -397,6 +483,60 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
       // CurrentScreenTracker를 사용하여 현재 화면 상태 확인
       return CurrentScreenTracker.shared.isInSpecificChatRoom(roomId: roomId)
   }
+  
+  /// 알림 사운드 재생
+  private func playNotificationSound() {
+      // 시스템 기본 알림 사운드 재생
+      AudioServicesPlaySystemSound(1007) // 시스템 알림 사운드
+      print("📱 알림 사운드 재생")
+  }
+  
+  /// 강제 배지 업데이트 (디버깅용 - iOS가 자동 처리하므로 로그만 출력)
+  private func forceUpdateBadge() {
+      let totalCount = ChatNotificationCountManager.shared.totalCount
+      print("🔧 내부 알림 카운트: \(totalCount) (iOS가 배지 자동 처리)")
+  }
+  
+  // MARK: - 앱 생명주기 관리
+  func applicationWillEnterForeground(_ application: UIApplication) {
+      print("📱 앱이 포그라운드로 진입")
+      
+      // 디버깅 정보 출력
+      ChatNotificationCountManager.shared.debugBadgeStatus()
+      
+      // 포그라운드 진입 시 UI 업데이트 트리거
+      NotificationCenter.default.post(name: .appDidEnterForeground, object: nil)
+  }
+  
+  func applicationDidEnterBackground(_ application: UIApplication) {
+      print("📱 앱이 백그라운드로 진입")
+  }
+  
+  /// 백그라운드 알림 테스트용 (디버깅용)
+  private func testBackgroundNotification() {
+      print("🔧 백그라운드 알림 테스트 시작")
+      
+      // 테스트용 채팅 알림 데이터
+      let testUserInfo: [String: Any] = [
+          "room_id": "test_room_123",
+          "google.c.sender.id": "test_sender",
+          "aps": [
+              "alert": [
+                  "body": "테스트 메시지",
+                  "subtitle": "테스트 발신자"
+              ]
+          ]
+      ]
+      
+      handleBackgroundNotification(testUserInfo)
+      print("🔧 백그라운드 알림 테스트 완료")
+  }
+}
+
+// MARK: - NotificationCenter 확장
+extension Notification.Name {
+    static let appDidEnterForeground = Notification.Name("appDidEnterForeground")
+    static let chatNotificationUpdate = Notification.Name("chatNotificationUpdate")
 }
 
 // MARK: - Dictionary 확장

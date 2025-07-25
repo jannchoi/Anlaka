@@ -10,6 +10,8 @@ import SwiftUI
 // MARK: - MyPageView
 struct MyPageView: View {
     @StateObject private var container: MyPageContainer
+    @StateObject private var notificationCountManager = ChatNotificationCountManager.shared
+    @StateObject private var temporaryMessageManager = TemporaryLastMessageManager.shared
     let di: DIContainer
     @AppStorage(TextResource.Global.isLoggedIn.text) private var isLoggedIn: Bool = true
     @Binding var path: NavigationPath
@@ -62,7 +64,8 @@ struct MyPageView: View {
                         updatedRoomIds: container.model.updatedRoomIds,
                         onRoomTap: { roomId in
                             path.append(AppRoute.MyPageRoute.chatRoom(roomId: roomId))
-                        }
+                        },
+                        notificationCountManager: notificationCountManager
                     )
                     .padding(.top, 32)
                 }
@@ -90,6 +93,11 @@ struct MyPageView: View {
             container.handle(.initialRequest)
             CurrentScreenTracker.shared.setCurrentScreen(.profile)
         }
+
+        .onChange(of: temporaryMessageManager.temporaryMessages) { _ in
+            // 임시 마지막 메시지가 변경되면 채팅방 목록 새로고침
+            container.handle(.refreshData)
+        }
         .alert("로그아웃", isPresented: $showLogoutAlert) {
             Button("취소", role: .cancel) { }
             Button("로그아웃", role: .destructive) {
@@ -107,6 +115,7 @@ struct ChattingSectionView: View {
     let chatRoomList: [ChatRoomEntity]
     let updatedRoomIds: Set<String>
     let onRoomTap: (String) -> Void
+    @ObservedObject var notificationCountManager: ChatNotificationCountManager
     
     var body: some View {
         VStack(spacing: 16) {
@@ -116,7 +125,8 @@ struct ChattingSectionView: View {
             ChattingRoomListView(
                 chatRoomList: chatRoomList,
                 updatedRoomIds: updatedRoomIds,
-                onRoomTap: onRoomTap
+                onRoomTap: onRoomTap,
+                notificationCountManager: notificationCountManager
             )
         }
     }
@@ -289,6 +299,7 @@ struct ChattingRoomListView: View {
     let chatRoomList: [ChatRoomEntity]
     let updatedRoomIds: Set<String>
     let onRoomTap: (String) -> Void
+    @ObservedObject var notificationCountManager: ChatNotificationCountManager
     
     var body: some View {
         LazyVStack(spacing: 0) {
@@ -298,7 +309,8 @@ struct ChattingRoomListView: View {
                     onTap: {
                         onRoomTap(room.roomId)
                     },
-                    hasNewChat: updatedRoomIds.contains(room.roomId)
+                    hasNewChat: updatedRoomIds.contains(room.roomId),
+                    notificationCountManager: notificationCountManager
                 )
                 
                 if index < chatRoomList.count - 1 {
@@ -318,6 +330,7 @@ struct ChattingRoomCell: View {
     let room: ChatRoomEntity
     let onTap: () -> Void
     let hasNewChat: Bool
+    @ObservedObject var notificationCountManager: ChatNotificationCountManager
     
     var body: some View {
         Button(action: onTap) {
@@ -340,10 +353,9 @@ struct ChattingRoomCell: View {
                 // Chat Info
                 ChatInfoView(
                     room: room,
-                    hasNewChat: hasNewChat
+                    hasNewChat: hasNewChat,
+                    notificationCountManager: notificationCountManager
                 )
-                
-                Spacer()
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
@@ -366,6 +378,7 @@ struct ChattingRoomCell: View {
 struct ChatInfoView: View {
     let room: ChatRoomEntity
     let hasNewChat: Bool
+    @ObservedObject var notificationCountManager: ChatNotificationCountManager
     
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -381,17 +394,39 @@ struct ChatInfoView: View {
                         .foregroundColor(Color.MainTextColor)
                 }
                 
-                if hasNewChat {
-                    Circle()
-                        .fill(Color.tomatoRed)
-                        .frame(width: 8, height: 8)
+                Spacer()
+                
+                // 마지막 메시지 시각 표시
+                if let lastChat = room.lastChat {
+                    Text(PresentationMapper.formatRelativeTime(lastChat.updatedAt))
+                        .font(.pretendardCaption2)
+                        .foregroundColor(.gray)
+                        .padding(.trailing, 16)
                 }
             }
             
-            Text(room.lastChat?.content ?? "")
-                .font(.pretendardCaption)
-                .foregroundColor(.gray)
-                .lineLimit(1)
+            HStack {
+                // 마지막 메시지 내용
+                Text(room.lastChat?.content ?? "")
+                    .font(.pretendardCaption)
+                    .foregroundColor(.gray)
+                    .lineLimit(1)
+                
+                Spacer()
+                
+                // 알림 카운트 배지
+                if let count = notificationCountManager.notificationCounts[room.roomId], count > 0 {
+                    Text("\(count)")
+                        .font(.pretendardCaption2)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.tomatoRed)
+                        .clipShape(Capsule())
+                        .frame(minWidth: 16)
+                        .padding(.trailing, 16)
+                }
+            }
         }
     }
     
