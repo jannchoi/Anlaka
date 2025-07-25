@@ -15,52 +15,68 @@ struct EmailValidationView: View {
 
     var body: some View {
         NavigationView {
-            VStack(spacing: 20) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("이메일")
-                        .font(.headline)
+            ZStack {
+                Color.WarmLinen
+                    .ignoresSafeArea()
+                
+                VStack(spacing: 0) {
+                    // CustomNavigationBar 추가
+                    CustomNavigationBar(title: "이메일 입력", leftButton:  {
+                        // 뒤로가기 버튼
+                        Button(action: {
+                            // 뒤로가기 로직
+                        }) {
+                            Image("chevron")
+                                .font(.headline)
+                                .foregroundColor(.MainTextColor)
+                        }
+                    })
+                    
+                    VStack(spacing: 20) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("이메일")
+                                .font(.soyoHeadline)
 
-                    TextField("example@email.com", text: $email)
-                        .keyboardType(.emailAddress)
-                        .autocapitalization(.none)
-                        .padding(12)
-                        .background(Color(.systemGray6))
+                            TextField("example@email.com", text: $email)
+                                .keyboardType(.emailAddress)
+                                .autocapitalization(.none)
+                                .padding(12)
+                                .background(Color(.systemGray6))
+                                .cornerRadius(12)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                                )
+                        }
+
+                        if let errorMessage = errorMessage {
+                            Text(errorMessage)
+                                .foregroundColor(.red)
+                                .font(.pretendardCaption)
+                        }
+
+                        Button("다음") {
+                            if isValidEmail(email) {
+                                isValid = true
+                                navigate = true
+                                errorMessage = nil
+                            } else {
+                                isValid = false
+                                errorMessage = "유효한 이메일 형식이 아닙니다."
+                            }
+                        }
+                        .font(.soyoHeadline)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.blue)
                         .cornerRadius(12)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(Color.gray.opacity(0.2), lineWidth: 1)
-                        )
-                }
 
-                if let errorMessage = errorMessage {
-                    Text(errorMessage)
-                        .foregroundColor(.red)
-                        .font(.caption)
-                }
-
-                Button("다음") {
-                    if isValidEmail(email) {
-                        isValid = true
-                        navigate = true
-                        errorMessage = nil
-                    } else {
-                        isValid = false
-                        errorMessage = "유효한 이메일 형식이 아닙니다."
+                        Spacer()
                     }
+                    .padding()
                 }
-                .font(.headline)
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(Color.blue)
-                .cornerRadius(12)
-
-
-
-                Spacer()
             }
-            .padding()
-            .navigationTitle("이메일 입력")
         }
     }
 
