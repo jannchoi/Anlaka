@@ -29,7 +29,9 @@ struct CommunityView: View {
                         leftButton: {
                             // 뒤로가기 버튼
                             Button(action: {
-                                path.removeLast()
+                                if !path.isEmpty {
+                                    path.removeLast()
+                                }
                             }) {
                                 Image("chevron")
                                     .font(.headline)

@@ -272,7 +272,9 @@ struct ChattingView: View {
             VStack {
                 CustomNavigationBar(title: displayNick) {
                     Button(action: {
-                        path.removeLast()
+                        if !path.isEmpty {
+                            path.removeLast()
+                        }
                     }) {
                         HStack(spacing: 4) {
                             Image("chevron")
