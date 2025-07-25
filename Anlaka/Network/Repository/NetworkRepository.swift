@@ -23,15 +23,11 @@ protocol NetworkRepository {
     func getSimilarEstate() async throws -> SimilarEstateEntity
     func getTopicEstate() async throws -> TopicEstateEntity
     func getLikeLists(category: String?, next: String?) async throws -> LikeListsEntity
-    func getAddressFromGeo(_ geo: GeolocationEntity) async throws -> AddressResponseEntity
-    func getRoad3FromGeo(_ geo: GeolocationEntity) async throws -> RoadRegion3Entity
-    func getGeofromAddressQuery(_ query: String, page: Int) async throws -> KakaoGeolocationEntity
-    func getGeoFromKeywordQuery(_ query: String, page: Int) async throws -> KakaoGeoKeywordEntity
 
     func getChatRooms() async throws -> ChatRoomListEntity
     func getChatRoom(opponent_id: String) async throws -> ChatRoomEntity
     func sendMessage(roomId: String, target: ChatRequestEntity) async throws -> ChatEntity
-    func uploadFiles(roomId: String, files: [ChatFile]) async throws -> ChatFileEntity
+    func uploadFiles(roomId: String, files: [FileData]) async throws -> [String]
     func getChatList(roomId: String, from: String?) async throws -> ChatListEntity
     func getMyProfileInfo() async throws -> MyProfileInfoEntity
 
@@ -42,7 +38,11 @@ protocol NetworkRepository {
     func validatePayment(payment: ReceiptPaymentRequestDTO) async throws -> ReceiptOrderResponseEntity
     func getPayment(orderCode: String) async throws -> PaymentResponseEntity
     func editProfile(editProfile: EditProfileRequestEntity) async throws -> MyProfileInfoEntity
-    func uploadProfileImage(image: Data) async throws -> ProfileImageEntity
+    func uploadProfileImage(image: FileData) async throws -> ProfileImageEntity
     func getOtherProfileInfo(userId: String) async throws -> OtherProfileInfoEntity
     func searchUser(nick: String) async throws -> SearchUserEntity
+    
+    // MARK: - File Download Methods
+    func downloadFile(from serverPath: String) async throws -> ServerFileEntity
+    func downloadFiles(from serverPaths: [String]) async throws -> [ServerFileEntity]
 }

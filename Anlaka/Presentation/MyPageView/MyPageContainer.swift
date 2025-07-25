@@ -73,10 +73,10 @@ final class MyPageContainer: ObservableObject {
                 print("🧶🧶🧶",response)
             } catch {
                 print("❌ Failed to upload admin request: \(error)")
-                if let netError = error as? NetworkError, netError == .expiredRefreshToken {
+                if let netError = error as? CustomError, netError == .expiredRefreshToken {
                     model.backToLogin = true
                 } else {
-                    let message = (error as? NetworkError)?.errorDescription ?? error.localizedDescription
+                    let message = (error as? CustomError)?.errorDescription ?? error.localizedDescription
                     model.errorMessage = message
                 }
             }
@@ -92,10 +92,10 @@ final class MyPageContainer: ObservableObject {
                 model.profileInfo = myProfile
             } catch {
                 print("❌ Failed to get my profile info: \(error)")
-                if let netError = error as? NetworkError, netError == .expiredRefreshToken {
+                if let netError = error as? CustomError, netError == .expiredRefreshToken {
                     model.backToLogin = true
                 } else {
-                    let message = (error as? NetworkError)?.errorDescription ?? error.localizedDescription
+                    let message = (error as? CustomError)?.errorDescription ?? error.localizedDescription
                     model.errorMessage = message
                 }
             }
@@ -175,10 +175,10 @@ final class MyPageContainer: ObservableObject {
                 
             } catch {
                 print("❌ Failed to get chat room list: \(error)")
-                if let netError = error as? NetworkError, netError == .expiredRefreshToken {
+                if let netError = error as? CustomError, netError == .expiredRefreshToken {
                     model.backToLogin = true
                 } else {
-                    let message = (error as? NetworkError)?.errorDescription ?? error.localizedDescription
+                    let message = (error as? CustomError)?.errorDescription ?? error.localizedDescription
                     model.errorMessage = message
                 }
             }

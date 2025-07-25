@@ -3,6 +3,7 @@
 import Foundation
 
 enum OrderRouter: AuthorizedTarget {
+
     case createOrder(orderRequestDTO: CreateOrderRequestDTO)
     case getOrders
     var requiresAuthorization: Bool {
@@ -22,7 +23,7 @@ enum OrderRouter: AuthorizedTarget {
             return "GET"
         }
     }
-    var headers: [String: String] {
+    var header: [String: String] {
          guard let accessToken = UserDefaultsManager.shared.getString(forKey: .accessToken) else {return [:]}
         return [
             "SeSACKey": AppConfig.apiKey,
@@ -30,7 +31,7 @@ enum OrderRouter: AuthorizedTarget {
             "Authorization" : accessToken
         ]
     }
-    var parameters: [String: Any] {
+    var parameters: [String: Any?] {
         return [:]
     }
     func asURLRequest() throws -> URLRequest {
@@ -50,7 +51,7 @@ enum OrderRouter: AuthorizedTarget {
         }
         var request = URLRequest(url: url)
         request.httpMethod = method
-        headers.forEach { request.setValue($0.value, forHTTPHeaderField: $0.key) }
+        header.forEach { request.setValue($0.value, forHTTPHeaderField: $0.key) }
         switch self {
         case .createOrder(let dto):
             let encoder = JSONEncoder()
