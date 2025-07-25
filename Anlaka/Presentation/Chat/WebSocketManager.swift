@@ -51,7 +51,7 @@ class WebSocketManager {
             self.isConnecting = true
             
             // Socket.IO 설정
-            guard let url = URL(string: "\(BaseURL.baseURL)/chats-\(self.roomId)") else {
+            guard let url = URL(string: BaseURL.baseURL) else {
                 self.isConnecting = false
                 return
             }
@@ -70,7 +70,11 @@ class WebSocketManager {
             ]
             
             self.manager = SocketManager(socketURL: url, config: config)
-            self.socket = self.manager?.defaultSocket
+            
+            // namespace 설정
+            let namespace = "/chats-\(self.roomId)"
+            print("🔧 [WebSocket] 네임스페이스 설정: \(namespace)")
+            self.socket = self.manager?.socket(forNamespace: namespace)
             
             // 연결 이벤트 핸들러
             self.socket?.on(clientEvent: .connect) { [weak self] data, ack in

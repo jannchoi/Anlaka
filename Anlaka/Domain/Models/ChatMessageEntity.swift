@@ -23,10 +23,10 @@ struct ChatMessageDTO: Codable {
 struct SenderDTO: Codable {
     let userID: String
     let nick: String
-    let name: String
-    let introduction: String
-    let profileImage: String
-    let hashTags: [String]
+    let name: String?
+    let introduction: String?
+    let profileImage: String?
+    let hashTags: [String]?
 
     enum CodingKeys: String, CodingKey {
         case userID = "user_id"
@@ -101,10 +101,10 @@ extension SenderDTO {
         return SenderEntity(
             userID: self.userID,
             nick: self.nick,
-            name: self.name,
-            introduction: self.introduction,
-            profileImage: self.profileImage,
-            hashTags: self.hashTags
+            name: self.name ?? "",
+            introduction: self.introduction ?? "",
+            profileImage: self.profileImage ?? "",
+            hashTags: self.hashTags ?? []
         )
     }
 }
