@@ -61,7 +61,12 @@ final class SearchMapContainer: NSObject, ObservableObject {
             requestLocationPermission()
             
         case .updateMaxDistance(let distance):
+
             model.maxDistance = distance
+            guard let searchedData = model.searchedData else {return}
+            Task {
+                await getGeoEstates(lon: searchedData.longitude, lat: searchedData.latitude, maxD: model.maxDistance)
+            }
             
         case .mapDidStopMoving(let center, let maxDistance):
             model.centerCoordinate = center
@@ -69,11 +74,9 @@ final class SearchMapContainer: NSObject, ObservableObject {
             debounceGeoEstates(lon: center.longitude, lat: center.latitude, maxD: maxDistance)
             
         case .searchBarSubmitted(let searchedData):
-            print("searchmapcontainer🛠️🛠️🛠️",searchedData)
+
+            model.centerCoordinate = CLLocationCoordinate2D(latitude: searchedData.latitude, longitude: searchedData.longitude)
             model.searchedData = searchedData
-            Task {
-                await getGeoEstates(lon: searchedData.longitude, lat: searchedData.latitude, maxD: model.maxDistance)
-            }
             
         case .startMapEngine:
             model.shouldDrawMap = true
@@ -125,6 +128,7 @@ final class SearchMapContainer: NSObject, ObservableObject {
         
         do {
             let estates = try await repository.getGeoEstate(category: nil, lon: lon, lat: lat, maxD: maxD)
+            print(estates.data.count)
             model.pinInfoList = estates.toPinInfoList()
         } catch {
             handleError(error)

@@ -74,10 +74,9 @@ struct SearchMapView: View {
                 di: di,
                 isPresented: $showSearchAddress,
                 onAddressSelected: { selectedAddress in
-                    // 주소 선택됨
-                    print("searchmapview🥶🥶🥶",selectedAddress)
+                    
                     container.handle(.searchBarSubmitted(selectedAddress))
-
+                    
                 },
                 onDismiss: {
                     print("onDismiss")
@@ -93,18 +92,21 @@ struct SearchMapView: View {
             return (placeholder ?? "").isEmpty ? "주소를 입력하세요" : (placeholder ?? "")
         }
         var body: some View {
-            HStack {
-                Image(systemName: "magnifyingglass")
-                    .foregroundColor(.gray)
-                
-                Text(resolvedPlaceholder)
-                
-                Spacer()
+            ZStack {
+                HStack {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundColor(.gray)
+                    
+                    Text(resolvedPlaceholder)
+                    
+                    Spacer()
+                }
             }
             .padding()
             .background(
                 RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color.gray.opacity(0.3))
+                    .fill(Color(UIColor.WarmLinen.withAlphaComponent(0.6)))
+                    .stroke(Color.gray.opacity(0.8))
             )
             .onTapGesture {
                 searchBarTapped = true

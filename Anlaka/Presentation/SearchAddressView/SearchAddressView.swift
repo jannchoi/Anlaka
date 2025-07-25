@@ -66,13 +66,14 @@ struct SearchAddressView: View {
             Spacer(minLength: 8)
         }
         .padding()
+        .dismissKeyboardToolbar()
     }
     
     private var mainContent: some View {
         HStack(spacing: 1) {
             // 왼쪽 컬럼 - 주소 검색 결과
             VStack {
-                Text("주소 검색")
+                Text("주소 결과")
                     .font(.headline)
                     .padding(.vertical, 8)
                 
@@ -85,7 +86,7 @@ struct SearchAddressView: View {
             
             // 오른쪽 컬럼 - 키워드 검색 결과
             VStack {
-                Text("장소 검색")
+                Text("장소 결과")
                     .font(.headline)
                     .padding(.vertical, 8)
                 
@@ -105,13 +106,6 @@ struct SearchAddressView: View {
                             }
                         }
                 }
-                
-                // 빈 셀들로 높이 맞추기
-                if container.model.keywordQueryData.count > container.model.addressQueryData.count {
-                    ForEach(0..<(container.model.keywordQueryData.count - container.model.addressQueryData.count), id: \.self) { _ in
-                        emptyCell
-                    }
-                }
             }
             .padding(.horizontal)
         }
@@ -128,13 +122,6 @@ struct SearchAddressView: View {
                             }
                         }
                 }
-                
-                // 빈 셀들로 높이 맞추기
-                if container.model.addressQueryData.count > container.model.keywordQueryData.count {
-                    ForEach(0..<(container.model.addressQueryData.count - container.model.keywordQueryData.count), id: \.self) { _ in
-                        emptyCell
-                    }
-                }
             }
             .padding(.horizontal)
         }
@@ -143,7 +130,7 @@ struct SearchAddressView: View {
     private func addressCell(data: SearchListData) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(data.title)
-                .font(.headline)
+                .font(.subheadline)
                 .lineLimit(2)
             
             Text(data.subtitle)
@@ -158,20 +145,6 @@ struct SearchAddressView: View {
         .onTapGesture {
             container.handle(.selectAddress(data))
         }
-    }
-    
-    private var emptyCell: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("")
-                .font(.headline)
-            
-            Text("")
-                .font(.caption)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding()
-        .background(Color.clear)
-        .cornerRadius(8)
     }
 }
 
