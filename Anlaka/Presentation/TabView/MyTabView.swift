@@ -11,15 +11,17 @@ struct MyTabView: View {
     let di: DIContainer
     
     enum Tab: Int, CaseIterable {
-        case home = 0, reserved = 1, myPage = 2
+        case home = 0, community = 1, reserved = 2, myPage = 3
     }
     
     @State private var selected: Tab = .home
+    @State private var communityPath = NavigationPath()
     @State private var homePath = NavigationPath()
     @State private var reservedPath = NavigationPath()
     @State private var myPagePath = NavigationPath()
     
     // 각 탭의 뷰 인스턴스를 한 번만 생성하여 재사용
+    @State private var communityView: CommunityView?
     @State private var homeView: HomeView?
     @State private var reservedView: RerservedEstatesView?
     @State private var myPageView: MyPageView?
@@ -49,6 +51,27 @@ struct MyTabView: View {
                 }
                 .opacity(selected == .home ? 1 : 0)
                 .allowsHitTesting(selected == .home)
+                
+                // Community Tab
+                NavigationStack(path: $communityPath) {
+                    Group {
+                        if let communityView = communityView {
+                            communityView
+                        } else {
+                            LazyView(content: CommunityView(di: di, path: $communityPath))
+                                .onAppear {
+                                    if communityView == nil {
+                                        self.communityView = CommunityView(di: di, path: $communityPath)
+                                    }
+                                }
+                        }
+                    }
+                    .navigationDestination(for: String.self) { postId in
+                        PostDetailView(postId: postId, di: di, path: $communityPath)
+                    }
+                }
+                .opacity(selected == .community ? 1 : 0)
+                .allowsHitTesting(selected == .community)
                 
                 // Reserved Tab
                 NavigationStack(path: $reservedPath) {
@@ -101,6 +124,8 @@ struct MyTabView: View {
         switch selected {
         case .home:
             return homePath.isEmpty
+        case .community:
+            return communityPath.isEmpty
         case .reserved:
             return reservedPath.isEmpty
         case .myPage:
@@ -126,6 +151,22 @@ struct MyTabView: View {
                 }
             }
             .foregroundStyle(selected == .home ? Color.DeepForest : Color.Deselected)
+            Spacer()
+            Button {
+                selected = .community
+            } label: {
+                VStack(alignment: .center) {
+                    Image(selected == .community ? "Browser_Fill" : "Browser_Empty")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 30)
+                    if selected == .community {
+                        Text("커뮤니티")
+                            .font(.pretendardCaption2)
+                    }
+                }
+            }
+            .foregroundStyle(selected == .community ? Color.DeepForest : Color.Deselected)
             Spacer()
             Button {
                 selected = .reserved

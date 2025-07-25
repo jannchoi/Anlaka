@@ -5,10 +5,10 @@ protocol CommunityNetworkRepository {
     func postPosting(posting: PostRequestDTO) async throws -> PostResponseEntity
     func getLocationPost(category: String?, latitude: Double?, longitude: Double?, maxDistance: Double?, next: String?, order: String?) async throws -> PostSummaryPaginationResponseEntity
     func searchPostByTitle(title: String) async throws -> PostSummaryListResponseEntity
-    func searchPostById(postId: String) async throws -> PostResponseEntity
+    func getPostById(postId: String) async throws -> PostResponseEntity
     func editPost(postId: String, posting: EditPostRequestDTO) async throws -> PostResponseEntity
     func deletePost(postId: String) async throws -> Bool
-    func likePost(postId: String) async throws -> LikeEstateEntity
+    func likePost(postId: String, status: Bool) async throws -> LikeEstateEntity
     func searchPostByUserId(userId: String) async throws -> PostSummaryPaginationResponseEntity
     func searchPostByMyLike() async throws -> PostSummaryPaginationResponseEntity
     func postComment(postId: String, comment: PostCommentRequestDTO) async throws -> CommentResponseEntity

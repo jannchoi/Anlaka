@@ -20,7 +20,7 @@ enum FilePickerType {
             return .images
         case .chat:
             // 이미지 + PDF
-            return PHPickerFilter.any(of: [.images, .livePhotos, .init(UTType.pdf)])
+            return PHPickerFilter.any(of: [.images, .livePhotos])
         case .community:
             // 이미지 + 비디오
             return PHPickerFilter.any(of: [.images, .videos])

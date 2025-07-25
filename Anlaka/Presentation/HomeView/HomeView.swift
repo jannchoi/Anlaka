@@ -83,7 +83,7 @@ struct HomeView: View {
             }
         }
             .navigationBarTitleDisplayMode(.inline)
-            .navigationDestination(for: HomeRoute.self) { route in
+            .navigationDestination(for: AppRoute.HomeRoute.self) { route in
                 switch route {
                 case .category(let categoryType):
                     LazyView(content: CategoryDetailView(categoryType: categoryType))

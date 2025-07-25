@@ -28,7 +28,7 @@ struct LoginModel {
     var isLoginEnabled: Bool {
         isEmailValid && isPasswordValid
     }
-    var onNavigate: ((LoginRoute) -> Void)?
+    var onNavigate: ((AppRoute.LoginRoute) -> Void)?
 }
 
 enum LoginIntent {

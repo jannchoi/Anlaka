@@ -183,6 +183,13 @@ extension AddressMappingHelper {
     static func mapPostSummariesWithAddress(
         _ summaries: [PostSummaryResponseEntity]
     ) async -> AddressMappingResult<PostSummaryResponseEntity> {
+        // 주소 매핑 실패 시 기본값 제공 (뷰에서 옵셔널 처리 안하기)
+        await mapPostSummariesWithAddressWithDefault(summaries)
+    }
+    
+    static func mapPostSummariesWithAddressWithDefault(
+        _ summaries: [PostSummaryResponseEntity]
+    ) async -> AddressMappingResult<PostSummaryResponseEntity> {
         await withTaskGroup(of: Result<PostSummaryResponseEntity?, Error>.self) { group in
             for summary in summaries {
                 group.addTask {
@@ -206,8 +213,70 @@ extension AddressMappingHelper {
                         )
                         return .success(updatedSummary)
                     } catch {
-                        return .success(nil)
-                            .flatMapError { _ in .failure(error) }
+                        // 주소 매핑 실패 시 기본값 제공
+                        let updatedSummary = PostSummaryResponseEntity(
+                            postId: summary.postId,
+                            category: summary.category,
+                            title: summary.title,
+                            content: summary.content,
+                            geolocation: summary.geolocation,
+                            creator: summary.creator,
+                            files: summary.files,
+                            isLike: summary.isLike,
+                            likeCount: summary.likeCount,
+                            createdAt: summary.createdAt,
+                            updatedAt: summary.updatedAt,
+                            address: "알 수 없음"
+                        )
+                        return .success(updatedSummary) 
+                    }
+                }
+            }
+
+            var posts: [PostSummaryResponseEntity?] = []
+            var errors: [Error] = []
+
+            for await result in group {
+                switch result {
+                case .success(let post):
+                    posts.append(post)
+                case .failure(let error):
+                    errors.append(error)
+                }
+            }
+
+            return AddressMappingResult(estates: posts.compactMap{$0}, errors: errors)
+        }
+    }
+    
+    static func mapPostSummariesWithAddressExcludeFailed(
+        _ summaries: [PostSummaryResponseEntity]
+    ) async -> AddressMappingResult<PostSummaryResponseEntity> {
+        // 주소 매핑 실패 시 데이터 제외
+        await withTaskGroup(of: Result<PostSummaryResponseEntity?, Error>.self) { group in
+            for summary in summaries {
+                group.addTask {
+                    let geo = summary.geolocation
+                    do {
+                        let address = try await addressRepository.getAddressFromGeo(geo).toShortAddress()
+                        // address가 이미 있는 경우 업데이트
+                        let updatedSummary = PostSummaryResponseEntity(
+                            postId: summary.postId,
+                            category: summary.category,
+                            title: summary.title,
+                            content: summary.content,
+                            geolocation: summary.geolocation,
+                            creator: summary.creator,
+                            files: summary.files,
+                            isLike: summary.isLike,
+                            likeCount: summary.likeCount,
+                            createdAt: summary.createdAt,
+                            updatedAt: summary.updatedAt,
+                            address: address
+                        )
+                        return .success(updatedSummary)
+                    } catch {
+                        return .failure(error)
                     }
                 }
             }
@@ -236,6 +305,47 @@ extension AddressMappingHelper {
             return address
         } catch {
             return "알 수 없음"
+        }
+    }
+    
+    static func mapPostWithAddress(_ post: PostResponseEntity) async -> PostResponseEntity {
+        let geo = post.geolocation
+        
+        do {
+            let address = try await addressRepository.getAddressFromGeo(geo).toShortAddress()
+            // PostResponseEntity에 address 필드 추가
+            return PostResponseEntity(
+                postId: post.postId,
+                category: post.category,
+                title: post.title,
+                content: post.content,
+                geolocation: post.geolocation,
+                creator: post.creator,
+                files: post.files,
+                comments: post.comments,
+                createdAt: post.createdAt,
+                updatedAt: post.updatedAt,
+                isLike: post.isLike,
+                likeCount: post.likeCount,
+                address: address
+            )
+        } catch {
+            // 에러가 발생해도 기본 주소 제공
+            return PostResponseEntity(
+                postId: post.postId,
+                category: post.category,
+                title: post.title,
+                content: post.content,
+                geolocation: post.geolocation,
+                creator: post.creator,
+                files: post.files,
+                comments: post.comments,
+                createdAt: post.createdAt,
+                updatedAt: post.updatedAt,
+                isLike: post.isLike,
+                likeCount: post.likeCount,
+                address: "알 수 없음"
+            )
         }
     }
 }

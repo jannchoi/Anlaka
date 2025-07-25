@@ -126,7 +126,7 @@ final class EditProfileContainer: ObservableObject {
                 }
                 
                 // 2. 파일 검증
-                if !FileManagerHelper.shared.validateFile(fileData, uploadType: FileUploadType.profile) {
+                if !FileManageHelper.shared.validateFile(fileData, uploadType: FileUploadType.profile) {
                     model.errorMessage = "프로필 이미지가 유효하지 않습니다. (1MB 이하, jpg/png/jpeg만 가능)"
                     model.isLoading = false
                     return

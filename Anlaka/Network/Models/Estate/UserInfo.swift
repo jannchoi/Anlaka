@@ -43,7 +43,7 @@ struct UserInfoDTO: Decodable {
     }
 }
 
-struct UserInfoEntity {
+struct UserInfoEntity: Equatable, Hashable {
     let userId: String
     let nick: String
     let introduction: String
