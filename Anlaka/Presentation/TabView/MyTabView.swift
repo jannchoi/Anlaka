@@ -148,18 +148,16 @@ struct MyTabView: View {
     /// 탭을 로드된 것으로 표시
     private func markTabAsLoaded(_ tab: Tab) {
         loadedTabs.insert(tab)
-        print("📱 탭 로드 완료: \(tab)")
     }
     
     /// 탭 전환 처리
     private func handleTabChange(to newTab: RoutingStateManager.Tab) {
         let myTabViewTab = Tab(rawValue: newTab.rawValue) ?? .home
-        print("🔄 탭 전환: \(routingStateManager.currentTab) → \(newTab)")
+
         
         // 새 탭이 로드되지 않았다면 로드
         if !loadedTabs.contains(myTabViewTab) {
             loadedTabs.insert(myTabViewTab)
-            print("📱 새 탭 로드 시작: \(myTabViewTab)")
         }
         
         // 메모리 부족 시 비활성 탭 캐시 정리

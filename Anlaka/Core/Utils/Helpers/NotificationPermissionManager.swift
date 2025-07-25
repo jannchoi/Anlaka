@@ -52,7 +52,7 @@ class NotificationPermissionManager: ObservableObject {
                 if granted {
                     self.permissionStatus = .authorized
                     self.shouldShowPermissionAlert = false
-                    print("✅ 알림 권한 허용됨")
+                    print("알림 권한 허용됨")
                 } else {
                     self.permissionStatus = .denied
                     self.showPermissionDeniedAlert()
@@ -88,7 +88,7 @@ class NotificationPermissionManager: ObservableObject {
             permissionStatus = .unknown
         }
         
-        print("📱 알림 권한 상태: \(permissionStatus)")
+
     }
     
     /// 권한 거부 시 알림 표시

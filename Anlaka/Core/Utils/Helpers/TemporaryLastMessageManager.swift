@@ -70,11 +70,8 @@ final class TemporaryLastMessageManager: ObservableObject {
         // @Published 속성이 변경되었음을 알림
         objectWillChange.send()
         
-        print("📱 채팅방 \(roomId) 임시 마지막 메시지 저장: \(content)")
-        
         // 디바운싱 타이머 설정 (서버 동기화는 나중에)
         debounceTimers[roomId] = Timer.scheduledTimer(withTimeInterval: debounceInterval, repeats: false) { _ in
-            print("📱 채팅방 \(roomId) 디바운싱 완료 - 서버 동기화 준비")
             // 여기서 서버 동기화 로직을 추가할 수 있음
         }
     }
@@ -89,7 +86,7 @@ final class TemporaryLastMessageManager: ObservableObject {
         temporaryMessages.removeValue(forKey: roomId)
         saveTemporaryMessages()
         objectWillChange.send()
-        //print("📱 채팅방 \(roomId) 임시 마지막 메시지 제거")
+
     }
     
     /// 모든 임시 마지막 메시지 제거
@@ -97,7 +94,7 @@ final class TemporaryLastMessageManager: ObservableObject {
         temporaryMessages.removeAll()
         saveTemporaryMessages()
         objectWillChange.send()
-        //print("📱 모든 임시 마지막 메시지 제거")
+
     }
     
     /// 모든 임시 마지막 메시지 제거 (clearAllTemporaryMessages와 동일)
@@ -153,13 +150,11 @@ final class TemporaryLastMessageManager: ObservableObject {
         if let oldData = oldData,
            let oldMessages = try? JSONDecoder().decode([String: TemporaryLastMessage].self, from: oldData),
            !oldMessages.isEmpty {
-            print("📱 기존 UserDefaults에서 임시 메시지 마이그레이션: \(oldMessages.count)개")
             temporaryMessages = oldMessages
             saveTemporaryMessages()
             
             // 마이그레이션 후 기존 데이터 삭제
             standardDefaults.removeObject(forKey: temporaryMessagesKey)
-            print("📱 임시 메시지 마이그레이션 완료 - 기존 데이터 삭제")
         }
     }
 }
