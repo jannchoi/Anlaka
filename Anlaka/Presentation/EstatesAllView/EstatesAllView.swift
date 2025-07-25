@@ -14,5 +14,6 @@ struct EstatesAllView: View {
     var body: some View {
         Text("Estates All View: \(listType == .latest ? "Latest" : "Hot")")
             .font(.pretendardBody)
+            .customNotificationBanner()
     }
 }

@@ -625,7 +625,7 @@ extension ClusteringHelper {
     // MARK: - 최적 반지름 계산 함수들
     
     /// 클러스터의 최적 maxRadius를 계산합니다.
-    /// 클러스터의 실제 지리적 범위를 상한선과 하한선 사이에서 비례적으로 매핑합니다.
+    /// 클러스터의 실제 지리적 범위를 상한선과 하한선 사이에서 루트 보간법으로 매핑합니다.
     /// 
     /// - Parameters:
     ///   - clusterIds: 클러스터 내 매물 ID 배열
@@ -634,8 +634,8 @@ extension ClusteringHelper {
     ///   - allClusterInfos: 모든 클러스터 정보 배열
     ///   - maxDistance: 클러스터링에 사용된 최대 거리 (겹침 방지용)
     ///   - pinDict: 매물 ID로 PinInfo를 조회할 수 있는 딕셔너리
-    /// - Returns: 최적화된 maxRadius (미터 단위, 지리적 범위 비례 매핑)
-    /// - Note: 실제 반지름을 상한선과 하한선 사이에서 비례적으로 매핑하여 겹침을 방지합니다
+    /// - Returns: 최적화된 maxRadius (pt 단위, 지리적 범위 비례 매핑)
+    /// - Note: 루트 보간법을 사용하여 실제 반지름을 상한선과 하한선 사이에서 비례적으로 매핑하여 겹침을 방지합니다
     private func calculateOptimalMaxRadius(
         clusterIds: [String],
         centerCoordinate: CLLocationCoordinate2D,
@@ -646,9 +646,9 @@ extension ClusteringHelper {
     ) -> Double {
         let clusterCount = clusterIds.count
         
-        // 상한선과 하한선 설정
-        let maxAllowedRadius = (maxDistance ?? 100.0) * 0.5 // 상한선
-        let minRadius = 10.0 // 하한선
+        // 상한선과 하한선 설정 (클러스터 간 거리의 40%로 제한, 최솟값 25pt)
+        let maxAllowedRadius = (maxDistance ?? 100.0) * 0.4 // 상한선: 클러스터 간 거리의 40%
+        let minRadius = 25.0 // 하한선: 최소 25pt로 가독성 보장
         
         // 클러스터의 실제 지리적 범위 계산
         let actualRadius: Double
@@ -671,16 +671,16 @@ extension ClusteringHelper {
         let minActualRadius = allActualRadii.min() ?? minRadius
         let maxActualRadius = allActualRadii.max() ?? maxAllowedRadius
         
-        // 실제 반지름을 상한선과 하한선 사이에서 비례적으로 매핑
+        // 실제 반지름을 상한선과 하한선 사이에서 루트 보간법으로 매핑
         let finalRadius: Double
         if minActualRadius == maxActualRadius {
             finalRadius = (minRadius + maxAllowedRadius) / 2 // 모든 클러스터가 같은 크기인 경우 중간값
         } else {
             let ratio = (actualRadius - minActualRadius) / (maxActualRadius - minActualRadius)
-            finalRadius = minRadius + (maxAllowedRadius - minRadius) * ratio
+            // 루트 보간법 적용: sqrt(ratio)를 사용하여 비선형 매핑
+            let rootRatio = sqrt(ratio)
+            finalRadius = minRadius + (maxAllowedRadius - minRadius) * rootRatio
         }
-        
-
         
         return finalRadius
     }
@@ -690,7 +690,7 @@ extension ClusteringHelper {
     /// - Parameters:
     ///   - allClusterInfos: 모든 클러스터 정보 배열
     ///   - pinDict: 매물 ID로 PinInfo를 조회할 수 있는 딕셔너리
-    /// - Returns: 모든 클러스터의 실제 반지름 배열
+    /// - Returns: 모든 클러스터의 실제 반지름 배열 (pt 단위)
     private func calculateAllActualRadii(allClusterInfos: [ClusterInfo], pinDict: [String: PinInfo]?) -> [Double] {
         var actualRadii: [Double] = []
         
@@ -698,15 +698,15 @@ extension ClusteringHelper {
             let clusterCount = clusterInfo.estateIds.count
             
             if clusterCount == 1 {
-                actualRadii.append(10.0) // 노이즈는 최소 크기
+                actualRadii.append(25.0) // 노이즈는 최소 크기 (25pt)
             } else {
                 if let pinDict = pinDict {
                     let pinInfos = clusterInfo.estateIds.compactMap { pinDict[$0] }
                     let maxInternalDistance = calculateMaxInternalDistance(pins: pinInfos)
-                    let actualRadius = max(maxInternalDistance * 0.5, 10.0)
+                    let actualRadius = max(maxInternalDistance * 0.5, 25.0)
                     actualRadii.append(actualRadius)
                 } else {
-                    actualRadii.append(10.0) // 기본값
+                    actualRadii.append(25.0) // 기본값 (25pt)
                 }
             }
         }

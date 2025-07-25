@@ -10,21 +10,21 @@ import UIKit
 import ImageIO
 
 // MARK: - 이미지 로더 전용 컨텍스트 정의
-enum ImageLoaderContext {
-    case thumbnail
-    case listCell
-    case detail
-    case poi
-    case profile
+enum ImageLoaderContext: String {
+    case thumbnail = "thumbnail"
+    case listCell = "listCell"
+    case detail = "detail"
+    case poi = "poi"
+    case profile = "profile"
 }
 
 // MARK: - 이미지 로더 전용 다운샘플링 정책
 struct ImageLoaderDownsamplingPolicy {
-    static let targetPixelSizeThumbnail: CGFloat = 100
-    static let targetPixelSizeListCell: CGFloat = 200
-    static let targetPixelSizeDetail: CGFloat = 400
-    static let targetPixelSizePOI: CGFloat = 80
-    static let targetPixelSizeProfile: CGFloat = 150
+    static let targetPixelSizeThumbnail: CGFloat = 332  // 166pt × 2x scale
+    static let targetPixelSizeListCell: CGFloat = 300   // 150pt × 2x scale
+    static let targetPixelSizeDetail: CGFloat = 750     // 375pt × 2x scale
+    static let targetPixelSizePOI: CGFloat = 80         // 40pt × 2x scale
+    static let targetPixelSizeProfile: CGFloat = 96     // 48pt × 2x scale
 }
 
 // MARK: - 이미지 로더 전용 캐시 정책
@@ -91,8 +91,9 @@ class ImageLoader {
         }
         
         // 1. 메모리 캐시 확인 (타임아웃 증가)
+        let cacheKey = "\(imagePath)_\(context.rawValue)"
         let cachedImage = await withTimeout(seconds: 8.0) {
-            try await ImageCache.shared.imageAsync(forKey: imagePath)
+            try await ImageCache.shared.imageAsync(forKey: cacheKey)
         }
         if let cachedImage1 = cachedImage, let cachedImage2 = cachedImage1 {
             // 캐시된 이미지 유효성 검사
@@ -101,21 +102,21 @@ class ImageLoader {
             } else {
                 // 유효하지 않은 이미지는 캐시에서 제거
                 Task.detached {
-                    await ImageCache.shared.removeImageAsync(forKey: imagePath)
+                    await ImageCache.shared.removeImageAsync(forKey: cacheKey)
                 }
             }
         }
         
         // 2. 디스크 캐시 확인 (타임아웃 증가)
         let diskCachedImage = await withTimeout(seconds: 8.0) {
-            try await SafeDiskCacheManager.shared.loadImage(forKey: imagePath)
+            try await SafeDiskCacheManager.shared.loadImage(forKey: cacheKey)
         }
         if let diskCachedImage1 = diskCachedImage, let diskCachedImage2 = diskCachedImage1 {
             // 디스크 캐시된 이미지 유효성 검사
-            if diskCachedImage2.size.width > 0 && diskCachedImage2.size.height > 0 && diskCachedImage2.cgImage != nil {
+            if diskCachedImage2.size.height > 0 && diskCachedImage2.size.height > 0 && diskCachedImage2.cgImage != nil {
                 // 메모리 캐시에도 저장
                 Task.detached {
-                    await ImageCache.shared.setImageAsync(diskCachedImage2, forKey: imagePath)
+                    await ImageCache.shared.setImageAsync(diskCachedImage2, forKey: cacheKey)
                 }
                 
                 return diskCachedImage2
@@ -137,8 +138,8 @@ class ImageLoader {
             if let downloadedImage = downloadedImage {
                 // 캐시에 저장 (별도 Task로 분리하여 성능 향상)
                 Task.detached {
-                    await ImageCache.shared.setImageAsync(downloadedImage, forKey: imagePath)
-                    await SafeDiskCacheManager.shared.saveImage(downloadedImage, forKey: imagePath)
+                    await ImageCache.shared.setImageAsync(downloadedImage, forKey: cacheKey)
+                    await SafeDiskCacheManager.shared.saveImage(downloadedImage, forKey: cacheKey)
                 }
                 
                 return downloadedImage
@@ -197,9 +198,9 @@ class ImageLoader {
         
         let targetPixelSize = CGSize(width: targetSize, height: targetSize)
         
-        // 다운샘플링이 필요한지 확인 (원본이 목표보다 1.5배 이상 클 때)
-        let shouldDownsample = originalPixelSize.width > targetPixelSize.width * 1.5 ||
-                              originalPixelSize.height > targetPixelSize.height * 1.5
+        // 다운샘플링이 필요한지 확인 (원본이 목표보다 1.2배 이상 클 때)
+        let shouldDownsample = originalPixelSize.width > targetPixelSize.width * 1.2 ||
+                              originalPixelSize.height > targetPixelSize.height * 1.2
         
         guard shouldDownsample else { return image }
         
@@ -285,9 +286,10 @@ class ImageLoader {
                     do {
                         let result = try await NetworkManager.shared.downloadFile(from: path)
                         if let image = result.image {
-                            // 캐시에 저장
-                            await ImageCache.shared.setImageAsync(image, forKey: path)
-                            await SafeDiskCacheManager.shared.saveImage(image, forKey: path)
+                            // 캐시에 저장 (thumbnail 컨텍스트로 저장)
+                            let cacheKey = "\(path)_thumbnail"
+                            await ImageCache.shared.setImageAsync(image, forKey: cacheKey)
+                            await SafeDiskCacheManager.shared.saveImage(image, forKey: cacheKey)
                         }
                     } catch {
                         print("❌ 이미지 프리로딩 실패: \(path) - \(error.localizedDescription)")
