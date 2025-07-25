@@ -9,6 +9,8 @@ import SwiftUI
 
 struct MyTabView: View {
     let di: DIContainer
+    @StateObject private var routingQueue = NotificationRoutingQueue.shared
+    @StateObject private var routingStateManager = RoutingStateManager.shared
     
     enum Tab: Int, CaseIterable {
         case home = 0, community = 1, reserved = 2, myPage = 3
@@ -51,6 +53,9 @@ struct MyTabView: View {
                 }
                 .opacity(selected == .home ? 1 : 0)
                 .allowsHitTesting(selected == .home)
+                .onAppear {
+                    CurrentScreenTracker.shared.setCurrentScreen(.home)
+                }
                 
                 // Community Tab
                 NavigationStack(path: $communityPath) {
@@ -72,6 +77,9 @@ struct MyTabView: View {
                 }
                 .opacity(selected == .community ? 1 : 0)
                 .allowsHitTesting(selected == .community)
+                .onAppear {
+                    CurrentScreenTracker.shared.setCurrentScreen(.community)
+                }
                 
                 // Reserved Tab
                 NavigationStack(path: $reservedPath) {
@@ -90,6 +98,9 @@ struct MyTabView: View {
                 }
                 .opacity(selected == .reserved ? 1 : 0)
                 .allowsHitTesting(selected == .reserved)
+                .onAppear {
+                    CurrentScreenTracker.shared.setCurrentScreen(.estateDetail)
+                }
                 
                 // MyPage Tab
                 NavigationStack(path: $myPagePath) {
@@ -108,6 +119,9 @@ struct MyTabView: View {
                 }
                 .opacity(selected == .myPage ? 1 : 0)
                 .allowsHitTesting(selected == .myPage)
+                .onAppear {
+                    CurrentScreenTracker.shared.setCurrentScreen(.profile)
+                }
             }
             
             if shouldShowTabBar {
@@ -118,6 +132,61 @@ struct MyTabView: View {
         .safeAreaInset(edge: .bottom, spacing: 0) {
             Color.clear.frame(height: 0)
         }
+        .onChange(of: routingQueue.pendingChatRoomId) { roomId in
+            if let roomId = roomId {
+                handlePendingChatRoom(roomId)
+            }
+        }
+        .onChange(of: routingStateManager.currentTab) { newTab in
+            selected = Tab(rawValue: newTab.rawValue) ?? .home
+        }
+        .onChange(of: routingStateManager.pendingNavigation) { navigation in
+            if let navigation = navigation {
+                handlePendingNavigation(navigation)
+            }
+        }
+    }
+    
+    private func handlePendingChatRoom(_ roomId: String) {
+        print("📱 MyTabView에서 대기 중인 채팅방 처리: \(roomId)")
+        
+        // MyPage 탭으로 이동 (채팅방 목록이 있는 탭)
+        selected = .myPage
+        
+        // 채팅방으로 이동
+        myPagePath.append(AppRoute.MyPageRoute.chatRoom(roomId: roomId))
+        
+        // 라우팅 큐에서 제거
+        routingQueue.dequeueChatRoom()
+    }
+    
+    private func handlePendingNavigation(_ navigation: RoutingStateManager.NavigationDestination) {
+        print("📱 MyTabView에서 대기 중인 네비게이션 처리: \(navigation)")
+        
+        switch navigation {
+        case .chatRoom(let roomId):
+            selected = .myPage
+            myPagePath.append(AppRoute.MyPageRoute.chatRoom(roomId: roomId))
+            
+        case .estateDetail(let estateId):
+            selected = .home
+            // EstateDetailView로 이동하는 로직 추가 필요
+            
+        case .postDetail(let postId):
+            selected = .community
+            communityPath.append(postId)
+            
+        case .profile:
+            selected = .myPage
+            myPagePath.append(AppRoute.MyPageRoute.editProfile)
+            
+        case .settings:
+            selected = .myPage
+            // 설정 화면으로 이동하는 로직 추가 필요
+        }
+        
+        // 네비게이션 완료 후 상태 초기화
+        routingStateManager.completeNavigation()
     }
     
     private var shouldShowTabBar: Bool {
@@ -138,6 +207,7 @@ struct MyTabView: View {
             Spacer()
             Button {
                 selected = .home
+                CurrentScreenTracker.shared.setCurrentScreen(.home)
             } label: {
                 VStack(alignment: .center) {
                     Image(selected == .home ? "Home_Fill" : "Home_Empty")
@@ -154,6 +224,7 @@ struct MyTabView: View {
             Spacer()
             Button {
                 selected = .community
+                CurrentScreenTracker.shared.setCurrentScreen(.community)
             } label: {
                 VStack(alignment: .center) {
                     Image(selected == .community ? "Browser_Fill" : "Browser_Empty")
@@ -170,14 +241,15 @@ struct MyTabView: View {
             Spacer()
             Button {
                 selected = .reserved
+                CurrentScreenTracker.shared.setCurrentScreen(.estateDetail)
             } label: {
                 VStack(alignment: .center) {
-                    Image(selected == .reserved ? "Interest_Fill" : "Interest_Empty")
+                    Image(selected == .reserved ? "User_Fill" : "User_Empty")
                         .resizable()
                         .scaledToFit()
                         .frame(width: 30)
                     if selected == .reserved {
-                        Text("관심매물")
+                        Text("예약")
                             .font(.pretendardCaption2)
                     }
                 }
@@ -186,14 +258,15 @@ struct MyTabView: View {
             Spacer()
             Button {
                 selected = .myPage
+                CurrentScreenTracker.shared.setCurrentScreen(.profile)
             } label: {
                 VStack(alignment: .center) {
-                    Image(selected == .myPage ? "User_Fill" : "User_Empty")
+                    Image(selected == .myPage ? "Setting_Fill" : "Setting_Empty")
                         .resizable()
                         .scaledToFit()
                         .frame(width: 30)
                     if selected == .myPage {
-                        Text("프로필")
+                        Text("마이")
                             .font(.pretendardCaption2)
                     }
                 }
@@ -201,22 +274,10 @@ struct MyTabView: View {
             .foregroundStyle(selected == .myPage ? Color.DeepForest : Color.Deselected)
             Spacer()
         }
-        .padding(.vertical)
-        .frame(height: 78)
-        .frame(maxWidth: .infinity)
-        .background {
-            Rectangle()
-                .fill(Color.white)
-                .clipShape(
-                    .rect(
-                        topLeadingRadius: 24,
-                        bottomLeadingRadius: 0,
-                        bottomTrailingRadius: 0,
-                        topTrailingRadius: 24
-                    )
-                )
-                .shadow(color: .black.opacity(0.15), radius: 8, y: 2)
-        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
+        .background(Color.white)
+        .shadow(color: .black.opacity(0.1), radius: 8, y: -2)
     }
 }
 
