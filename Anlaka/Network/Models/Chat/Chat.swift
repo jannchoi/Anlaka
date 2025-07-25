@@ -33,6 +33,9 @@ struct ChatResponseDTO: Codable {
     }
 
     func toEntity() -> ChatEntity {
+        if chatId.isEmpty || roomId.isEmpty {
+            print("👤 채팅 ID가 비어있습니다. chatId: \(chatId), roomId: \(roomId)")
+        }
         return ChatEntity(
             chatId: chatId,
             roomId: roomId,

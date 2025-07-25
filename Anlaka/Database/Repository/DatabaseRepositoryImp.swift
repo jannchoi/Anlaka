@@ -1,7 +1,17 @@
 import Foundation
 import RealmSwift
 
-final class DatabaseRepositoryImp: DatabaseRepository {
+// MARK: - DatabaseRepository Factory
+// internal 접근제어로 같은 모듈 내에서만 접근 가능
+internal enum DatabaseRepositoryFactory {
+    static func create() throws -> DatabaseRepository {
+        return try DatabaseRepositoryImp()
+    }
+}
+
+// MARK: - DatabaseRepository Implementation
+// internal 접근제어로 같은 모듈 내에서만 접근 가능
+internal final class DatabaseRepositoryImp: DatabaseRepository {
     private let configuration: Realm.Configuration
     
     init() throws {

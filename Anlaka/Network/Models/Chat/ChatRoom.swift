@@ -23,7 +23,9 @@ struct ChatRoomResponseDTO: Codable {
 
     func toEntity() -> ChatRoomEntity {
         let userInfos = participants.compactMap{$0.toEntity()}
-
+        if roomId.isEmpty {
+            print("👤 채팅방 ID가 비어있습니다. roomId: \(roomId)")
+        }
         return ChatRoomEntity(
             roomId: roomId,
             createdAt: createdAt,
