@@ -84,24 +84,22 @@ final class MyPageContainer: ObservableObject {
     }
     
     private func getMyProfileInfo() {
-        guard let myProfile = UserDefaultsManager.shared.getObject(forKey: .profileData, as: MyProfileInfoEntity.self) else {
-            Task {
-                do {
-                    let myProfile = try await repository.getMyProfileInfo()
-                    model.profileInfo = myProfile
-                } catch {
-                    print("❌ Failed to get my profile info: \(error)")
-                    if let netError = error as? NetworkError, netError == .expiredRefreshToken {
-                        model.backToLogin = true
-                    } else {
-                        let message = (error as? NetworkError)?.errorDescription ?? error.localizedDescription
-                        model.errorMessage = message
-                    }
+        Task {
+            do {
+                let myProfile = try await repository.getMyProfileInfo()
+                // 서버에서 받은 최신 프로필 정보를 UserDefaults에 저장
+                UserDefaultsManager.shared.setObject(myProfile, forKey: .profileData)
+                model.profileInfo = myProfile
+            } catch {
+                print("❌ Failed to get my profile info: \(error)")
+                if let netError = error as? NetworkError, netError == .expiredRefreshToken {
+                    model.backToLogin = true
+                } else {
+                    let message = (error as? NetworkError)?.errorDescription ?? error.localizedDescription
+                    model.errorMessage = message
                 }
             }
-            return
         }
-        model.profileInfo = myProfile
     }
     
     private func getChatRoomList() {
