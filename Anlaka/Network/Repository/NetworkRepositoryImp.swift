@@ -297,6 +297,7 @@ internal final class NetworkRepositoryImp: NetworkRepository {
                 target: AuthRouter.getRefreshToken,
                 model: RefreshTokenResponseDTO.self
             )
+            print("리프레시 액세스 토큰: accessToken: ", response.accessToken)
             return response.toEntity()
         } catch {
             throw error

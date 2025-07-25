@@ -206,7 +206,7 @@ class DownsamplingImageLoader {
     private func downloadImage(_ url: URL) async -> Data? {
         var request = URLRequest(url: url)
         request.addValue(AppConfig.apiKey, forHTTPHeaderField: "SeSACKey")
-        if let accessToken = UserDefaultsManager.shared.getString(forKey: .refreshToken) {
+        if let accessToken = UserDefaultsManager.shared.getString(forKey: .accessToken) {
             request.addValue(accessToken, forHTTPHeaderField: "Authorization")
         }
         
@@ -411,7 +411,12 @@ class ImageDownsampler {
         imagePath: String,
         context: ImageContext
     ) async -> UIImage? {
-        guard let url = URL(string: FormatManager.formatImageURL(imagePath)) else {
+        guard !imagePath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            print("⚠️ [DownSampler] imagePath가 빈 문자열입니다")
+            return nil
+        }
+        
+        guard let url = URL(string: BaseURL.baseV1 + imagePath) else {
             print("❌ 잘못된 URL 형식: \(imagePath)")
             return nil
         }
@@ -430,14 +435,19 @@ class ImageDownsampler {
         to pointSize: CGSize,
         scale: CGFloat = UIScreen.main.scale
     ) async -> UIImage? {
-        guard let url = URL(string: FormatManager.formatImageURL(imagePath)) else {
+        guard !imagePath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            print("⚠️ [DownSampler] imagePath가 빈 문자열입니다")
+            return nil
+        }
+        
+        guard let url = URL(string: BaseURL.baseV1 + imagePath) else {
             print("❌ 잘못된 URL 형식: \(imagePath)")
             return nil
         }
         
         var request = URLRequest(url: url)
         request.addValue(AppConfig.apiKey, forHTTPHeaderField: "SeSACKey")
-        if let accessToken = UserDefaultsManager.shared.getString(forKey: .refreshToken) {
+        if let accessToken = UserDefaultsManager.shared.getString(forKey: .accessToken) {
             request.addValue(accessToken, forHTTPHeaderField: "Authorization")
         }
         

@@ -30,8 +30,6 @@ final class ChatNotificationCountManager: ObservableObject {
         
         // 앱 아이콘 배지 업데이트
         updateAppIconBadge()
-        
-        print("채팅방 \(roomId) 알림 카운트 증가: \(currentCount) → \(currentCount + 1)")
     }
     
     /// 특정 채팅방의 알림 카운트 초기화 (채팅방 진입 시)
@@ -132,7 +130,6 @@ final class ChatNotificationCountManager: ObservableObject {
         if let oldData = oldData,
            let oldCounts = try? JSONDecoder().decode([String: Int].self, from: oldData),
            !oldCounts.isEmpty {
-            print("기존 UserDefaults에서 알림 카운트 마이그레이션: \(oldCounts)")
             notificationCounts = oldCounts
             saveNotificationCounts()
             
