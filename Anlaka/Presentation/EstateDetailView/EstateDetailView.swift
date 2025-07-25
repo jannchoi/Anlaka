@@ -45,6 +45,18 @@ struct EstateDetailView: View {
                     reservationButton(isReserved: data.detail.isReserved)
                         .background(Color.white)
                 }
+                
+                // PaymentStartView 오버레이
+                if showPaymentStartView, let payment = container.model.iamportPayment {
+                    PaymentStartView(
+                        di: di,
+                        iamportPayment: payment,
+                        showPaymentStartView: $showPaymentStartView,
+                        onCancel: {
+                            container.handle(.resetReservation)
+                        }
+                    )
+                }
             }
             .navigationDestination(for: String.self) { opponent_id in
                 if !opponent_id.isEmpty {
@@ -57,18 +69,6 @@ struct EstateDetailView: View {
             set: { container.model.selectedEstateId = $0 }
         )) { identifiableString in
             EstateDetailView(di: di,estateId: identifiableString.id)
-        }
-        .fullScreenCover(isPresented: $showPaymentStartView) {
-            if let payment = container.model.iamportPayment {
-                PaymentStartView(
-                    di: di,
-                    iamportPayment: payment,
-                    showPaymentStartView: $showPaymentStartView,
-                    onCancel: {
-                        container.handle(.resetReservation)
-                    }
-                )
-            }
         }
         .onChange(of: container.model.iamportPayment) { payment in
             if payment != nil {
