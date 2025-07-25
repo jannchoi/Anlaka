@@ -9,10 +9,11 @@ import SwiftUI
 import AuthenticationServices
 
 struct LoginView: View {
-
+    
     let di: DIContainer
     @StateObject private var container: LoginContainer
     @State private var path = NavigationPath()
+    @AppStorage(TextResource.Global.isLoggedIn.text) private var isLoggedIn: Bool = true
     init(di: DIContainer) {
         self.di = di
         _container = StateObject(wrappedValue: di.makeLoginContainer())
@@ -24,13 +25,13 @@ struct LoginView: View {
                     .ignoresSafeArea()
                 VStack {
                     Spacer().frame(height: 80)
-
+                    
                     Text("안락한가")
                         .font(.largeTitle)
                         .foregroundStyle(.mainText)
                         .frame(alignment: .center)
                         .padding()
-
+                    
                     VStack(spacing: 16) {
                         CustomTextField(
                             title: "이메일",
@@ -42,7 +43,7 @@ struct LoginView: View {
                         .onChange(of: container.model.email) {
                             container.handle(.emailChanged($0))
                         }
-                
+                        
                         CustomTextField(
                             title: "비밀번호",
                             text: $container.model.password,
@@ -54,7 +55,7 @@ struct LoginView: View {
                         .onChange(of: container.model.password) {
                             container.handle(.passwordChanged($0))
                         }
-
+                        
                         Button {
                             container.handle(.loginTapped)
                         } label: {
@@ -93,12 +94,12 @@ struct LoginView: View {
                         }
                         .cornerRadius(8)
                         
-
+                        
                         Button("계정 만들기") {
                             container.handle(.signUpButtontTapped)
                         }
                         .foregroundColor(.gray)
-
+                        
                         if let error = container.model.errorMessage {
                             Text(error)
                                 .foregroundColor(.red)
@@ -106,22 +107,23 @@ struct LoginView: View {
                         }
                     }
                     .padding(.horizontal, 32)
-
+                    
                     Spacer()
                 }
             }
             .dismissKeyboardToolbar()
             .onChange(of: container.model.loginCompleted) { completed in
                 if completed {
-                    path.append(LoginRoute.home)
+                    // 로그인 완료 시 isLoggedIn true로 변경
+                    isLoggedIn = true
                 }
             }
-
+            
             .navigationDestination(for: LoginRoute.self) { route in
                 switch route {
                 case .home:
                     HomeView(di: di)
-
+                    
                 case .signUp:
                     SignUpView(
                         di: di,
@@ -137,14 +139,6 @@ struct LoginView: View {
                 path.append(route)
             }
             
-            container.model.onLoginSuccess = {
-                
-                if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-                   let window = windowScene.windows.first {
-                    window.rootViewController = UIHostingController(rootView: HomeView(di: di))
-                    window.makeKeyAndVisible()
-                }
-            }
         }
     }
 }
