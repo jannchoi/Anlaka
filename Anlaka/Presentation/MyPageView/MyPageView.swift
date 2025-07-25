@@ -27,7 +27,7 @@ struct MyPageView: View {
                     ProfileView(
                         profileInfo: container.model.profileInfo,
                         onEditProfile: {
-                            path.append(MyPageRoute.editProfile(di: di))
+                            path.append(MyPageRoute.editProfile)
                         },
                         onAddEstate: {
                             container.handle(.addMyEstate)
@@ -58,10 +58,10 @@ struct MyPageView: View {
                 switch route {
                 case .chatRoom(let roomId, let di):
                     ChattingView(roomId: roomId, di: di, path: $path)
-                case .editProfile(let di):
-                    EditProfileView(di: di)
+                case .editProfile:
+                    EditProfileView(di: di, path: $path)
+                }
             }
-        }
         
         .onChange(of: container.model.backToLogin) { backToLogin in
             if backToLogin {
