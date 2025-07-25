@@ -53,7 +53,7 @@ struct DetailEstateResponseDTO: Decodable {
     }
 }
 
-struct DetailEstateEntity {
+struct DetailEstateEntity: Identifiable {
     let estateId: String
     let category: String
     let title: String
@@ -78,7 +78,9 @@ struct DetailEstateEntity {
     let isRecommended: Bool?
     let comments: [String]
     let createdAt: String
-    let updatedAt: String
+    let updatedAt: String?
+    
+    var id: String { estateId }
 }
 
 struct DetailEstatePresentation: Identifiable {
@@ -97,17 +99,21 @@ struct DetailEstatePresentation: Identifiable {
     let parkingCount: String
     let floors: String
     let options: OptionEntity
-    let creator: UserInfoPresentation?
-    let isLiked: String
-    let isReserved: String
+    let creator: UserInfoPresentation
+    let isLiked: Bool
+    let isReserved: Bool
     let likeCount: String
-    let isSafeEstate: String
-    let isRecommended: String
+    let isSafeEstate: Bool
+    let isRecommended: Bool
     let comments: [String]
+    let updatedAt: String
     
     var id: String { estateId }
 }
-
+struct DetailEstateWithAddrerss {
+    let detail: DetailEstatePresentation
+    let address: String
+}
 extension DetailEstateResponseDTO {
     func toEntity() -> DetailEstateEntity? {
         guard let estateId = estateId, let creatorEntity = creator?.toEntity() else { return nil }
@@ -156,7 +162,7 @@ extension DetailEstateResponseDTO {
             isRecommended: isRecommended,
             comments: comments ?? [],
             createdAt: createdAt ?? "알 수 없음",
-            updatedAt: updatedAt ?? "알 수 없음"
+            updatedAt: updatedAt
         )
     }
 }
@@ -180,12 +186,12 @@ extension DetailEstateEntity {
             floors: PresentationMapper.formatFloor(floors),
             options: options,
             creator: creator.toPresentationModel(),
-            isLiked: PresentationMapper.mapBool(isLiked),
-            isReserved: PresentationMapper.mapBool(isReserved),
+            isLiked: isLiked ?? false,
+            isReserved: isReserved ?? false,
             likeCount: PresentationMapper.formatCount(likeCount),
-            isSafeEstate: PresentationMapper.mapBool(isSafeEstate),
-            isRecommended: PresentationMapper.mapBool(isRecommended),
-            comments: comments
+            isSafeEstate: isSafeEstate ?? false,
+            isRecommended: isRecommended ?? false,
+            comments: comments, updatedAt: updatedAt ?? "알 수 없음"
         )
     }
 }
