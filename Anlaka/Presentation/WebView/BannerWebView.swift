@@ -82,7 +82,7 @@ class BannerWebViewController: UIViewController, WKScriptMessageHandler {
         request.setValue(AppConfig.apiKey, forHTTPHeaderField: "SeSACKey")
         
         // 액세스 토큰이 있다면 Authorization 헤더 추가
-        if let accessToken = UserDefaultsManager.shared.getString(forKey: .accessToken) {
+        if let accessToken = KeychainManager.shared.getString(forKey: .accessToken) {
             request.setValue(accessToken, forHTTPHeaderField: "Authorization")
         }
         
@@ -119,7 +119,7 @@ class BannerWebViewController: UIViewController, WKScriptMessageHandler {
     
     // MARK: - Message Handlers
     private func handleAttendanceButtonClick() {
-        guard let accessToken = UserDefaultsManager.shared.getString(forKey: .accessToken) else {
+        guard let accessToken = KeychainManager.shared.getString(forKey: .accessToken) else {
             onError?("액세스 토큰을 찾을 수 없습니다.")
             return
         }

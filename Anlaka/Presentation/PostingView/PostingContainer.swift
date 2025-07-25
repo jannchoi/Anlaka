@@ -155,6 +155,8 @@ class PostingContainer: ObservableObject, LocationServiceDelegate {
         
         do {
             let response = try await postingUseCase.editPost(postId: postId, posting: posting)
+            // 성공 시 PostDetailContainer에 수정된 게시글 정보 전송
+            NotificationCenter.default.post(name: .postUpdated, object: response)
             // 성공 시 toast 표시
             model.toast = FancyToast(
                 type: .success,

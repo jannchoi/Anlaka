@@ -85,8 +85,8 @@ final class TokenRefreshManager {
             let response = try await NetworkManager.shared.executeRequest(refreshRequest, model: RefreshTokenResponseDTO.self)
             
             // 새 토큰 저장
-            UserDefaultsManager.shared.set(response.accessToken, forKey: .accessToken)
-            UserDefaultsManager.shared.set(response.refreshToken, forKey: .refreshToken)
+            KeychainManager.shared.set(response.accessToken, forKey: .accessToken)
+            KeychainManager.shared.set(response.refreshToken, forKey: .refreshToken)
             
             // 갱신 완료 및 트리거 해제
             completeTokenRefresh()
@@ -331,8 +331,10 @@ final class NetworkManager {
         
         await MainActor.run {
             // 토큰 및 프로필 데이터 제거
-            UserDefaultsManager.shared.removeObject(forKey: .accessToken)
-            UserDefaultsManager.shared.removeObject(forKey: .refreshToken)
+            KeychainManager.shared.remove(forKey: .accessToken)
+            KeychainManager.shared.remove(forKey: .refreshToken)
+            KeychainManager.shared.remove(forKey: .appleIdToken)
+            KeychainManager.shared.remove(forKey: .kakaoToken)
             UserDefaultsManager.shared.removeObject(forKey: .profileData)
             
             // 알림 관련 데이터 초기화
@@ -347,15 +349,23 @@ final class NetworkManager {
     
     // MARK: - File Download (이미지 캐싱과 통합)
     func downloadFile(from serverPath: String) async throws -> (localPath: String, image: UIImage?) {
-        guard let baseURL = URL(string: BaseURL.baseURL) else {
+        // 빈 경로 체크
+        guard !serverPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            print("⚠️ [NetworkManager] serverPath가 빈 문자열입니다")
             throw CustomError.invalidURL
         }
         
-        let fullURL = baseURL.appendingPathComponent(serverPath)
+        guard let fullURL = URL(string: BaseURL.baseV1 + serverPath) else {
+            throw CustomError.invalidURL
+        }
         var request = URLRequest(url: fullURL)
         
-        if let accessToken = UserDefaultsManager.shared.getString(forKey: .accessToken) {
-            request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        // SeSACKey 헤더 추가 (API 키 인증)
+        request.setValue(AppConfig.apiKey, forHTTPHeaderField: "SeSACKey")
+        
+        // Authorization 헤더 추가 (토큰 인증)
+        if let accessToken = KeychainManager.shared.getString(forKey: .accessToken) {
+            request.setValue(accessToken, forHTTPHeaderField: "Authorization")
         }
         
         let networkRequest = SimpleNetworkRequest(urlRequest: request)

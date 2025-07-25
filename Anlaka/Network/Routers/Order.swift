@@ -24,7 +24,7 @@ enum OrderRouter: AuthorizedTarget {
         }
     }
     var header: [String: String] {
-         guard let accessToken = UserDefaultsManager.shared.getString(forKey: .accessToken) else {return [:]}
+         guard let accessToken = KeychainManager.shared.getString(forKey: .accessToken) else {return [:]}
         return [
             "SeSACKey": AppConfig.apiKey,
             "Content-Type": "application/json",

@@ -67,6 +67,7 @@ struct MyPageView: View {
                     )
                     .padding(.top, 32)
                 }
+                .padding(.bottom, 100) // TabBar 높이만큼 하단 padding 추가
             }
             .refreshable {
                 // 사용자가 스크롤을 당겨서 새로고침할 때
@@ -93,9 +94,6 @@ struct MyPageView: View {
         .onAppear {
             container.handle(.initialRequest)
             CurrentScreenTracker.shared.setCurrentScreen(.profile)
-            
-            // MyPageView 진입 시 모든 커스텀 알림 제거
-            CustomNotificationManager.shared.clearAllNotifications()
             
             // MyPageView 진입 시 뱃지 상태 업데이트
             ChatNotificationCountManager.shared.forceUpdateBadge()

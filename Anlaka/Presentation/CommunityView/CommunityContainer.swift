@@ -44,6 +44,8 @@ enum CommunityIntent {
     case locationSelected(CLLocationCoordinate2D, String) // SearchAddressView에서 위치 선택
     case dismissLocationSearch // SearchAddressView 닫기
     case downloadPostFiles([ServerFileEntity]) // 파일 다운로드 시작
+    case removePost(String) // 삭제된 post 제거
+    case updatePost(PostResponseEntity) // 수정된 post 업데이트
 }
 
 @MainActor
@@ -56,12 +58,49 @@ final class CommunityContainer: NSObject, ObservableObject, LocationServiceDeleg
     private let fileDownloadRepository = FileDownloadRepositoryFactory.createWithAuth()
     private var cancellables = Set<AnyCancellable>()
     private var hasAppeared = false // 중복 호출 방지 플래그 추가
+    private var postDeletedObserver: NSObjectProtocol? // 게시글 삭제 알림 observer
+    private var postUpdatedObserver: NSObjectProtocol? // 게시글 수정 알림 observer
     
     init(repository: CommunityNetworkRepository, useCase: PostSummaryUseCase, locationService: LocationService) {
         self.useCase = useCase
         self.locationService = locationService // DI로 받음
         super.init()
         locationService.delegate = self
+        
+        // 게시글 삭제 알림 구독
+        postDeletedObserver = NotificationCenter.default.addObserver(
+            forName: .postDeleted,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            if let postId = notification.object as? String {
+                self?.handle(.removePost(postId))
+            }
+        }
+        
+        // 게시글 수정 알림 구독
+        postUpdatedObserver = NotificationCenter.default.addObserver(
+            forName: .postUpdated,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            if let updatedPost = notification.object as? PostResponseEntity {
+                self?.handle(.updatePost(updatedPost))
+            }
+        }
+        
+
+    }
+    
+    deinit {
+        // observer 제거
+        if let observer = postDeletedObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        if let observer = postUpdatedObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+
     }
     
     func handle(_ intent: CommunityIntent) {
@@ -108,6 +147,11 @@ final class CommunityContainer: NSObject, ObservableObject, LocationServiceDeleg
             model.showSearchAddressView = false
         case .downloadPostFiles(let files):
             startFileDownload(for: files)
+        case .removePost(let postId):
+            removePostFromList(postId: postId)
+        case .updatePost(let updatedPost):
+            updatePostInList(updatedPost: updatedPost)
+
         }
     }
     
@@ -293,6 +337,62 @@ final class CommunityContainer: NSObject, ObservableObject, LocationServiceDeleg
             }
         }
     }
+    
+    private func removePostFromList(postId: String) {
+        // 현재 표시 중인 posts에서 삭제
+        if case .success(var posts) = model.posts {
+            posts.removeAll { $0.postId == postId }
+            model.posts = .success(posts)
+        }
+        
+        // allPosts에서도 삭제 (페이지네이션용)
+        model.allPosts.removeAll { $0.postId == postId }
+        
+        // 검색 결과에서도 삭제
+        model.searchResults.removeAll { $0.postId == postId }
+        model.searchEntityResults.removeAll { $0.postId == postId }
+    }
+    
+    private func updatePostInList(updatedPost: PostResponseEntity) {
+        // PostResponseEntity를 PostSummaryResponseEntity로 변환
+        let updatedSummary = PostSummaryResponseEntity(
+            postId: updatedPost.postId,
+            category: updatedPost.category,
+            title: updatedPost.title,
+            content: updatedPost.content,
+            geolocation: updatedPost.geolocation,
+            creator: updatedPost.creator,
+            files: updatedPost.files.map { $0.serverPath }, // ServerFileEntity를 String으로 변환
+            isLike: updatedPost.isLike,
+            likeCount: updatedPost.likeCount,
+            createdAt: updatedPost.createdAt,
+            updatedAt: updatedPost.updatedAt,
+            address: updatedPost.address
+        )
+        
+        // 현재 표시 중인 posts에서 업데이트
+        if case .success(var posts) = model.posts {
+            if let index = posts.firstIndex(where: { $0.postId == updatedPost.postId }) {
+                posts[index] = updatedSummary
+                model.posts = .success(posts)
+            }
+        }
+        
+        // allPosts에서도 업데이트 (페이지네이션용)
+        if let index = model.allPosts.firstIndex(where: { $0.postId == updatedPost.postId }) {
+            model.allPosts[index] = updatedSummary
+        }
+        
+        // 검색 결과에서도 업데이트
+        if let index = model.searchResults.firstIndex(where: { $0.postId == updatedPost.postId }) {
+            model.searchResults[index] = updatedSummary
+        }
+        if let index = model.searchEntityResults.firstIndex(where: { $0.postId == updatedPost.postId }) {
+            model.searchEntityResults[index] = updatedSummary
+        }
+    }
+    
+
     
     // MARK: - File Download Methods
     private func startFileDownload(for files: [ServerFileEntity]) {
