@@ -16,7 +16,7 @@ struct LikeEstateRequestDTO: Encodable {
 }
 
 struct LikeEstateResponseDTO: Decodable {
-    let likeStatus: Bool
+    let likeStatus: Bool?
 
     enum CodingKeys: String, CodingKey {
         case likeStatus = "like_status"
@@ -28,8 +28,9 @@ struct LikeEstateEntity {
 }
 
 extension LikeEstateResponseDTO {
-    func toEntity() -> LikeEstateEntity {
-        .init(likeStatus: likeStatus)
+    func toEntity() -> LikeEstateEntity? {
+        guard let isLike = likeStatus else {return nil}
+        return LikeEstateEntity(likeStatus: isLike)
     }
 }
 
