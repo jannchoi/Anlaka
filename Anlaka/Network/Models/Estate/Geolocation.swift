@@ -23,14 +23,3 @@ extension GeolocationDTO {
     }
 }
 
-extension GeoEstateEntity {
-    func toPinInfoList() -> [PinInfo] {
-        return data.map { estate in
-            PinInfo(
-                longitude: estate.geolocation.longitude,
-                latitude: estate.geolocation.latitude,
-                title: estate.title
-            )
-        }
-    }
-}
