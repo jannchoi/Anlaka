@@ -13,6 +13,7 @@ struct ChattingModel {
     var sendingMessageId: String? = nil  // 전송 중인 메시지 ID
     var tempMessage: ChatEntity? = nil   // 임시 메시지
     var messagesGroupedByDate: [(String, [ChatEntity])] = []  // 일반 프로퍼티로 변경
+    var currentUserId: String? = nil  // 현재 로그인한 사용자의 ID
     
     // 시간순으로 정렬된 메시지 반환
     var sortedMessages: [ChatEntity] {
@@ -122,7 +123,7 @@ final class ChattingContainer: ObservableObject {
                 model.isLoading = false
                 return
             }
-            print("🔍 저장된 userID: \(userInfo.userid)")
+            model.currentUserId = userInfo.userid
             
             // opponent_id가 있는 경우 (새로운 채팅방 생성 또는 기존 채팅방 찾기)
             if let opponent_id = model.opponent_id {
@@ -132,42 +133,43 @@ final class ChattingContainer: ObservableObject {
                 model.roomId = chatRoom.roomId
             }
             
-            // 2. 이전 user_id를 새로운 user_id로 업데이트
-            do {
-                try await databaseRepository.updateUserId(oldUserId: "68293ac68884d1a48e224692", newUserId: userInfo.userid)
-            } catch {
-                print("❌ user_id 업데이트 실패: \(error.localizedDescription)")
-            }
+            // 2. 현재 사용자가 해당 채팅방에 존재하는지 확인
+            let userInChatRoom = try await databaseRepository.isUserInChatRoom(roomId: model.roomId, userId: userInfo.userid)
             
-            // 3. 로컬 DB에서 채팅 내역 조회 (업데이트 후)
-            let localMessages = try await databaseRepository.getMessages(roomId: model.roomId)
-            model.messages = localMessages
-            print("📱 업데이트 후 메시지 senderId:", localMessages.map { $0.sender.userId })
-            
-            // 4. 마지막 메시지 날짜 가져오기
-            if let lastDate = try await databaseRepository.getLastMessageDate(roomId: model.roomId) {
-                // 5. 서버에서 최신 메시지 동기화
-                let formattedDate = PresentationMapper.formatDateToISO8601(lastDate)
-                let chatList = try await repository.getChatList(roomId: model.roomId, from: formattedDate)
+            if !userInChatRoom {
+                // 3. 현재 사용자가 채팅방에 없는 경우 채팅방 삭제
+                try await databaseRepository.deleteChatRoom(roomId: model.roomId)
                 
-                // 6. 새 메시지 저장 및 UI 업데이트
-                try await databaseRepository.saveMessages(chatList.chats)
-                
-                // 중복되지 않은 새 메시지만 추가
-                let newMessages = chatList.chats.filter { newMessage in
-                    !model.messages.contains { $0.chatId == newMessage.chatId }
-                }
-                model.messages.append(contentsOf: newMessages)
-                model.updateMessagesGroupedByDate()  // 메시지 그룹화 업데이트
-            } else {
-                // 첫 로드인 경우 전체 메시지 가져오기
+                // 4. 서버에서 전체 채팅 내역 가져오기
                 let chatList = try await repository.getChatList(roomId: model.roomId, from: nil)
                 try await databaseRepository.saveMessages(chatList.chats)
                 model.messages = chatList.chats
-                model.updateMessagesGroupedByDate()  // 메시지 그룹화 업데이트
+            } else {
+                // 5. 기존 사용자인 경우 로컬 DB에서 채팅 내역 조회
+                let localMessages = try await databaseRepository.getMessages(roomId: model.roomId)
+                model.messages = localMessages
+                
+                // 6. 마지막 메시지 날짜 가져오기
+                if let lastDate = try await databaseRepository.getLastMessageDate(roomId: model.roomId) {
+                    // 7. 서버에서 최신 메시지 동기화
+                    let formattedDate = PresentationMapper.formatDateToISO8601(lastDate)
+                    let chatList = try await repository.getChatList(roomId: model.roomId, from: formattedDate)
+                    
+                    // 8. 새 메시지 저장 및 UI 업데이트
+                    try await databaseRepository.saveMessages(chatList.chats)
+                    
+                    // 중복되지 않은 새 메시지만 추가
+                    let newMessages = chatList.chats.filter { newMessage in
+                        !model.messages.contains { $0.chatId == newMessage.chatId }
+                    }
+                    model.messages.append(contentsOf: newMessages)
+                }
             }
             
-            // 7. WebSocket 연결 - 여기서만 연결
+            // 9. 메시지 그룹화 업데이트
+            model.updateMessagesGroupedByDate()
+            
+            // 10. WebSocket 연결
             socket?.connect()
             
         } catch {
@@ -186,7 +188,6 @@ final class ChattingContainer: ObservableObject {
             model.error = "사용자 정보를 찾을 수 없습니다."
             return
         }
-        
         // 임시 메시지 생성
         let tempMessage = ChatEntity(
             chatId: tempMessageId,
@@ -235,7 +236,6 @@ final class ChattingContainer: ObservableObject {
             }
             
             // 3. 메시지 전송
-            print("📝 메시지 전송 요청")
             let chatRequest = ChatRequestEntity(
                 content: text,
                 files: uploadedFiles
@@ -259,27 +259,10 @@ final class ChattingContainer: ObservableObject {
                         )
                         
                         if let message = message {
-                            print("✅ 메시지 전송 성공:", message)
                             // DB 저장 및 UI 업데이트
                             if !(self?.model.messages.contains(where: { $0.chatId == message.chatId }) ?? false) {
-                                // 서버에서 받은 메시지의 sender 정보를 현재 사용자 정보로 업데이트
-                                let updatedMessage = ChatEntity(
-                                    chatId: message.chatId,
-                                    roomId: message.roomId,
-                                    content: message.content,
-                                    createdAt: message.createdAt,
-                                    updatedAt: message.updatedAt,
-                                    sender: UserInfoEntity(
-                                        userId: userInfo.userid,  // 현재 로그인한 사용자의 ID 사용
-                                        nick: userInfo.nick,
-                                        introduction: userInfo.introduction ?? "",
-                                        profileImage: userInfo.profileImage ?? ""
-                                    ),
-                                    files: message.files
-                                )
-                                
-                                try await self?.databaseRepository.saveMessage(updatedMessage)
-                                self?.model.messages.append(updatedMessage)
+                                try await self?.databaseRepository.saveMessage(message)
+                                self?.model.messages.append(message)
                                 self?.model.updateMessagesGroupedByDate()  // 그룹화 업데이트
                             }
                         } else {
