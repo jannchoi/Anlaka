@@ -495,4 +495,114 @@ internal final class DatabaseRepositoryImp: DatabaseRepository {
             }
         }
     }
+    
+    // MARK: - Chat Pagination (New)
+    
+    func getMessagesCount(roomId: String) async throws -> Int {
+        try await withCheckedThrowingContinuation { continuation in
+            do {
+                let realm = try Realm(configuration: configuration)
+                guard let chatList = realm.object(ofType: ChatListRealmModel.self, forPrimaryKey: roomId) else {
+                    continuation.resume(returning: 0)
+                    return
+                }
+                continuation.resume(returning: chatList.chats.count)
+            } catch {
+                continuation.resume(throwing: error)
+            }
+        }
+    }
+    
+    func getMessagesBeforeDate(roomId: String, date: Date, limit: Int) async throws -> [ChatEntity] {
+        try await withCheckedThrowingContinuation { continuation in
+            do {
+                let realm = try Realm(configuration: configuration)
+                guard let chatList = realm.object(ofType: ChatListRealmModel.self, forPrimaryKey: roomId) else {
+                    continuation.resume(returning: [])
+                    return
+                }
+                
+                // 특정 날짜 이전의 메시지들을 날짜순으로 정렬하여 limit만큼 가져오기
+                let messages = chatList.chats
+                    .filter { $0.createdAt < date }
+                    .sorted(by: { $0.createdAt > $1.createdAt }) // 최신순으로 정렬 (UI에서 상하반전되므로)
+                    .prefix(limit)
+                    .map { message -> ChatEntity in
+                        return ChatEntity(
+                            chatId: message.chatId,
+                            roomId: roomId,
+                            content: message.content,
+                            createdAt: PresentationMapper.formatDateToISO8601(message.createdAt),
+                            updatedAt: PresentationMapper.formatDateToISO8601(message.updatedAt),
+                            sender: message.senderId,
+                            files: Array(message.files)
+                        )
+                    }
+                
+                continuation.resume(returning: Array(messages))
+            } catch {
+                continuation.resume(throwing: error)
+            }
+        }
+    }
+    
+    func getMessagesInDateRange(roomId: String, from: Date, to: Date) async throws -> [ChatEntity] {
+        try await withCheckedThrowingContinuation { continuation in
+            do {
+                let realm = try Realm(configuration: configuration)
+                guard let chatList = realm.object(ofType: ChatListRealmModel.self, forPrimaryKey: roomId) else {
+                    continuation.resume(returning: [])
+                    return
+                }
+                
+                // 특정 날짜 범위의 메시지들을 날짜순으로 정렬
+                let messages = chatList.chats
+                    .filter { $0.createdAt >= from && $0.createdAt <= to }
+                    .sorted(by: { $0.createdAt < $1.createdAt }) // 시간순 정렬
+                    .map { message -> ChatEntity in
+                        return ChatEntity(
+                            chatId: message.chatId,
+                            roomId: roomId,
+                            content: message.content,
+                            createdAt: PresentationMapper.formatDateToISO8601(message.createdAt),
+                            updatedAt: PresentationMapper.formatDateToISO8601(message.updatedAt),
+                            sender: message.senderId,
+                            files: Array(message.files)
+                        )
+                    }
+                
+                continuation.resume(returning: Array(messages))
+            } catch {
+                continuation.resume(throwing: error)
+            }
+        }
+    }
+    
+    func deleteMessagesBeforeDate(roomId: String, date: Date) async throws {
+        try await withCheckedThrowingContinuation { continuation in
+            do {
+                let realm = try Realm(configuration: configuration)
+                guard let chatList = realm.object(ofType: ChatListRealmModel.self, forPrimaryKey: roomId) else {
+                    continuation.resume()
+                    return
+                }
+                
+                // 특정 날짜 이전의 메시지들 찾기
+                let messagesToDelete = chatList.chats.filter { $0.createdAt < date }
+                
+                try realm.write {
+                    // ChatListRealmModel에서 해당 메시지들 제거
+                    for message in messagesToDelete {
+                        if let index = chatList.chats.index(of: message) {
+                            chatList.chats.remove(at: index)
+                        }
+                    }
+                }
+                
+                continuation.resume()
+            } catch {
+                continuation.resume(throwing: error)
+            }
+        }
+    }
 }

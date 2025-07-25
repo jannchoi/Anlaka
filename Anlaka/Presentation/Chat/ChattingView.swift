@@ -43,6 +43,7 @@ struct ChatMessagesView: View {
     @Binding var hasUserScrolled: Bool
     @State private var scrollOffset: CGFloat = 0
     @State private var contentHeight: CGFloat = 0
+    @ObservedObject var container: ChattingContainer  // 추가
     
     var body: some View {
         VStack {
@@ -50,6 +51,21 @@ struct ChatMessagesView: View {
                 ScrollViewReader { proxy in
                     ScrollView(.vertical) {
                         LazyVStack(spacing: 12) {
+                            // 상단 로딩 인디케이터 (New)
+                            if container.model.isLoadingMoreMessages {
+                                HStack {
+                                    Spacer()
+                                    ProgressView()
+                                        .progressViewStyle(CircularProgressViewStyle())
+                                        .scaleEffect(0.8)
+                                    Text("이전 메시지를 불러오는 중...")
+                                        .font(.pretendardCaption)
+                                        .foregroundColor(.gray)
+                                    Spacer()
+                                }
+                                .padding(.vertical, 16)
+                            }
+                            
                             ForEach(messagesGroupedByDate, id: \.0) { date, messages in
                                 VStack(spacing: 8) {
                                     DateDivider(dateString: date)
@@ -126,6 +142,8 @@ struct ChatMessagesView: View {
                     }
                     .onChange(of: scrollOffset) { newOffset in
                         checkScrollPosition(proxy: proxy, geometry: geometry)
+                        // 스크롤이 상단에 도달했을 때 이전 메시지 로드 (New)
+                        checkAndLoadPreviousMessages(geometry: geometry)
                     }
                     .onPreferenceChange(ScrollOffsetPreferenceKey.self) { newOffset in
                         scrollOffset = newOffset
@@ -159,6 +177,25 @@ struct ChatMessagesView: View {
             }
             Color.clear
                 .frame(height: keyboard.currentHeight > 0 ? keyboard.currentHeight + inputViewHeight : inputViewHeight)
+        }
+    }
+    
+    // 이전 메시지 로드 체크 (New)
+    private func checkAndLoadPreviousMessages(geometry: GeometryProxy) {
+        // 스크롤이 상단에 가까워졌을 때 이전 메시지 로드
+        let threshold: CGFloat = 100 // 상단에서 100px 이내
+        let isNearTop = scrollOffset >= geometry.size.height - threshold
+        
+        // 더 정확한 조건 체크
+        let shouldLoadMore = isNearTop && 
+                           container.model.hasMoreMessages && 
+                           !container.model.isLoadingMoreMessages &&
+                           container.model.isInitialLoadComplete &&
+                           !messagesGroupedByDate.isEmpty
+        
+        if shouldLoadMore {
+            print("📄 이전 메시지 로드 트리거: 스크롤 위치 \(scrollOffset), 뷰 높이 \(geometry.size.height)")
+            container.handle(.loadPreviousMessages)
         }
     }
     
@@ -274,7 +311,8 @@ struct MainContentView: View {
                             keyboard: keyboard,
                             showNewMessageButton: $showNewMessageButton,
                             isAtBottom: $isAtBottom,
-                            hasUserScrolled: $hasUserScrolled
+                            hasUserScrolled: $hasUserScrolled,
+                            container: container
                         )
                     }
                 }
