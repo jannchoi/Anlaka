@@ -126,7 +126,9 @@ struct LoginView: View {
                     SignUpView(
                         di: di,
                         onComplete: {
-                            path.removeLast()
+                            if !path.isEmpty {
+                                path.removeLast()
+                            }
                         }
                     )
                 }

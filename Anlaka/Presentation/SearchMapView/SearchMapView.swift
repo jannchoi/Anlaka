@@ -34,7 +34,9 @@ struct SearchMapView: View {
                 CustomNavigationBar(title: "매물 찾기", leftButton: {
                     // 뒤로가기 버튼
                     Button(action: {
-                        path.removeLast()
+                        if !path.isEmpty {
+                            path.removeLast()
+                        }
                     }) {
                         HStack(spacing: 4) {
                             Image("chevron")

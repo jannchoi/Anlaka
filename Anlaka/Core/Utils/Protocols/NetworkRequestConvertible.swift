@@ -19,3 +19,4 @@ extension AdminRouter: NetworkRequestConvertible {}
 extension OrderRouter: NetworkRequestConvertible {}
 extension PaymentRouter: NetworkRequestConvertible {}
 extension CommunityRouter: NetworkRequestConvertible {}
+extension BannerRouter: NetworkRequestConvertible {}

@@ -37,7 +37,9 @@ struct PostDetailView: View {
                     title: "정보",
                     leftButton: {
                         Button(action: {
-                            path.removeLast()
+                            if !path.isEmpty {
+                                path.removeLast()
+                            }
                         }) {
                             Image("chevron")
                                 .font(.headline)
@@ -202,7 +204,9 @@ struct PostDetailView: View {
         .onChange(of: container.model.post) { post in
             if post == nil {
                 // 게시글이 삭제되었으면 이전 화면으로 돌아가기
-                path.removeLast()
+                if !path.isEmpty {
+                    path.removeLast()
+                }
             }
         }
         .navigationDestination(for: AppRoute.PostDetailRoute.self) { route in
