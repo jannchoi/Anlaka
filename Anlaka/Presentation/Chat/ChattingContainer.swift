@@ -256,7 +256,7 @@ final class ChattingContainer: ObservableObject {
         
         // 임시 메시지를 즉시 UI에 추가
         model.messages.append(tempMessage)
-        model.updateMessagesGroupedByDate()
+        model.updateMessagesGroupedByDate()  // 임시 메시지도 UI에 표시되어야 함
         print("📝 임시 메시지 추가: \(tempMessageId)")
         
         do {
@@ -292,85 +292,33 @@ final class ChattingContainer: ObservableObject {
                 print("✅ 파일 업로드 성공 - 업로드된 파일 URL: \(uploadedFiles)")
             }
             
-            // 4. Socket.IO를 통한 메시지 전송 (업로드된 파일 URL을 그대로 전송)
-            let messageData: [String: Any] = [
-                "content": text,
-                "files": uploadedFiles,  // 서버에서 받은 파일 URL 그대로 사용
-                "roomId": model.roomId
-            ]
+            // 4. HTTP 서버로 메시지 전송
+            let chatRequest = ChatRequestEntity(
+                content: text,
+                files: uploadedFiles  // 업로드된 파일 URL 그대로 사용
+            )
             
-            print("📤 WebSocket으로 전송할 메시지 데이터: \(messageData)")
+            print("📤 HTTP 서버로 전송할 메시지 데이터: \(chatRequest)")
             
-            socket?.emit("chat", with: [messageData]) { [weak self] in
-                // 메시지 전송 완료 후 처리
-                Task {
-                    do {
-                        // Socket.IO 전송 완료 후 HTTP로 실제 메시지 ID 받아오기
-                        let chatRequest = ChatRequestEntity(
-                            content: text,
-                            files: uploadedFiles  // 업로드된 파일 URL 그대로 사용
-                        )
-                        
-                        let message = try await self?.repository.sendMessage(
-                            roomId: self?.model.roomId ?? "",
-                            target: chatRequest
-                        )
-                        
-                        if let message = message {
-                            // 임시 메시지를 실제 메시지로 교체
-                            if let tempIndex = self?.model.messages.firstIndex(where: { $0.chatId == tempMessageId }) {
-                                self?.model.messages[tempIndex] = message
-                                print("🔄 임시 메시지를 실제 메시지로 교체: \(message.chatId)")
-                            }
-                            
-                            // DB 저장
-                            try await self?.databaseRepository.saveMessage(message)
-                            
-                            // 전송 상태 업데이트
-                            self?.model.sendingMessageId = nil
-                            self?.model.updateMessagesGroupedByDate()
-                            print("✅ 메시지 전송 및 저장 완료: \(message.chatId)")
-                            
-                            // 푸시 알림 전송
-                            if let opponent_id = self?.model.opponent_id {
-                                do {
-                                    // subtitle 설정 (첨부파일이 있는 경우)
-                                    var subtitle: String? = nil
-                                    if !uploadedFiles.isEmpty {
-                                        let fileCount = uploadedFiles.count
-                                        subtitle = "첨부파일 \(fileCount)개"
-                                    }
-                                    
-                                    let pushRequest = PushRequestDTO(
-                                        user_ids: [opponent_id],
-                                        title: userInfo.nick,
-                                        subtitle: subtitle,
-                                        body: text
-                                    )
-                                    try await self?.repository.sendPushNotification(pushRequest: pushRequest)
-                                } catch {
-                                    print("❌ 푸시 알림 전송 실패: \(error.localizedDescription)")
-                                    // 푸시 알림 실패는 메시지 전송에 영향을 주지 않음
-                                }
-                            }
-                        } else {
-                            print("❌ 메시지 전송 실패: 응답이 없음")
-                            self?.model.error = "메시지 전송에 실패했습니다."
-                            // 에러 발생 시 임시 메시지 제거
-                            self?.model.messages.removeAll { $0.chatId == tempMessageId }
-                            self?.model.sendingMessageId = nil
-                            self?.model.updateMessagesGroupedByDate()
-                        }
-                    } catch {
-                        print("❌ 메시지 전송 실패: \(error.localizedDescription)")
-                        self?.model.error = error.localizedDescription
-                        // 에러 발생 시 임시 메시지 제거
-                        self?.model.messages.removeAll { $0.chatId == tempMessageId }
-                        self?.model.sendingMessageId = nil
-                        self?.model.updateMessagesGroupedByDate()
-                    }
-                }
+            let message = try await repository.sendMessage(
+                roomId: model.roomId,
+                target: chatRequest
+            )
+            
+            // 임시 메시지를 실제 메시지로 교체
+            if let tempIndex = model.messages.firstIndex(where: { $0.chatId == tempMessageId }) {
+                model.messages.remove(at: tempIndex)  // 임시 메시지 제거
+                model.messages.insert(message, at: tempIndex)  // 실제 메시지 삽입
+                print("🔄 임시 메시지를 실제 메시지로 교체: \(message.chatId)")
             }
+            
+            // DB 저장
+            try await databaseRepository.saveMessage(message)
+            
+            // 전송 상태 업데이트 및 UI 갱신
+            model.sendingMessageId = nil
+            model.updateMessagesGroupedByDate()  // 실제 메시지 교체 후에만 UI 갱신
+            print("✅ 메시지 전송 및 저장 완료: \(message.chatId)")
             
         } catch {
             print("❌ 메시지 전송 실패: \(error.localizedDescription)")
@@ -406,6 +354,18 @@ final class ChattingContainer: ObservableObject {
     private func handleIncomingMessage(_ message: ChatMessageEntity) {
         Task {
             do {
+                // 현재 사용자 정보 가져오기
+                guard let userInfo = UserDefaultsManager.shared.getObject(forKey: .profileData, as: MyProfileInfoEntity.self) else {
+                    print("⚠️ 사용자 정보를 찾을 수 없어 메시지를 무시합니다.")
+                    return
+                }
+                
+                // 자신이 보낸 메시지는 무시 (HTTP로 이미 처리됨)
+                if message.sender == userInfo.userid {
+                    print("⚠️ 자신이 보낸 메시지 무시: \(message.chatID)")
+                    return
+                }
+                
                 // 이미 존재하는 메시지인지 확인 (UI 레벨)
                 if model.messages.contains(where: { $0.chatId == message.chatID }) {
                     print("⚠️ 이미 UI에 존재하는 메시지 무시: \(message.chatID)")
