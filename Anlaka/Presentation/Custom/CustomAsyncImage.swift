@@ -32,6 +32,7 @@ struct CustomAsyncImage: View {
                     .fill(Color.gray.opacity(0.3))
                     .overlay(
                         Text("이미지")
+                    .font(.pretendardCaption)
                             .foregroundColor(.gray)
                     )
             }

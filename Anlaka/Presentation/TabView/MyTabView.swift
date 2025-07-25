@@ -121,7 +121,7 @@ struct MyTabView: View {
                         .frame(width: 30)
                     if selected == .home {
                         Text("홈")
-                            .font(.system(size: 11))
+                            .font(.pretendardCaption2)
                     }
                 }
             }
@@ -137,7 +137,7 @@ struct MyTabView: View {
                         .frame(width: 30)
                     if selected == .reserved {
                         Text("관심매물")
-                            .font(.system(size: 11))
+                            .font(.pretendardCaption2)
                     }
                 }
             }
@@ -153,7 +153,7 @@ struct MyTabView: View {
                         .frame(width: 30)
                     if selected == .myPage {
                         Text("프로필")
-                            .font(.system(size: 11))
+                            .font(.pretendardCaption2)
                     }
                 }
             }

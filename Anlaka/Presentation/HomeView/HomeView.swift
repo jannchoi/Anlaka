@@ -168,17 +168,16 @@ struct TodayEstateView: View {
                             // 텍스트 콘텐츠
                             VStack(alignment: .leading, spacing: 8) {
                                 Text(item.address)
-                                    .font(.subheadline)
+                                    .font(.pretendardSubheadline)
                                     .foregroundColor(.white.opacity(0.9))
                                 
                                 Text(item.summary.title)
-                                    .font(.title)
-                                    .fontWeight(.bold)
+                                    .font(.soyoTitle2)
                                     .foregroundColor(.white)
                                     .multilineTextAlignment(.leading)
                                 
                                 Text(item.summary.introduction)
-                                    .font(.body)
+                                    .font(.pretendardBody)
                                     .foregroundColor(.white.opacity(0.9))
                                     .multilineTextAlignment(.leading)
                                     .lineLimit(2)
@@ -233,7 +232,7 @@ struct CategoryEstateView: View {
                         }
                         
                         Text(titles[index].rawValue)
-                            .font(.caption)
+                            .font(.pretendardCaption)
                             .foregroundColor(Color.MainTextColor)
                     }
                     .onTapGesture {
@@ -255,8 +254,7 @@ struct SectionTitleView: View {
     var body: some View {
         HStack {
             Text(title)
-                .font(.title3)
-                .fontWeight(.bold)
+                .font(.soyoTitle3)
                 .foregroundColor(Color.MainTextColor)
             
             Spacer()
@@ -266,7 +264,7 @@ struct SectionTitleView: View {
                     onViewAllTapped?()
                 }) {
                     Text("View All")
-                        .font(.subheadline)
+                        .font(.pretendardSubheadline)
                         .foregroundColor(Color.OliveMist)
                 }
             }
@@ -296,29 +294,29 @@ struct FavoriteView: View {
                         VStack(alignment: .leading, spacing: 4) {
                             HStack {
                                 Text(entity[index].summary.category)
-                                    .font(.caption)
+                                    .font(.pretendardCaption)
                                     .foregroundColor(.secondary)
                                 
                                 Spacer()
                                 
                                 Text("\(entity[index].summary.area)")
-                                    .font(.caption)
+                                    .font(.pretendardCaption)
                                     .foregroundColor(.secondary)
                             }
                             
                             HStack(spacing: 4) {
                                 Text("월세")
-                                    .font(.caption)
+                                    .font(.pretendardCaption)
                                     .foregroundColor(.secondary)
                                 
                                 Text("\(entity[index].summary.deposit)/\(entity[index].summary.monthlyRent)")
-                                    .font(.subheadline)
+                                    .font(.pretendardSubheadline)
                                     .fontWeight(.bold)
                                     .foregroundColor(Color.MainTextColor)
                             }
                             
                             Text(entity[index].address)
-                                .font(.caption)
+                                .font(.pretendardCaption)
                                 .foregroundColor(.secondary)
                                 .lineLimit(1)
                         }
@@ -351,7 +349,7 @@ struct HotEstateItemView: View {
                 .overlay(
                     item.summary.isRecommended ?
                     Text("추천")
-                        .font(.caption2)
+                        .font(.pretendardCaption2)
                         .fontWeight(.bold)
                         .foregroundColor(.white)
                         .padding(.horizontal, 8)
@@ -378,8 +376,7 @@ struct HotEstateItemView: View {
     private var itemInfoSection: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(item.summary.title)
-                .font(.headline)
-                .fontWeight(.medium)
+                .font(.soyoHeadline)
                 .foregroundColor(Color.MainTextColor)
                 .lineLimit(1)
             
@@ -392,11 +389,11 @@ struct HotEstateItemView: View {
     private var priceInfoView: some View {
         HStack {
             Text("월세")
-                .font(.caption)
+                .font(.pretendardCaption)
                 .foregroundColor(.secondary)
             
             Text("\(item.summary.deposit)/\(item.summary.monthlyRent)")
-                .font(.subheadline)
+                .font(.pretendardSubheadline)
                 .fontWeight(.bold)
         }
     }
@@ -404,13 +401,13 @@ struct HotEstateItemView: View {
     private var addressAndAreaView: some View {
         HStack {
             Text(item.address)
-                .font(.caption)
+                .font(.pretendardCaption)
                 .foregroundColor(.secondary)
             
             Spacer()
             
             Text("\(item.summary.area)")
-                .font(.caption)
+                .font(.pretendardCaption)
                 .foregroundColor(.secondary)
         }
     }
@@ -422,7 +419,7 @@ struct HotEstateItemView: View {
                 .font(.caption)
             
             Text("\(item.summary.likeCount)")
-                .font(.caption)
+                .font(.pretendardCaption)
                 .foregroundColor(.secondary)
         }
     }
@@ -474,17 +471,16 @@ struct TopicEstateView: View {
     private func topicCell(for index: Int) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(entity.items[index].title)
-                .font(.headline)
-                .fontWeight(.bold)
+                .font(.soyoHeadline)
                 .foregroundColor(Color.MainTextColor)
             
             Text(entity.items[index].content)
-                .font(.subheadline)
+                .font(.pretendardSubheadline)
                 .foregroundColor(Color.SubText)
                 .lineLimit(2)
             
             Text(entity.items[index].date)
-                .font(.caption)
+                .font(.pretendardCaption)
                 .foregroundColor(Color.SubText)
                 .frame(maxWidth: .infinity, alignment: .trailing)
         }

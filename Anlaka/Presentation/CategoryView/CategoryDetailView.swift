@@ -13,5 +13,6 @@ struct CategoryDetailView: View {
     
     var body: some View {
         Text("Category Detail View: \(categoryType.rawValue)")
+            .font(.pretendardBody)
     }
 }
