@@ -19,4 +19,5 @@ extension Color {
     static let ToffeeWood = Color("ToffeeWood")
     static let TomatoRed = Color("TomatoRed")
     static let WarmLinen = Color("WarmLinen")
+    static let Gray75 = Color("Gray75")
 }
