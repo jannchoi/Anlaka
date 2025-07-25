@@ -27,7 +27,7 @@ struct TodaySummaryEntity {
     let category: String
     let title: String
     let introduction: String
-    let thumbnails: [String]
+    let thumbnail: String
     let geolocation: GeolocationEntity
 
 }
