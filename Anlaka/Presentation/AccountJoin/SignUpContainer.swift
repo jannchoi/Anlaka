@@ -16,6 +16,7 @@ struct SignUpModel {
     var showPassword: Bool = false
     var isLoading: Bool = false
     var errorMessage: String? = nil
+    var toast: FancyToast? = nil
 
     // 유효성 검사
     var isEmailValid: Bool = false
@@ -129,29 +130,57 @@ final class SignUpContainer: ObservableObject {
         do {
             try await repository.validateEmail(targeteEmail: target)
             model.isEmailValidServer = true
+            model.toast = FancyToast(
+                type: .success,
+                title: "이메일 중복 확인",
+                message: "사용 가능한 이메일입니다.",
+                duration: 2
+            )
         } catch {
             model.isEmailValidServer = false
-            model.errorMessage = (error as? CustomError)?.errorDescription ?? "알 수 없는 에러: \(error.localizedDescription)"
+            model.toast = FancyToast(
+                type: .error,
+                title: "이메일 중복 확인 실패",
+                message: (error as? CustomError)?.errorDescription ?? "이미 사용 중인 이메일입니다.",
+                duration: 3
+            )
         }
     }
 
     private func callSignUp() async {
-        guard let deviceToken = UserDefaultsManager.shared.getString(forKey: .deviceToken) else { return }
         let target = SignUpRequestEntity(
             email: model.email,
             password: model.password,
             nickname: model.nickname,
             phone: model.phoneNumber,
             intro: model.introduction,
-            deviceToken: deviceToken
+            deviceToken: nil
         )
 
         do {
             let response = try await repository.signUp(signUpEntity: target)
-            model.goToLoginView = true
+            
+            model.toast = FancyToast(
+                type: .success,
+                title: "회원가입 완료",
+                message: "성공적으로 가입되었습니다.",
+                duration: 2
+            )
+            
             model.isLoading = false
+            
+            // 토스트 메시지가 표시된 후 2초 뒤에 화면 전환
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                self.model.goToLoginView = true
+            }
         } catch {
-            model.errorMessage = (error as? CustomError)?.errorDescription ?? "알 수 없는 에러: \(error.localizedDescription)"
+            model.toast = FancyToast(
+                type: .error,
+                title: "회원가입 실패",
+                message: (error as? CustomError)?.errorDescription ?? "알 수 없는 에러가 발생했습니다.",
+                duration: 3
+            )
+            model.isLoading = false
         }
     }
 

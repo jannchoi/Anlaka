@@ -118,7 +118,7 @@ class WebSocketManager {
             self.socket?.on("chat") { [weak self] dataArray, ack in
                 print("CHAT RECEIVED", dataArray, ack)
                 if let data = dataArray.first as? [String: Any] {
-                    print("📥 수신된 메시지 데이터:", data)
+                    print(" 수신된 메시지 데이터:", data)
                     do {
                         let jsonData = try JSONSerialization.data(withJSONObject: data)
                         let message = try JSONDecoder().decode(ChatMessageDTO.self, from: jsonData)
@@ -126,7 +126,7 @@ class WebSocketManager {
                             print("⚠️ 메시지 변환 실패: 필수 필드가 nil입니다. chatID: \(message.chatID ?? "nil"), roomID: \(message.roomID ?? "nil"), sender: \(message.sender?.userID ?? "nil")")
                             return // 에러를 throw하지 않고 조용히 무시
                         }
-                        print("✅ 메시지 변환 성공:", entity)
+                        print(" 메시지 변환 성공:", entity)
                         DispatchQueue.main.async {
                             self?.onMessage?(entity)
                         }
@@ -195,7 +195,7 @@ class WebSocketManager {
     
     func emit(_ event: String, with items: [Any], completion: @escaping () -> Void) {
         connectionQueue.async { [weak self] in
-            print("📤 메시지 전송 시작:", event, items)
+            print(" 메시지 전송 시작:", event, items)
             
             // 일반 emit 사용 (ack 없이)
             self?.socket?.emit(event, items)

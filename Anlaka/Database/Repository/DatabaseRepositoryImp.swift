@@ -171,6 +171,8 @@ internal final class DatabaseRepositoryImp: DatabaseRepository {
         }
     }
     
+
+    
     // MARK: - Chat
     func saveMessages(_ messages: [ChatEntity]) async throws {
         try await withCheckedThrowingContinuation { continuation in
@@ -224,10 +226,20 @@ internal final class DatabaseRepositoryImp: DatabaseRepository {
             do {
                 let realm = try Realm(configuration: configuration)
                 
-                // 중복 체크
+                // 전역 중복 체크
                 if realm.object(ofType: ChatRealmModel.self, forPrimaryKey: message.chatId) != nil {
+                    print("⚠️ 메시지가 이미 존재함: \(message.chatId)")
                     continuation.resume()
                     return
+                }
+                
+                // ChatList에서도 중복 체크
+                if let chatList = realm.object(ofType: ChatListRealmModel.self, forPrimaryKey: message.roomId) {
+                    if chatList.chats.contains(where: { $0.chatId == message.chatId }) {
+                        print("⚠️ ChatList에 이미 존재하는 메시지: \(message.chatId)")
+                        continuation.resume()
+                        return
+                    }
                 }
                 
                 let realmMessage = ChatRealmModel(
@@ -253,8 +265,12 @@ internal final class DatabaseRepositoryImp: DatabaseRepository {
                         chatList.participants.append(message.sender)
                     }
                     
-                    // 메시지 추가
-                    chatList.chats.append(realmMessage)
+                    // List에 추가하기 전에 중복 체크
+                    if !chatList.chats.contains(where: { $0.chatId == message.chatId }) {
+                        chatList.chats.append(realmMessage)
+                    } else {
+                        print("⚠️ ChatList에 이미 존재하는 메시지: \(message.chatId)")
+                    }
                     
                     realm.add(chatList, update: .modified)
                 }
@@ -350,7 +366,7 @@ internal final class DatabaseRepositoryImp: DatabaseRepository {
             }
         }
     }
-    
+
     func updateUserId(oldUserId: String, newUserId: String) async throws {
         try await withCheckedThrowingContinuation { continuation in
             do {
@@ -363,7 +379,7 @@ internal final class DatabaseRepositoryImp: DatabaseRepository {
                         // 현재 로그인한 사용자의 메시지인 경우에만 업데이트
                         if message.senderId == oldUserId {
                             message.senderId = newUserId
-                            print("✅ 메시지 senderId 업데이트: \(oldUserId) -> \(newUserId)")
+                            print("메시지 senderId 업데이트: \(oldUserId) -> \(newUserId)")
                         }
                     }
                 }
@@ -375,7 +391,7 @@ internal final class DatabaseRepositoryImp: DatabaseRepository {
                         for participant in room.participants {
                             if participant.userId == oldUserId {
                                 participant.userId = newUserId
-                                print("✅ 채팅방 participants 업데이트: \(oldUserId) -> \(newUserId)")
+                                print(" 채팅방 participants 업데이트: \(oldUserId) -> \(newUserId)")
                             }
                         }
                     }
@@ -387,7 +403,7 @@ internal final class DatabaseRepositoryImp: DatabaseRepository {
                     for chatList in chatLists {
                         if let index = chatList.participants.index(of: oldUserId) {
                             chatList.participants[index] = newUserId
-                            print("✅ 채팅 목록 participants 업데이트: \(oldUserId) -> \(newUserId)")
+                            print(" 채팅 목록 participants 업데이트: \(oldUserId) -> \(newUserId)")
                         }
                     }
                 }

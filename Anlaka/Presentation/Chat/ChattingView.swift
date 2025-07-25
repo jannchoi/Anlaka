@@ -1,6 +1,23 @@
 import SwiftUI
 import PhotosUI
 
+// MARK: - ShakingButtonModifier
+struct ShakingButtonModifier: ViewModifier {
+    let isShaking: Bool
+    
+    func body(content: Content) -> some View {
+        content
+            .rotationEffect(Angle(degrees: isShaking ? -5 : 5))
+            .animation(
+                .easeInOut(duration: 0.1)
+                .repeatCount(3, autoreverses: true),
+                value: isShaking
+            )
+    }
+}
+
+
+
 // MARK: - KeyboardResponder
 final class KeyboardResponder: ObservableObject {
     private var notificationCenter: NotificationCenter
@@ -27,6 +44,16 @@ final class KeyboardResponder: ObservableObject {
     }
 }
 
+
+
+// MARK: - ScrollOffsetPreferenceKey
+struct ScrollOffsetPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
 // MARK: - ChatMessagesView
 struct ChatMessagesView: View {
     let messagesGroupedByDate: [(String, [ChatEntity])]
@@ -35,65 +62,185 @@ struct ChatMessagesView: View {
     var bottom1: Namespace.ID
     var inputViewHeight: CGFloat
     @ObservedObject var keyboard: KeyboardResponder
+    @Binding var showNewMessageButton: Bool
+    @Binding var isAtBottom: Bool
+    @Binding var hasUserScrolled: Bool
+    @State private var scrollOffset: CGFloat = 0
+    @State private var contentHeight: CGFloat = 0
     
     var body: some View {
-        GeometryReader { geometry in
-            
-            ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVStack(spacing: 12) {
-                        ForEach(messagesGroupedByDate, id: \.0) { date, messages in
-                            VStack(spacing: 8) {
-                                DateDivider(dateString: date)
-                                
-                                ForEach(Array(messages.enumerated()), id: \.offset) { index, message in
-                                    ChatMessageCell(
-                                        message: message,
-                                        isSending: message.chatId.hasPrefix("temp_")
-                                    )
+        VStack {
+            GeometryReader { geometry in
+                ScrollViewReader { proxy in
+                    ScrollView(.vertical) {
+                        LazyVStack(spacing: 12) {
+                            ForEach(messagesGroupedByDate, id: \.0) { date, messages in
+                                VStack(spacing: 8) {
+                                    DateDivider(dateString: date)
+                                        .rotationEffect(.degrees(180))
+                                        .scaleEffect(x: -1, y: 1, anchor: .center)
+                                    ForEach(Array(messages.enumerated()), id: \.offset) { index, message in
+                                        ChatMessageCell(
+                                            message: message,
+                                            isSending: message.chatId.hasPrefix("temp_")
+                                        )
+                                        .rotationEffect(.degrees(180))
+                                        .scaleEffect(x: -1, y: 1, anchor: .center)
+                                    }
+                                }
+                            }
+                            Color.clear
+                                .frame(height: 1)
+                                .id(bottom1)
+                                .background(
+                                    GeometryReader { contentGeo in
+                                        Color.clear
+                                            .preference(key: ScrollOffsetPreferenceKey.self, value: contentGeo.frame(in: .global).minY)
+                                            .onAppear {
+                                                contentHeight = contentGeo.size.height
+                                            }
+                                            .onChange(of: contentGeo.size.height) { newHeight in
+                                                contentHeight = newHeight
+                                            }
+                                    }
+                                )
+                        }
+
+                        .padding(.horizontal, 16)
+                        .rotationEffect(.degrees(180))
+                        .scaleEffect(x: -1, y: 1, anchor: .center)
+                    }
+                    .rotationEffect(.degrees(180))
+                    .scaleEffect(x: -1, y: 1, anchor: .center)
+                    .background(Color.WarmLinen)
+                    .onTapGesture {
+                        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                    }
+                    .onAppear {
+                        scrollProxy = proxy
+                        hasUserScrolled = false
+                        onScrollToBottom()
+                    }
+                    .onChange(of: messagesGroupedByDate.count) { _ in
+                        checkScrollPosition(proxy: proxy, geometry: geometry)
+                        if isAtBottom {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                onScrollToBottom()
+                            }
+                        }
+                    }
+                    .onChange(of: messagesGroupedByDate.flatMap { $0.1 }.count) { newCount in
+                        checkScrollPosition(proxy: proxy, geometry: geometry)
+                        
+                        // 새 메시지가 추가되었을 때 처리
+                        if newCount > 0 {
+                        if isAtBottom {
+                                // 이미 하단에 있으면 바로 스크롤
+                                hasUserScrolled = false
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                onScrollToBottom()
+                            }
+                            } else {
+                                // 하단에 없으면 newMessageButton 표시
+                                withAnimation(.easeInOut(duration: 0.3)) {
+                                    showNewMessageButton = true
                                 }
                             }
                         }
-                        // 키보드가 올라올 때 추가 여백을 제공하여 스크롤 영역 제한
-                        Color.clear
-                            .frame(height: 1)
-                            .id(bottom1)
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
-                    
-                }.background(Color.WarmLinen)
-                
-                    .onAppear {
-                        scrollProxy = proxy
-                        onScrollToBottom()
+                    .onChange(of: scrollOffset) { newOffset in
+                        checkScrollPosition(proxy: proxy, geometry: geometry)
                     }
+                    .onPreferenceChange(ScrollOffsetPreferenceKey.self) { newOffset in
+                        scrollOffset = newOffset
+                    }
+
+                    .simultaneousGesture(
+                        DragGesture()
+                            .onChanged { _ in
+                                hasUserScrolled = true
+                                checkScrollPosition(proxy: proxy, geometry: geometry)
+                                // 스크롤 중에 하단에 도달하면 버튼 숨기기
+                                if isAtBottom {
+                                    hasUserScrolled = false // 하단에 도달했으므로 상태 리셋
+                                    withAnimation(.easeInOut(duration: 0.3)) {
+                                        showNewMessageButton = false
+                                    }
+                                }
+                            }
+                            .onEnded { _ in
+                                checkScrollPosition(proxy: proxy, geometry: geometry)
+                                // 스크롤이 끝났을 때 하단에 있으면 버튼 숨기기 및 상태 리셋
+                                if isAtBottom {
+                                    hasUserScrolled = false // 사용자가 직접 하단으로 스크롤했으므로 상태 리셋
+                                    withAnimation(.easeInOut(duration: 0.3)) {
+                                        showNewMessageButton = false
+                                    }
+                                }
+                            }
+                    )
+                }
             }
-            
+            Color.clear
+                .frame(height: keyboard.currentHeight > 0 ? keyboard.currentHeight + inputViewHeight : inputViewHeight)
         }
     }
+    
+    private func checkScrollPosition(proxy: ScrollViewProxy, geometry: GeometryProxy) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            let totalMessages = messagesGroupedByDate.flatMap { $0.1 }.count
+            let hasMessages = totalMessages > 0
+            
+            if hasMessages {
+                // 실제 스크롤 위치로 하단 도달 여부 판단
+                let viewHeight = geometry.size.height
+                
+                // 스크롤 오프셋이 뷰 높이보다 작거나 같으면 하단에 있는 것으로 판단
+                // (스크롤이 위로 올라가면 오프셋이 작아짐)
+                let isNearBottom = scrollOffset <= viewHeight + 100 // 100px 여유 마진
+                
+            withAnimation(.easeInOut(duration: 0.3)) {
+                isAtBottom = isNearBottom
+                showNewMessageButton = hasMessages && !isNearBottom
+            }
+
+            } else {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    isAtBottom = true
+                    showNewMessageButton = false
+        }
+    }
+        }
+}
 }
 
 // MARK: - DateDivider
 struct DateDivider: View {
     let dateString: String
-    
     var body: some View {
         HStack {
             Rectangle()
                 .fill(Color.gray.opacity(0.3))
                 .frame(height: 1)
-            
             Text(dateString)
                 .font(.pretendardCaption)
                 .foregroundColor(.gray)
                 .padding(.horizontal, 8)
-            
             Rectangle()
                 .fill(Color.gray.opacity(0.3))
                 .frame(height: 1)
         }
         .padding(.vertical, 8)
+        .rotationEffect(.degrees(180))
+        .scaleEffect(x: -1, y: 1, anchor: .center)
+    }
+}
+
+// CustomNavigationBar 높이 측정용 PreferenceKey
+struct CustomNavigationBarHeightKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
     }
 }
 
@@ -110,17 +257,19 @@ struct MainContentView: View {
     @Binding var didInitialScroll: Bool
     @Binding var isShowingDocumentPicker: Bool
     let bottom1: Namespace.ID
-    
     @ObservedObject var keyboard: KeyboardResponder
-    
     let sendMessage: () -> Void
     let scrollToBottom: () -> Void
+    let navigationBarHeight: CGFloat // 추가
+    @State private var showNewMessageButton: Bool = false
+    @State private var isAtBottom: Bool = true
+    @State private var hasUserScrolled: Bool = false
     
     var body: some View {
         GeometryReader { mainGeometry in
-            ZStack {
-                // 키보드 offset을 적용할 컨텐츠 영역 (맨 뒤에 배치)
+            ZStack(alignment: .bottom) {
                 VStack(spacing: 0) {
+                    
                     if container.model.isLoading {
                         VStack {
                             Spacer()
@@ -132,79 +281,112 @@ struct MainContentView: View {
                                 .padding(.top, 8)
                             Spacer()
                         }
-                    }
-                    else {
-                        VStack(spacing: 0){
-                            // 채팅 메시지 목록
-                            ChatMessagesView(
-                                messagesGroupedByDate: container.model.messagesGroupedByDate,
-                                scrollProxy: $scrollProxy,
-                                onScrollToBottom: {
-                                    if !didInitialScroll && !container.model.messages.isEmpty {
-                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                                            scrollToBottom()
-                                            didInitialScroll = true
-                                        }
+                    } else {
+                        ChatMessagesView(
+                            messagesGroupedByDate: container.model.messagesGroupedByDate,
+                            scrollProxy: $scrollProxy,
+                            onScrollToBottom: {
+                                if !didInitialScroll && !container.model.messages.isEmpty {
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                                        scrollToBottom()
+                                        didInitialScroll = true
                                     }
-                                },
-                                bottom1: bottom1,
-                                inputViewHeight: inputViewHeight,
-                                keyboard: keyboard
-                            )
-                            .background(Color.warmLinen)
-                            
-                            // 입력 영역
-                            ChatInputView(
-                                text: $messageText,
-                                selectedFiles: $selectedFiles,
-                                invalidFileIndices: container.model.invalidFileIndices,
-                                onSend: sendMessage,
-                                onImagePicker: { isShowingImagePicker = true },
-                                onDocumentPicker: { isShowingDocumentPicker = true },
-                                isSending: container.model.sendingMessageId != nil
-                            )
-                            .background(GeometryReader { geo in
-                                Color.clear
-                                    .onAppear { inputViewHeight = geo.size.height }
-                                    .onChange(of: geo.size.height) { newValue in
-                                        inputViewHeight = newValue
-                                    }
-                            })
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 8)
-                            .padding(.bottom, keyboard.currentHeight > 0 ? 0 : 16)
-                            .disabled(container.model.sendingMessageId != nil)
-                            .background(Color.white)
-                            
-                        }
-                        .offset(y: keyboard.currentHeight > 0 ? -(keyboard.currentHeight - inputViewHeight - 2) : 0)
-                        .animation(.easeInOut(duration: 0.25), value: keyboard.currentHeight)
-                        .ignoresSafeArea(.keyboard)
+                                }
+                            },
+                            bottom1: bottom1,
+                            inputViewHeight: inputViewHeight,
+                            keyboard: keyboard,
+                            showNewMessageButton: $showNewMessageButton,
+                            isAtBottom: $isAtBottom,
+                            hasUserScrolled: $hasUserScrolled
+                        )
                     }
                 }
-                
-                // WiFi 상태 표시 (맨 앞에 배치, 키보드 영향 받지 않음)
-                VStack {
-                    if !container.model.isLoading && !container.model.isConnected {
-                        HStack {
-                            Image(systemName: "wifi.slash")
-                                .foregroundColor(.TomatoRed)
-                            Text(container.model.isReconnecting ? "재연결 시도 중..." : "연결이 끊어졌습니다")
-                                .font(.pretendardBody)
-                                .foregroundColor(.TomatoRed)
-                            if container.model.isReconnecting {
-                                ProgressView()
-                                    .progressViewStyle(CircularProgressViewStyle())
-                                    .scaleEffect(0.7)
-                            }
+                ChatInputView(
+                    text: $messageText,
+                    selectedFiles: $selectedFiles,
+                    invalidFileIndices: container.model.invalidFileIndices,
+                    onSend: sendMessage,
+                    onImagePicker: { isShowingImagePicker = true },
+                    onDocumentPicker: { isShowingDocumentPicker = true },
+                    isSending: container.model.sendingMessageId != nil
+                )
+                .background(GeometryReader { geo in
+                    Color.clear
+                        .onAppear { inputViewHeight = geo.size.height }
+                        .onChange(of: geo.size.height) { newValue in
+                            inputViewHeight = newValue
                         }
-                        .padding(8)
-                        .background(Color.TomatoRed.opacity(0.1))
-                        Spacer()
+                })
+                .padding(.horizontal, 16)
+                .padding(.bottom, keyboard.currentHeight)
+                .background(Color.white)
+                .disabled(container.model.sendingMessageId != nil)
+            }
+            .ignoresSafeArea(.keyboard)
+            VStack {
+                if !container.model.isLoading && !container.model.isConnected {
+                    HStack {
+                        Image(systemName: "wifi.slash")
+                            .foregroundColor(.TomatoRed)
+                        Text(container.model.isReconnecting ? "재연결 시도 중..." : "연결이 끊어졌습니다")
+                            .font(.pretendardBody)
+                            .foregroundColor(.TomatoRed)
+                        if container.model.isReconnecting {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle())
+                                .scaleEffect(0.7)
+                        }
+                    }
+                    .padding(8)
+                    .background(Color.TomatoRed.opacity(0.1))
+                    Spacer()
+                }
+            }
+            VStack {
+                Spacer()
+                HStack {
+                    Spacer()
+                    if showNewMessageButton {
+                        newMessageButton
+                            .padding(.trailing, 12)
+                            .padding(.bottom, keyboard.currentHeight > 0 ? inputViewHeight + 48 : inputViewHeight + 36)
+                            .animation(.easeInOut(duration: 0.1), value: keyboard.currentHeight)
                     }
                 }
             }
         }
+    }
+    private var newMessageButton: some View {
+        Button(action: {
+            // 흔들림 상태 해제
+            container.model.shouldShakeNewMessageButton = false
+            
+            // 버튼 숨기기
+            withAnimation(.easeInOut(duration: 0.3)) {
+                showNewMessageButton = false
+            }
+            
+            // 스크롤 상태 리셋
+            hasUserScrolled = false
+            
+            withAnimation(.easeInOut(duration: 0.25)) {
+                scrollToBottom()
+            }
+        }) {
+            ZStack {
+                Circle()
+                    .fill(Color.white)
+                    .frame(width: 40, height: 40)
+                    .shadow(color: .black.opacity(0.15), radius: 8, y: 2)
+                Image(systemName: "arrow.down.message")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(.OliveMist)
+                    .frame(width: 30, height: 30)
+            }
+        }
+        .transition(.scale.combined(with: .opacity))
+        .modifier(ShakingButtonModifier(isShaking: container.model.shouldShakeNewMessageButton))
     }
 }
 
@@ -221,35 +403,64 @@ struct ChattingView: View {
     @State private var isShowingProfileDetail = false
     @State private var profileDetailOffset: CGSize = .zero
     @Binding var path: NavigationPath
-    
-    // 스크롤/키보드/입력창 상태 관리
     @State private var inputViewHeight: CGFloat = 0
     @State private var didInitialScroll: Bool = false
-    
+    @State private var navigationBarHeight: CGFloat = 0 // 추가
     @Namespace var bottom1
-    
-    // 닉네임 길이 제한을 위한 computed property
     private var displayNick: String {
         guard let nick = container.model.opponentProfile?.nick else { return "채팅" }
         return nick.count > 17 ? String(nick.prefix(20)) + "..." : nick
     }
-    
-    
     init(opponent_id: String, di: DIContainer, path: Binding<NavigationPath>) {
         self.di = di
         self._path = path
         _container = StateObject(wrappedValue: di.makeChattingContainer(opponent_id: opponent_id))
     }
-    
     init(roomId: String, di: DIContainer, path: Binding<NavigationPath>) {
         self.di = di
         self._path = path
         _container = StateObject(wrappedValue: di.makeChattingContainer(roomId: roomId))
     }
-    
     var body: some View {
-        ZStack {
-            // MainContentView를 뒤로 보내서 키보드 영향을 받지 않도록 함
+        VStack(spacing: 0) {
+            CustomNavigationBar(title: displayNick) {
+                Button(action: {
+                    if !path.isEmpty {
+                        path.removeLast()
+                    }
+                }) {
+                    HStack(spacing: 4) {
+                        Image("chevron")
+                            .font(.headline)
+                            .foregroundColor(.MainTextColor)
+                    }
+                }
+            } rightButton: {
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        isShowingProfileDetail = true
+                    }
+                }) {
+                    if let profileImage = container.model.opponentProfile?.profileImage {
+                        CustomAsyncImage(imagePath: profileImage)
+                            .frame(width: 32, height: 32)
+                            .clipShape(Circle())
+                    } else {
+                        Image(systemName: "person.circle.fill")
+                            .font(.system(size: 32))
+                            .foregroundColor(.gray)
+                    }
+                }
+            }
+            .background(
+                GeometryReader { geo in
+                    Color.clear
+                        .preference(key: CustomNavigationBarHeightKey.self, value: geo.size.height)
+                }
+            )
+            .onPreferenceChange(CustomNavigationBarHeightKey.self) { height in
+                self.navigationBarHeight = height
+            }
             MainContentView(
                 container: container,
                 messageText: $messageText,
@@ -260,56 +471,38 @@ struct ChattingView: View {
                 profileDetailOffset: $profileDetailOffset,
                 path: $path,
                 inputViewHeight: $inputViewHeight,
-                didInitialScroll: $didInitialScroll, isShowingDocumentPicker: $isShowingDocumentPicker,
+                didInitialScroll: $didInitialScroll,
+                isShowingDocumentPicker: $isShowingDocumentPicker,
                 bottom1: bottom1,
                 keyboard: keyboard,
                 sendMessage: sendMessage,
-                scrollToBottom: scrollToBottom
+                scrollToBottom: scrollToBottom,
+                navigationBarHeight: navigationBarHeight // 추가
             )
-            .padding(.top, 25) // CustomNavigationBar 높이만큼 상단 여백 추가
-            
-            // CustomNavigationBar를 앞으로 보내서 항상 보이도록 함
-            VStack {
-                CustomNavigationBar(title: displayNick) {
-                    Button(action: {
-                        if !path.isEmpty {
-                            path.removeLast()
-                        }
-                    }) {
-                        HStack(spacing: 4) {
-                            Image("chevron")
-                                .font(.headline)
-                                .foregroundColor(.MainTextColor)
-                        }
-                    }
-                } rightButton: {
-                    Button(action: {
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            isShowingProfileDetail = true
-                        }
-                    }) {
-                        if let profileImage = container.model.opponentProfile?.profileImage {
-                            CustomAsyncImage(imagePath: profileImage)
-                                .frame(width: 32, height: 32)
-                                .clipShape(Circle())
-                        } else {
-                            Image(systemName: "person.circle.fill")
-                                .font(.system(size: 32))
-                                .foregroundColor(.gray)
-                        }
-                    }
-                }
-                Spacer()
-            }
         }
-        .background(Color.WarmLinen)
-        .dismissKeyboardToolbar()
+        .background(Color.white)
         .onAppear {
             container.handle(.initialLoad)
             didInitialScroll = false
+            CurrentScreenTracker.shared.setCurrentScreen(.chat, chatRoomId: container.model.roomId)
+            
+            // 채팅방 진입 시 알림 카운트 초기화
+            ChatNotificationCountManager.shared.resetCount(for: container.model.roomId)
+            
+            // 커스텀 알림 제거 및 현재 채팅방 설정
+            CustomNotificationManager.shared.clearNotificationsForRoom(container.model.roomId)
+            CustomNotificationManager.shared.setCurrentChatRoom(container.model.roomId)
         }
         .onDisappear {
             container.handle(.disconnectSocket)
+            // 채팅방 나갈 때 현재 채팅방 ID 초기화
+            CustomNotificationManager.shared.setCurrentChatRoom(nil)
+            
+            // 채팅방에서 나갈 때 해당 채팅방의 뱃지 카운트 완전 제거
+            ChatNotificationCountManager.shared.removeCount(for: container.model.roomId)
+            
+            // MyPageView의 채팅방 목록 UI 업데이트 트리거
+            NotificationCenter.default.post(name: .chatNotificationUpdate, object: nil)
         }
         .sheet(isPresented: $isShowingImagePicker) {
             FilePicker(
@@ -369,33 +562,33 @@ struct ChattingView: View {
             }
         )
         .toastView(toast: $container.model.toast)
-        
-        
     }
-    
     private func sendMessage() {
         guard !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !selectedFiles.isEmpty else { return }
         container.handle(.sendMessage(text: messageText, files: selectedFiles))
         messageText = ""
         selectedFiles = []
     }
+private func scrollToBottom() {
+    guard let scrollProxy = self.scrollProxy else {
+        return
+    }
     
-    private func scrollToBottom() {
-        
-        // 키보드가 올라와 있으면 offset으로 처리, 아니면 scrollTo 사용
-        if keyboard.currentHeight > 0 {
-            
-            // 키보드가 올라와 있을 때는 offset이 이미 적용되어 있으므로 추가 작업 불필요
-            return
-        } else {
-            
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                withAnimation(.easeInOut(duration: 0.25)) {
-                    self.scrollProxy?.scrollTo(self.bottom1, anchor: .bottom)
-                }
+    if keyboard.currentHeight > 0 {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            withAnimation(.easeInOut(duration: 0.25)) {
+                scrollProxy.scrollTo(self.bottom1, anchor: .bottom)
+            }
+        }
+    } else {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            withAnimation(.easeInOut(duration: 0.25)) {
+                scrollProxy.scrollTo(self.bottom1, anchor: .bottom)
             }
         }
     }
+}
+
 }
 // MARK: - ChatMessageCell
 struct ChatMessageCell: View {
@@ -415,6 +608,8 @@ struct ChatMessageCell: View {
             }
         }
         .padding(.vertical, 4)
+        .rotationEffect(.degrees(180))
+        .scaleEffect(x: -1, y: 1, anchor: .center)
     }
 }
 
@@ -516,20 +711,22 @@ struct ChatInputView: View {
                     Spacer()
                 }
                 .padding(.horizontal, 4)
+                //.padding(.top, 8) // X 버튼이 보이도록 상단 패딩 추가
                 
                 // 선택된 파일 미리보기
                 if !selectedFiles.isEmpty {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
                             ForEach(selectedFiles.indices, id: \.self) { idx in
-                                FileThumbnailView(file: selectedFiles[idx].toChattingViewModel(), isInvalid: invalidFileIndices.contains(idx), invalidReason: nil) {
+                                SelectedFileThumbnailView(file: selectedFiles[idx], isInvalid: invalidFileIndices.contains(idx), invalidReason: nil) {
                                     selectedFiles.remove(at: idx)
                                 }
                             }
                         }
                         .padding(.horizontal, 4)
+                        .padding(.top, 4)
                     }
-                    .frame(height: 80)
+                    .frame(height: 90)
                 }
             }
             
@@ -681,8 +878,8 @@ struct FileInfoView: View {
     }
 }
 
-struct FileThumbnailView: View {
-    let file: ChattingSelectedFileViewModel
+struct SelectedFileThumbnailView: View {
+    let file: SelectedFile
     let isInvalid: Bool
     let invalidReason: String?
     let onRemove: () -> Void
@@ -691,27 +888,29 @@ struct FileThumbnailView: View {
         ZStack(alignment: .topTrailing) {
             // 파일 타입에 따른 썸네일 표시
             Group {
-                switch file.name.split(separator: ".").last?.lowercased() {
-                case "jpg", "jpeg", "png", "gif":
-                    if let image = UIImage(contentsOfFile: file.name) {
+                switch file.fileType {
+                case .image:
+                    if let image = file.image {
                         Image(uiImage: image)
                             .resizable()
                             .aspectRatio(contentMode: .fill)
+                            .frame(width: 60, height: 60)
                     } else {
                         Color.gray.opacity(0.3)
+                            .frame(width: 60, height: 60)
                     }
-                case "mp4", "mov":
+                case .video:
                     VStack(spacing: 4) {
                         Image(systemName: "video.slash")
                             .font(.system(size: 20))
                             .foregroundColor(.gray)
-                        Text(file.name.split(separator: ".").last?.uppercased() ?? "")
+                        Text(file.fileExtension.uppercased())
                             .font(.pretendardCaption2)
                             .foregroundColor(.gray)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Color.gray.opacity(0.1))
-                case "pdf":
+                case .pdf:
                     VStack(spacing: 4) {
                         Image(systemName: "doc.text.slash")
                             .font(.system(size: 20))
@@ -722,21 +921,11 @@ struct FileThumbnailView: View {
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Color.gray.opacity(0.1))
-                default:
-                    VStack(spacing: 4) {
-                        Image(systemName: "doc.slash")
-                            .font(.system(size: 20))
-                            .foregroundColor(.gray)
-                        Text(file.name.split(separator: ".").last?.uppercased() ?? "")
-                            .font(.pretendardCaption2)
-                            .foregroundColor(.gray)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color.gray.opacity(0.1))
                 }
             }
             .frame(width: 60, height: 60)
             .cornerRadius(8)
+            .clipped()
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
                     .stroke(isInvalid ? Color.red : Color.clear, lineWidth: 2)
@@ -747,7 +936,7 @@ struct FileThumbnailView: View {
                 Spacer()
                 HStack {
                     Spacer()
-                    Text(FormatManager.formatFileSize(fromPath: file.name))
+                    Text(formatFileSize(file.sizeMB))
                         .font(.pretendardCaption2)
                         .foregroundColor(.white)
                         .padding(.horizontal, 4)
@@ -786,6 +975,14 @@ struct FileThumbnailView: View {
                     .clipShape(Circle())
             }
             .offset(x: 6, y: -6)
+        }
+    }
+    
+    private func formatFileSize(_ sizeMB: Double) -> String {
+        if sizeMB >= 1.0 {
+            return String(format: "%.1fMB", sizeMB)
+        } else {
+            return String(format: "%.0fKB", sizeMB * 1024)
         }
     }
 }

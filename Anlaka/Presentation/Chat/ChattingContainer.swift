@@ -26,6 +26,9 @@ struct ChattingModel {
     // CustomToastView 관련 상태
     var toast: FancyToast? = nil
     
+    // newMessageButton 흔들림 관련 상태
+    var shouldShakeNewMessageButton: Bool = false
+    
     // 시간순으로 정렬된 메시지 반환
     var sortedMessages: [ChatEntity] {
         // 중복 제거 (chatId 기준) - Dictionary 사용
@@ -94,14 +97,14 @@ final class ChattingContainer: ObservableObject {
     }
     
     private func setupSocket() {
-        print("🔧 WebSocketManager 생성: roomId = \(model.roomId)")
+        print(" WebSocketManager 생성: roomId = \(model.roomId)")
         socket = WebSocketManager(roomId: model.roomId)
         socket?.onMessage = { [weak self] message in
             self?.handleIncomingMessage(message)
         }
         socket?.onConnectionStatusChanged = { [weak self] isConnected in
             DispatchQueue.main.async {
-                print("🔌 WebSocket 연결 상태 변경: \(isConnected)")
+                print(" WebSocket 연결 상태 변경: \(isConnected)")
                 self?.model.isConnected = isConnected
                 
                 // 연결이 끊어진 경우 재연결 시도
@@ -166,7 +169,7 @@ final class ChattingContainer: ObservableObject {
                 // 2. 상대방 프로필 정보 가져오기
                 let opponentProfile = try await repository.getOtherProfileInfo(userId: opponent_id)
                     model.opponentProfile = opponentProfile
-                    print("👤 상대방 프로필 정보 로드 완료: \(opponentProfile)")
+                    print(" 상대방 프로필 정보 로드 완료: \(opponentProfile)")
             } else {
                 // roomId로 초기화된 경우, 채팅방 정보를 가져와서 상대방 프로필 정보 찾기
                 // 1. 채팅방 정보 가져오기 (서버에서)
@@ -174,10 +177,14 @@ final class ChattingContainer: ObservableObject {
                 if let chatRoom = chatRooms.rooms.first(where: { $0.roomId == model.roomId }) {
                     // 2. participants에서 상대방 찾기
                     if let opponent = chatRoom.participants.first(where: { $0.userId != userInfo.userid }) {
-                        // 3. 상대방 프로필 정보 가져오기
+                        // 3. opponent_id 설정
+                        model.opponent_id = opponent.userId
+                        print(" opponent_id 설정: \(opponent.userId)")
+                        
+                        // 4. 상대방 프로필 정보 가져오기
                         let opponentProfile = try await repository.getOtherProfileInfo(userId: opponent.userId)
                         model.opponentProfile = opponentProfile
-                        print("👤 상대방 프로필 정보 로드 완료 (roomId): \(opponentProfile)")
+                        print(" 상대방 프로필 정보 로드 완료 (roomId): \(opponentProfile)")
                     }
                 }
             }
@@ -219,7 +226,7 @@ final class ChattingContainer: ObservableObject {
             model.updateMessagesGroupedByDate()
             
             // 11. WebSocket 연결
-            print("🔌 WebSocket 연결 시도: roomId = \(model.roomId)")
+            print(" WebSocket 연결 시도: roomId = \(model.roomId)")
             socket?.connect()
             
         } catch {
@@ -252,8 +259,7 @@ final class ChattingContainer: ObservableObject {
         
         // 임시 메시지를 즉시 UI에 추가
         model.messages.append(tempMessage)
-        model.updateMessagesGroupedByDate()
-        print("📝 임시 메시지 추가: \(tempMessageId)")
+        model.updateMessagesGroupedByDate()  // 임시 메시지도 UI에 표시되어야 함
         
         do {
             // 1. SelectedFile을 FileData로 변환
@@ -282,68 +288,38 @@ final class ChattingContainer: ObservableObject {
             // 3. 파일 업로드
             var uploadedFiles: [String] = []
             if !validatedFiles.isEmpty {
-                print("📝 파일 업로드 시작")
+
                 let chatFile = try await repository.uploadFiles(roomId: model.roomId, files: validatedFiles)
                 uploadedFiles = chatFile
-                print("✅ 파일 업로드 성공 - 업로드된 파일 URL: \(uploadedFiles)")
+                print(" 파일 업로드 성공 - 업로드된 파일 URL: \(uploadedFiles)")
             }
             
-            // 4. Socket.IO를 통한 메시지 전송 (업로드된 파일 URL을 그대로 전송)
-            let messageData: [String: Any] = [
-                "content": text,
-                "files": uploadedFiles,  // 서버에서 받은 파일 URL 그대로 사용
-                "roomId": model.roomId
-            ]
+            // 4. HTTP 서버로 메시지 전송
+            let chatRequest = ChatRequestEntity(
+                content: text,
+                files: uploadedFiles  // 업로드된 파일 URL 그대로 사용
+            )
             
-            print("📤 WebSocket으로 전송할 메시지 데이터: \(messageData)")
             
-            socket?.emit("chat", with: [messageData]) { [weak self] in
-                // 메시지 전송 완료 후 처리
-                Task {
-                    do {
-                        // Socket.IO 전송 완료 후 HTTP로 실제 메시지 ID 받아오기
-                        let chatRequest = ChatRequestEntity(
-                            content: text,
-                            files: uploadedFiles  // 업로드된 파일 URL 그대로 사용
-                        )
-                        
-                        let message = try await self?.repository.sendMessage(
-                            roomId: self?.model.roomId ?? "",
-                            target: chatRequest
-                        )
-                        
-                        if let message = message {
-                            // 임시 메시지를 실제 메시지로 교체
-                            if let tempIndex = self?.model.messages.firstIndex(where: { $0.chatId == tempMessageId }) {
-                                self?.model.messages[tempIndex] = message
-                                print("🔄 임시 메시지를 실제 메시지로 교체: \(message.chatId)")
-                            }
-                            
-                            // DB 저장
-                            try await self?.databaseRepository.saveMessage(message)
-                            
-                            // 전송 상태 업데이트
-                            self?.model.sendingMessageId = nil
-                            self?.model.updateMessagesGroupedByDate()
-                            print("✅ 메시지 전송 및 저장 완료: \(message.chatId)")
-                        } else {
-                            print("❌ 메시지 전송 실패: 응답이 없음")
-                            self?.model.error = "메시지 전송에 실패했습니다."
-                            // 에러 발생 시 임시 메시지 제거
-                            self?.model.messages.removeAll { $0.chatId == tempMessageId }
-                            self?.model.sendingMessageId = nil
-                            self?.model.updateMessagesGroupedByDate()
-                        }
-                    } catch {
-                        print("❌ 메시지 전송 실패: \(error.localizedDescription)")
-                        self?.model.error = error.localizedDescription
-                        // 에러 발생 시 임시 메시지 제거
-                        self?.model.messages.removeAll { $0.chatId == tempMessageId }
-                        self?.model.sendingMessageId = nil
-                        self?.model.updateMessagesGroupedByDate()
-                    }
-                }
+            let message = try await repository.sendMessage(
+                roomId: model.roomId,
+                target: chatRequest
+            )
+            
+            // 임시 메시지를 실제 메시지로 교체
+            if let tempIndex = model.messages.firstIndex(where: { $0.chatId == tempMessageId }) {
+                model.messages.remove(at: tempIndex)  // 임시 메시지 제거
+                model.messages.insert(message, at: tempIndex)  // 실제 메시지 삽입
+
             }
+            
+            // DB 저장
+            try await databaseRepository.saveMessage(message)
+            
+            // 전송 상태 업데이트 및 UI 갱신
+            model.sendingMessageId = nil
+            model.updateMessagesGroupedByDate()  // 실제 메시지 교체 후에만 UI 갱신
+
             
         } catch {
             print("❌ 메시지 전송 실패: \(error.localizedDescription)")
@@ -379,6 +355,18 @@ final class ChattingContainer: ObservableObject {
     private func handleIncomingMessage(_ message: ChatMessageEntity) {
         Task {
             do {
+                // 현재 사용자 정보 가져오기
+                guard let userInfo = UserDefaultsManager.shared.getObject(forKey: .profileData, as: MyProfileInfoEntity.self) else {
+                    print("⚠️ 사용자 정보를 찾을 수 없어 메시지를 무시합니다.")
+                    return
+                }
+                
+                // 자신이 보낸 메시지는 무시 (HTTP로 이미 처리됨)
+                if message.sender == userInfo.userid {
+                    print("⚠️ 자신이 보낸 메시지 무시: \(message.chatID)")
+                    return
+                }
+                
                 // 이미 존재하는 메시지인지 확인 (UI 레벨)
                 if model.messages.contains(where: { $0.chatId == message.chatID }) {
                     print("⚠️ 이미 UI에 존재하는 메시지 무시: \(message.chatID)")
@@ -403,14 +391,51 @@ final class ChattingContainer: ObservableObject {
                 )
                 
                 // DB 저장 및 UI 업데이트
+                do {
                 try await databaseRepository.saveMessage(chatEntity)
                 model.messages.append(chatEntity)
                 model.updateMessagesGroupedByDate()
-                print("✅ 새 메시지 저장 완료: \(message.chatID)")
+                    
+                    // newMessageButton 흔들림 처리
+                    handleNewMessageButtonShake()
+                
+                } catch {
+                    print("⚠️ 메시지 저장 중 오류 발생 (중복 가능성): \(error.localizedDescription)")
+                    // 중복 키 오류인 경우 UI에만 추가 (DB는 이미 존재할 수 있음)
+                    if error.localizedDescription.contains("primary key") || error.localizedDescription.contains("existing") {
+                        model.messages.append(chatEntity)
+                        model.updateMessagesGroupedByDate()
+                        handleNewMessageButtonShake()
+                        
+                    }
+                }
+                
+                // 채팅방 목록의 마지막 메시지는 서버 동기화 시에만 업데이트
+                // (기존 아키텍처에 맞춰 WebSocket 메시지는 DB에만 저장)
             } catch {
                 print("❌ 메시지 저장 실패: \(error.localizedDescription)")
                 // 에러가 발생해도 채팅은 계속 진행 (model.error 설정하지 않음)
             }
+        }
+    }
+    
+    // MARK: - newMessageButton 흔들림 처리
+    private func handleNewMessageButtonShake() {
+        // 이미 흔들림 상태라면 추가 흔들림
+        if model.shouldShakeNewMessageButton {
+            // 흔들림 상태를 잠시 해제했다가 다시 활성화
+            model.shouldShakeNewMessageButton = false
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                self.model.shouldShakeNewMessageButton = true
+            }
+        } else {
+            // 첫 번째 흔들림
+            model.shouldShakeNewMessageButton = true
+        }
+        
+        // 1초 후 흔들림 상태 해제
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            self.model.shouldShakeNewMessageButton = false
         }
     }
     

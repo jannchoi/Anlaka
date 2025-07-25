@@ -28,10 +28,21 @@ final class MyPageContainer: ObservableObject {
     @Published var model = MyPageModel()
     private let repository: NetworkRepository
     private let databaseRepository: DatabaseRepository
+    private var notificationObserver: NSObjectProtocol?
 
     init(repository: NetworkRepository, databaseRepository: DatabaseRepository) {
         self.repository = repository
         self.databaseRepository = databaseRepository
+        
+        // 포그라운드 진입 알림 구독
+        setupNotificationObserver()
+    }
+    
+    deinit {
+        // 알림 구독 해제
+        if let observer = notificationObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
     }
     
     func handle(_ intent: MyPageIntent) {
@@ -57,6 +68,8 @@ final class MyPageContainer: ObservableObject {
             
             model.isInitialized = true
             
+
+            
         case .addMyEstate:
             uploadAdminRequest()
         case .logout:
@@ -68,13 +81,12 @@ final class MyPageContainer: ObservableObject {
         Task {
             do {
                 let adminRequest = AdminRequestMockData()
-                print("🍿🍿🍿",adminRequest)
                 let response = try await repository.uploadAdminRequest(adminRequest: adminRequest)
-                print("🧶🧶🧶",response)
             } catch {
                 print("❌ Failed to upload admin request: \(error)")
                 if let netError = error as? CustomError, netError == .expiredRefreshToken {
-                    model.backToLogin = true
+                    print(" Refresh Token 만료 - 자동 로그아웃 처리")
+                    handleRefreshTokenExpiration()
                 } else {
                     let message = (error as? CustomError)?.errorDescription ?? error.localizedDescription
                     model.errorMessage = message
@@ -93,7 +105,8 @@ final class MyPageContainer: ObservableObject {
             } catch {
                 print("❌ Failed to get my profile info: \(error)")
                 if let netError = error as? CustomError, netError == .expiredRefreshToken {
-                    model.backToLogin = true
+                    print(" Refresh Token 만료 - 자동 로그아웃 처리")
+                    handleRefreshTokenExpiration()
                 } else {
                     let message = (error as? CustomError)?.errorDescription ?? error.localizedDescription
                     model.errorMessage = message
@@ -133,14 +146,30 @@ final class MyPageContainer: ObservableObject {
                         if serverRoom.updatedAt > localRoom.updatedAt {
                             shouldUpdate = true
                             updatedRoomIds.insert(serverRoom.roomId) // hasNewChat 표시용
-                            print("🆕 새로운 채팅 발견: \(serverRoom.roomId), 서버: \(serverRoom.updatedAt), 로컬: \(localRoom.updatedAt)")
+                            print("새로운 채팅 발견: \(serverRoom.roomId), 서버: \(serverRoom.updatedAt), 로컬: \(localRoom.updatedAt)")
+                            
+                            // 서버에서 최신 마지막 메시지 정보로 DB 업데이트
+                            if let serverLastChat = serverRoom.lastChat {
+                                // 서버의 최신 마지막 메시지로 채팅방 정보 업데이트
+                                let updatedRoom = ChatRoomEntity(
+                                    roomId: serverRoom.roomId,
+                                    createdAt: serverRoom.createdAt,
+                                    updatedAt: serverRoom.updatedAt,
+                                    participants: serverRoom.participants,
+                                    lastChat: serverRoom.lastChat
+                                )
+                                try await databaseRepository.updateChatRoom(updatedRoom)
+                                
+                                // 서버 데이터가 있으면 임시 메시지 제거
+                                TemporaryLastMessageManager.shared.removeTemporaryLastMessage(for: serverRoom.roomId)
+                                
+                            }
                         }
                         
                         // 2) 프로필 정보 변경 확인 (채팅 메시지는 없지만 프로필이 변경된 경우)
                         let profileChanged = hasProfileChanged(serverRoom: serverRoom, localRoom: localRoom)
                         if profileChanged {
                             shouldUpdate = true
-                            print("👤 프로필 정보 변경: \(serverRoom.roomId)")
                         }
                         
                         if shouldUpdate {
@@ -152,7 +181,6 @@ final class MyPageContainer: ObservableObject {
                     } else {
                         // 새로운 방인 경우
                         roomsToUpdate.append(serverRoom)
-                        print("🆕 새로운 채팅방: \(serverRoom.roomId)")
                     }
                 }
                 
@@ -167,22 +195,119 @@ final class MyPageContainer: ObservableObject {
                     try await databaseRepository.deleteChatRoom(roomId: roomId)
                 }
                 
-                // 5. UI 갱신
-                model.chatRoomList = roomsToUpdate
-                model.updatedRoomIds = updatedRoomIds // hasNewChat 표시할 채팅방 ID들
+
                 
-                print("📱 UI 업데이트 완료 - 새로운 채팅이 있는 방: \(updatedRoomIds)")
+                // 5. 임시 마지막 메시지로 UI 업데이트
+                let notificationCountManager = ChatNotificationCountManager.shared
+                let temporaryMessageManager = TemporaryLastMessageManager.shared
+                var finalRoomsToUpdate: [ChatRoomEntity] = []
+                
+                for room in roomsToUpdate {
+                    var updatedRoom = room
+                    
+                    // 임시 마지막 메시지가 있으면 우선 사용
+                    if let tempMessage = temporaryMessageManager.getTemporaryLastMessage(for: room.roomId) {
+                        // 임시 마지막 메시지로 ChatEntity 생성
+                        let tempChatEntity = ChatEntity(
+                            chatId: "temp_\(UUID().uuidString)",
+                            roomId: room.roomId,
+                            content: tempMessage.content,
+                            createdAt: PresentationMapper.formatDateToISO8601(tempMessage.timestamp),
+                            updatedAt: PresentationMapper.formatDateToISO8601(tempMessage.timestamp),
+                            sender: tempMessage.senderId,
+                            files: tempMessage.hasFiles ? ["temp_file"] : []
+                        )
+                        
+                        updatedRoom = ChatRoomEntity(
+                            roomId: room.roomId,
+                            createdAt: room.createdAt,
+                            updatedAt: room.updatedAt,
+                            participants: room.participants,
+                            lastChat: tempChatEntity
+                        )
+
+                        // 임시 메시지가 있는 채팅방은 updatedRoomIds에 추가
+                        updatedRoomIds.insert(room.roomId)
+                    }
+                    
+                    finalRoomsToUpdate.append(updatedRoom)
+                }
+                    
+                // 6. 알림 카운트가 있는 채팅방들을 updatedRoomIds에 추가 (서버 데이터와 무관하게 보존)
+                for room in finalRoomsToUpdate {
+                    if notificationCountManager.getCount(for: room.roomId) > 0 {
+                        updatedRoomIds.insert(room.roomId)
+                    }
+                }
+                
+                // 7. UI 갱신
+                model.chatRoomList = finalRoomsToUpdate
+                model.updatedRoomIds = updatedRoomIds // hasNewChat 표시할 채팅방 ID들
+
                 
             } catch {
                 print("❌ Failed to get chat room list: \(error)")
                 if let netError = error as? CustomError, netError == .expiredRefreshToken {
-                    model.backToLogin = true
+                    print(" Refresh Token 만료 - 자동 로그아웃 처리")
+                    handleRefreshTokenExpiration()
                 } else {
                     let message = (error as? CustomError)?.errorDescription ?? error.localizedDescription
                     model.errorMessage = message
                 }
             }
         }
+    }
+    
+    /// 채팅 알림 업데이트 구독 설정
+    private func setupNotificationObserver() {
+        // 포그라운드 진입 알림 구독
+        notificationObserver = NotificationCenter.default.addObserver(
+            forName: .appDidEnterForeground,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.updateChatRoomListFromBackground()
+        }
+        
+        // 채팅 알림 업데이트 구독 (디바운싱 적용)
+        var updateTimer: Timer?
+        NotificationCenter.default.addObserver(
+            forName: .chatNotificationUpdate,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+
+            
+            // 이전 타이머 취소
+            updateTimer?.invalidate()
+            
+            // 0.5초 후에 업데이트 실행 (디바운싱)
+            updateTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) { _ in
+                self?.updateChatRoomListFromBackground()
+            }
+        }
+    }
+    
+    /// 채팅 알림 업데이트 - updatedRoomIds만 업데이트하여 개별 셀 ViewModel이 처리하도록 함
+    private func updateChatRoomListFromBackground() {
+
+        let notificationCountManager = ChatNotificationCountManager.shared
+        let temporaryMessageManager = TemporaryLastMessageManager.shared
+        var updatedRoomIds = Set<String>()
+
+        
+                        // 임시 메시지가 있거나 알림 카운트가 있는 채팅방들을 updatedRoomIds에 추가
+                for room in model.chatRoomList {
+                    let hasTempMessage = temporaryMessageManager.getTemporaryLastMessage(for: room.roomId) != nil
+                    let hasNotificationCount = notificationCountManager.getCount(for: room.roomId) > 0
+                    
+                    if hasTempMessage || hasNotificationCount {
+                        updatedRoomIds.insert(room.roomId)
+                    }
+                }
+        
+        // updatedRoomIds만 업데이트 (전체 배열 수정 방지)
+        model.updatedRoomIds = updatedRoomIds
     }
     
     // 프로필 정보 변경 확인 헬퍼 메서드
@@ -211,11 +336,70 @@ final class MyPageContainer: ObservableObject {
     }
 
     private func logout() {
+        print(" 로그아웃 시작")
+        
+        // 로그아웃 시 디바이스 토큰 무효화 (서버에 빈 문자열 전송)
+        Task {
+            do {
+                let success = try await repository.updateDeviceToken(deviceToken: "")
+                if success {
+                    print(" 로그아웃 시 디바이스 토큰 무효화 성공")
+                } else {
+                    print("❌ 로그아웃 시 디바이스 토큰 무효화 실패")
+                }
+            } catch {
+                print("❌ 로그아웃 시 디바이스 토큰 무효화 실패: \(error.localizedDescription)")
+            }
+        }
+        
+        // 토큰 및 프로필 데이터 제거
         UserDefaultsManager.shared.removeObject(forKey: .accessToken)
         UserDefaultsManager.shared.removeObject(forKey: .refreshToken)
         UserDefaultsManager.shared.removeObject(forKey: .profileData)
+        
+        // 알림 관련 데이터 초기화
+        ChatNotificationCountManager.shared.clearAllCounts()
+        TemporaryLastMessageManager.shared.clearAllTemporaryMessages()
+        CustomNotificationManager.shared.clearAllNotifications()
+        
+        // model 업데이트 (View에서 @AppStorage 처리)
         model.backToLogin = true
+        print(" model.backToLogin 설정 완료: true")
     }
+    
+    /// Refresh Token 만료 시 자동 로그아웃 처리
+    private func handleRefreshTokenExpiration() {
+        print(" Refresh Token 만료 - 자동 로그아웃 처리 시작")
+        
+        // Refresh Token 만료 시에도 디바이스 토큰 무효화 (서버에 빈 문자열 전송)
+        Task {
+            do {
+                let success = try await repository.updateDeviceToken(deviceToken: "")
+                if success {
+                    print(" Refresh Token 만료 시 디바이스 토큰 무효화 성공")
+                } else {
+                    print("❌ Refresh Token 만료 시 디바이스 토큰 무효화 실패")
+                }
+            } catch {
+                print("❌ Refresh Token 만료 시 디바이스 토큰 무효화 실패: \(error.localizedDescription)")
+            }
+        }
+        
+        // 토큰 및 프로필 데이터 제거
+        UserDefaultsManager.shared.removeObject(forKey: .accessToken)
+        UserDefaultsManager.shared.removeObject(forKey: .refreshToken)
+        UserDefaultsManager.shared.removeObject(forKey: .profileData)
+        
+        // 알림 관련 데이터 초기화
+        ChatNotificationCountManager.shared.clearAllCounts()
+        TemporaryLastMessageManager.shared.clearAllTemporaryMessages()
+        CustomNotificationManager.shared.clearAllNotifications()
+        
+        // model 업데이트 (View에서 @AppStorage 처리)
+        model.backToLogin = true
+        print(" Refresh Token 만료 - model.backToLogin 설정 완료: true")
+    }
+
 }
     
 
