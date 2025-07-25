@@ -5,11 +5,31 @@
 //  Created by 최정안 on 5/31/25.
 //
 
-import SwiftUI
+import Foundation
+import UIKit
 import KakaoMapsSDK
 import CoreLocation
+import os.log
 
+// MARK: - 이미지 처리 오류 정의
+enum ImageError: Error, LocalizedError {
+    case invalidImageFormat(String)
+    case missingAsset(String)
+    case processingFailed(String)
+    
+    var errorDescription: String? {
+        switch self {
+        case .invalidImageFormat(let message):
+            return "이미지 포맷 오류: \(message)"
+        case .missingAsset(let message):
+            return "에셋 누락: \(message)"
+        case .processingFailed(let message):
+            return "이미지 처리 실패: \(message)"
+        }
+    }
+}
 
+// MARK: - Coordinator 클래스
 class Coordinator: NSObject, MapControllerDelegate, KakaoMapEventDelegate {
     var controller: KMController?
     var container: KMViewContainer?
@@ -510,7 +530,6 @@ extension Coordinator {
     // MARK: - POI 배지 추가 (zoomLevel 17용)
     @MainActor
     private func addBadgeToPOI(_ poi: Poi, count: Int) {
-        //print(#function)
         if count > 1 {
             let badgeImage = createBadgeImage(count: count)
             let badge = PoiBadge(
@@ -526,7 +545,6 @@ extension Coordinator {
     
     // MARK: - 배지 이미지 생성
     private func createBadgeImage(count: Int) -> UIImage {
-        //print("🔍 createBadgeImage - 시작: count=\(count)")
         let size = CGSize(width: 13, height: 13)
         let renderer = UIGraphicsImageRenderer(size: size)
         
@@ -555,9 +573,66 @@ extension Coordinator {
             text.draw(in: textRect, withAttributes: attributes)
         }
         
-        //print("✅ createBadgeImage - 이미지 생성 완료: size=\(image.size), scale=\(image.scale)")
         return image
     }
+    
+        private func convertToPNGRGBA(_ image: UIImage) -> UIImage {
+        guard let cgImage = image.cgImage else {
+            print("❌ [convertToPNGRGBA] CGImage 없음 - 원본 이미지 크기: \(image.size)")
+            print("🔍 [convertToPNGRGBA] 기본 이미지 사용 - 이유: CGImage 변환 실패")
+            return UIImage(systemName: "mappin") ?? UIImage() // 기본 이미지 반환
+        }
+        
+        guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB) else {
+            print("❌ [convertToPNGRGBA] 색상 공간 생성 실패")
+            print("🔍 [convertToPNGRGBA] 기본 이미지 사용 - 이유: 색상 공간 생성 실패")
+            return image
+        }
+    
+    let width = cgImage.width
+    let height = cgImage.height
+    guard let context = CGContext(
+        data: nil,
+        width: width,
+        height: height,
+        bitsPerComponent: 8,
+        bytesPerRow: width * 4,
+        space: colorSpace,
+        bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+    ) else {
+        print("❌ [convertToPNGRGBA] CGContext 생성 실패")
+        return image
+    }
+    
+    let rect = CGRect(x: 0, y: 0, width: width, height: height)
+    context.draw(cgImage, in: rect)
+    
+    guard let newCGImage = context.makeImage() else {
+        print("❌ [convertToPNGRGBA] 새 CGImage 생성 실패")
+        return image
+    }
+    
+    let safeImage = UIImage(cgImage: newCGImage, scale: image.scale, orientation: image.imageOrientation)
+    guard let pngData = safeImage.pngData() else {
+        print("❌ [convertToPNGRGBA] PNG 데이터 변환 실패 - safeImage 크기: \(safeImage.size)")
+        print("🔍 [convertToPNGRGBA] 기본 이미지 사용 - 이유: PNG 데이터 변환 실패")
+        return image
+    }
+    
+    guard let finalImage = UIImage(data: pngData) else {
+        print("❌ [convertToPNGRGBA] PNG 데이터에서 UIImage 생성 실패")
+        print("🔍 [convertToPNGRGBA] 기본 이미지 사용 - 이유: PNG에서 UIImage 생성 실패")
+        return image
+    }
+    
+    guard ImageValidationHelper.validateUIImage(finalImage) else {
+        print("❌ [convertToPNGRGBA] 이미지 유효성 검사 실패 - finalImage 크기: \(finalImage.size)")
+        print("🔍 [convertToPNGRGBA] 기본 이미지 사용 - 이유: 이미지 유효성 검사 실패")
+        return image
+    }
+
+    return finalImage
+}
 }
 
 // MARK: - 클러스터링 기반 POI 업데이트 메서드 (기존 updatePOIsEfficiently 대체)
@@ -686,75 +761,79 @@ extension Coordinator {
         }
 
     }
-    
-    
+
+
     @MainActor
     private func createClusterPOIsForHighZoom(_ clusterInfos: [ClusterInfo], zoomLevel: Int) {
-        //print(#function, clusterInfos.count)
         guard let kakaoMap = controller?.getView("mapview") as? KakaoMap,
               let layer = kakaoMap.getLabelManager().getLabelLayer(layerID: layerID) else {
-            print("❌ 레이어 또는 맵 객체 생성 실패")
-            return
-        }
-
-        // 상태 초기화
-        clearAllPOIs()
-        //clusters.removeAll()
-
-         let counts = clusterInfos.map { $0.count }
-        guard !clusterInfos.isEmpty else {
-            print("❌ 클러스터가 비어있음")
+            os_log(.error, "Failed to get map or layer")
             return
         }
         
-        Task {
-            // 모든 이미지 처리를 동시에 시작
-            async let processedImages = withTaskGroup(of: (Int, UIImage).self) { group in
+        clearAllPOIs()
+        
+        guard !clusterInfos.isEmpty else {
+            os_log(.error, "Empty cluster list")
+            return
+        }
+        
+        Task.detached(priority: .userInitiated) {
+            let processedImages = await withTaskGroup(of: (Int, UIImage?).self) { group in
                 for (index, cluster) in clusterInfos.enumerated() {
                     group.addTask {
-                        if let firstPinInfo = cluster.estateIds.first.flatMap({ id in
-                            self.currentPinInfos[id]
-                        }) {
+                        if let firstPinInfo = cluster.estateIds.first.flatMap({ self.currentPinInfos[$0] }) {
                             let image = await self.processEstateImage(for: firstPinInfo)
-                            return (index, image)
+                            os_log(.debug, "Processed image for cluster %d: size=%@", index, "\(image.size)")
+                            return (index, ImageValidationHelper.validateUIImage(image) ? image : nil)
                         }
-                        return (index, self.createDefaultEstateImage(size: CGSize(width: 40, height: 40)))
+                        os_log(.error, "No pin info for cluster %d", index)
+                        return (index, nil)
                     }
                 }
                 
-                var results: [(Int, UIImage)] = []
+                var results: [(Int, UIImage?)] = []
                 for await result in group {
                     results.append(result)
                 }
                 return results.sorted(by: { $0.0 < $1.0 })
             }
             
-            // 이미지 처리가 완료된 후 POI 생성
-            let images = await processedImages
-            for (index, image) in images {
-                let cluster = clusterInfos[index]
-                let styleID = createImageStyle(with: image, for: cluster, index: index)
-                
-                let poiOption = PoiOptions(styleID: styleID)
-                poiOption.rank = index
-                poiOption.clickable = true
-                
-                let clusterID = "cluster_\(index)"
-                clusters[clusterID] = cluster
-                
-                if let poi = layer.addPoi(
-                    option: poiOption,
-                    at: MapPoint(longitude: cluster.centerCoordinate.longitude, latitude: cluster.centerCoordinate.latitude)
-                ) {
-                    poi.userObject = clusterID as NSString
-                    addBadgeToPOI(poi, count: cluster.count)
-                    poi.show()
-                    currentPOIs[clusterID] = poi
+            await MainActor.run {
+                for (index, image) in processedImages {
+                    guard let image = image else {
+                        os_log(.error, "Image processing failed for cluster %d", index)
+                        continue
+                    }
+                    
+                    let cluster = clusterInfos[index]
+                    let styleID = self.createImageStyle(with: image, for: cluster, index: index)
+                    
+                    let poiOption = PoiOptions(styleID: styleID)
+                    poiOption.rank = index
+                    poiOption.clickable = true
+                    
+                    let clusterID = "cluster_\(index)"
+                    self.clusters[clusterID] = cluster
+                    
+                    if let poi = layer.addPoi(
+                        option: poiOption,
+                        at: MapPoint(longitude: cluster.centerCoordinate.longitude, latitude: cluster.centerCoordinate.latitude)
+                    ) {
+                        poi.userObject = clusterID as NSString
+                        self.addBadgeToPOI(poi, count: cluster.count)
+                        self.currentPOIs[clusterID] = poi // 먼저 저장
+                        poi.show()
+                        os_log(.debug, "POI added for cluster %@: itemID=%@, size=%@", clusterID, poi.itemID, "\(image.size)")
+                    } else {
+                        os_log(.error, "Failed to create POI for cluster %@", clusterID)
+                    }
                 }
+                os_log(.debug, "POI update completed: currentPOIs count=%d, clusters count=%d", self.currentPOIs.count, self.clusters.count)
             }
         }
     }
-    
+
     // 원형 스타일 생성 (zoomLevel 14 이하)
     private func createCircleStyle(for cluster: ClusterInfo, index: Int, poiSize: CGFloat?) -> String {
         //print(#function)
@@ -772,143 +851,108 @@ extension Coordinator {
         return styleID
     }
     
-    // 이미지 스타일 생성 (zoomLevel 17 이상)
-    private func createImageStyle(with image: UIImage, for cluster: ClusterInfo, index: Int) -> String {
-        //print(#function)
-        guard let kakaoMap = controller?.getView("mapview") as? KakaoMap else { return "" }
-        let manager = kakaoMap.getLabelManager()
-        
-        let styleID = "image_style_\(index)_\(Int(Date().timeIntervalSince1970))"
-        let iconStyle = PoiIconStyle(symbol: image, anchorPoint: CGPoint(x: 0.5, y: 0.5))
-        let perLevelStyles = [PerLevelPoiStyle(iconStyle: iconStyle, level: 0), PerLevelPoiStyle(iconStyle: iconStyle, level: 1), PerLevelPoiStyle(iconStyle: iconStyle, level: 2)]
-        
-        let poiStyle = PoiStyle(styleID: styleID, styles: perLevelStyles)
-        manager.addPoiStyle(poiStyle)
-        
-        return styleID
-    }
+private func createImageStyle(with image: UIImage, for cluster: ClusterInfo, index: Int) -> String {
+    guard let kakaoMap = controller?.getView("mapview") as? KakaoMap else { return "" }
+    let manager = kakaoMap.getLabelManager()
     
-    // 이미지 처리 (zoomLevel 17 이상)
+    let styleID = "image_style_\(index)_\(Int(Date().timeIntervalSince1970))"
+    let optimizedImage = convertToPNGRGBA(image) // PNG/RGBA로 변환
+    let iconStyle = PoiIconStyle(symbol: optimizedImage, anchorPoint: CGPoint(x: 0.5, y: 0.5))
+    
+    let perLevelStyles = [
+        PerLevelPoiStyle(iconStyle: iconStyle, level: 0),
+        PerLevelPoiStyle(iconStyle: iconStyle, level: 1),
+        PerLevelPoiStyle(iconStyle: iconStyle, level: 2)
+    ]
+    
+    let poiStyle = PoiStyle(styleID: styleID, styles: perLevelStyles)
+    manager.addPoiStyle(poiStyle)
+    
+    return styleID
+}
+    
+    // 이미지 처리 (zoomLevel 17 이상) - ImageLoader 활용
     private func processEstateImage(for pinInfo: PinInfo) async -> UIImage {
         let size = CGSize(width: 40, height: 40)
 
-        if let imagePath = pinInfo.image {
-            if let cachedImage = ImageCache.shared.image(forKey: imagePath) {
-                do {
-                    let processedImage = try applyStyle(to: cachedImage, size: size)
-                    return processedImage
-                } catch {
-                    print("❌ 캐시 이미지 처리 실패: \(error.localizedDescription)")
-                    return createDefaultEstateImage(size: size)
-                }
-            }
-            
-            if let downloadedImage = await ImageDownsampler.downloadAndDownsample(
-                imagePath: imagePath,
-                to: size
-            ) {
-                // 이미지 포맷 검증
-                guard let cgImage = downloadedImage.cgImage else {
-                    print("❌ CGImage 변환 실패")
-                    return createDefaultEstateImage(size: size)
-                }
-                
-                // 이미지 포맷 검사
-                let bitsPerComponent = cgImage.bitsPerComponent
-                let bitsPerPixel = cgImage.bitsPerPixel
-                
-                // 이미지 포맷이 유효한지 검사
-                guard bitsPerComponent == 8 && bitsPerPixel == 32 else {
-                    print("❌ 지원하지 않는 이미지 포맷: bitsPerComponent=\(bitsPerComponent), bitsPerPixel=\(bitsPerPixel)")
-                    return createDefaultEstateImage(size: size)
-                }
-                
-                ImageCache.shared.setImage(downloadedImage, forKey: imagePath)
-                do {
-                    let processedImage = try applyStyle(to: downloadedImage, size: size)
-                    return processedImage
-                } catch {
-                    print("❌ 이미지 스타일 적용 실패: \(error.localizedDescription)")
-                    return createDefaultEstateImage(size: size)
-                }
-            } else {
-                print("❌ 이미지 다운로드 실패")
+        guard let imagePath = pinInfo.image else {
+            print("🔍 [processEstateImage] 기본 이미지 사용 - 이유: 이미지 경로 없음 (pinInfo.estateId: \(pinInfo.estateId))")
+            return createDefaultEstateImage(size: size)
+        }
+        
+        // ImageLoader를 사용하여 이미지 로드
+        if let loadedImage = await ImageLoader.shared.loadPOIImage(from: imagePath) {
+            do {
+                let processedImage = try applyStyle(to: loadedImage, size: size)
+                return processedImage
+            } catch {
+                print("❌ [processEstateImage] 스타일 적용 실패 - 오류: \(error.localizedDescription)")
+                print("🔍 [processEstateImage] 기본 이미지 사용 - 이유: 스타일 적용 실패")
                 return createDefaultEstateImage(size: size)
             }
         } else {
-            print("❌ 이미지 경로 없음")
+            print("❌ [processEstateImage] 이미지 로드 실패 - 경로: \(imagePath)")
+            print("🔍 [processEstateImage] 기본 이미지 사용 - 이유: 이미지 로드 실패")
             return createDefaultEstateImage(size: size)
         }
     }
-    
+
+
     private func applyStyle(to image: UIImage, size: CGSize) throws -> UIImage {
-        // 이미지 유효성 검사
-        guard let cgImage = image.cgImage else {
-            throw ImageError.invalidImageFormat("CGImage 변환 실패")
+        guard image.size.width > 0 && image.size.height > 0 else {
+            print("❌ [applyStyle] 이미지 크기가 유효하지 않음 - 크기: \(image.size)")
+            throw ImageError.invalidImageFormat("이미지 크기가 유효하지 않음")
         }
         
-        // 이미지 포맷 검사
-        let bitsPerComponent = cgImage.bitsPerComponent
-        let bitsPerPixel = cgImage.bitsPerPixel
+        let safeImage = convertToPNGRGBA(image)
         
-        guard bitsPerComponent == 8 && bitsPerPixel == 32 else {
-            throw ImageError.invalidImageFormat("지원하지 않는 이미지 포맷: bitsPerComponent=\(bitsPerComponent), bitsPerPixel=\(bitsPerPixel)")
-        }
-        
-        // 1️⃣ 배경 이미지 로드
         guard let bubbleImage = UIImage(named: "MapBubbleButton") else {
+            print("❌ [applyStyle] MapBubbleButton 이미지 없음")
             throw ImageError.missingAsset("MapBubbleButton 이미지 없음")
         }
-
-        // 2️⃣ MapBubbleButton의 원본 비율 계산
-        let bubbleOriginalSize = bubbleImage.size
-        let bubbleAspectRatio = bubbleOriginalSize.height / bubbleOriginalSize.width
-
-        // 3️⃣ 내부 이미지 사이즈 (정사각형 가정)
-        let imageSize = image.size.width
-
-        // 4️⃣ 전체 배경 사이즈 계산
-        let bubbleWidth = imageSize + 8
-        let bubbleHeight = bubbleWidth * bubbleAspectRatio - 10
-        let finalSize = CGSize(width: bubbleWidth + 6, height: bubbleHeight + 6)
-
-        // 5️⃣ 렌더링 시작
-        let renderer = UIGraphicsImageRenderer(size: finalSize)
-        let resultImage = renderer.image { context in
-            let ctx = context.cgContext
-
-            // 6️⃣ 그림자 설정
-            ctx.setShadow(offset: CGSize(width: 0, height: 2),
-                          blur: 4,
-                          color: UIColor.black.withAlphaComponent(0.3).cgColor)
-
-            let bubbleRect = CGRect(origin: CGPoint(x: 3, y: 3),
-                                    size: CGSize(width: bubbleWidth, height: bubbleHeight))
-
-            // 7️⃣ 그림자와 함께 bubbleImage 그리기
-            bubbleImage.draw(in: bubbleRect)
-
-            // 8️⃣ 그림자 제거
-            ctx.setShadow(offset: .zero, blur: 0, color: nil)
-
-            // 9️⃣ 내부 이미지 위치 설정
-            let imageRect = CGRect(
-                origin: CGPoint(x: bubbleRect.origin.x + 4, y: bubbleRect.origin.y + 4),
-                size: size
-            )
-
-            // 🔟 내부 이미지 그리기
-            image.draw(in: imageRect)
-        }
+    
+    let bubbleOriginalSize = bubbleImage.size
+    let bubbleAspectRatio = bubbleOriginalSize.height / bubbleOriginalSize.width
+    let bubbleWidth = size.width + 8
+    let bubbleHeight = bubbleWidth * bubbleAspectRatio - 10
+    let finalSize = CGSize(width: bubbleWidth + 6, height: bubbleHeight + 6)
+    
+    let renderer = UIGraphicsImageRenderer(size: finalSize, format: {
+        let format = UIGraphicsImageRendererFormat()
+        format.opaque = false
+        format.preferredRange = .standard
+        return format
+    }())
+    
+    let resultImage = renderer.image { context in
+        let ctx = context.cgContext
         
-        return resultImage
-    }
+        ctx.setShadow(offset: CGSize(width: 0, height: 2), blur: 4, color: UIColor.black.withAlphaComponent(0.3).cgColor)
+        
+        let bubbleRect = CGRect(origin: CGPoint(x: 3, y: 3), size: CGSize(width: bubbleWidth, height: bubbleHeight))
+        bubbleImage.draw(in: bubbleRect)
+        
+        ctx.setShadow(offset: .zero, blur: 0, color: nil)
+        
+        let imageRect = CGRect(origin: CGPoint(x: bubbleRect.origin.x + 4, y: bubbleRect.origin.y + 4), size: size)
+            safeImage.draw(in: imageRect)
+}
+
+guard ImageValidationHelper.validateUIImage(resultImage) else {
+    print("❌ [applyStyle] 최종 이미지 유효성 검사 실패 - 크기: \(resultImage.size)")
+    throw ImageError.invalidImageFormat("최종 이미지 유효성 검사 실패")
+}
+
+let finalImage = convertToPNGRGBA(resultImage) // 최종적으로 PNG/RGBA 보장
+
+return finalImage
+}
 
     
     // 기본 이미지 생성 (zoomLevel 17 이상)
     private func createDefaultEstateImage(size: CGSize) -> UIImage {
         //print(#function)
-        guard let defaultImage =  UIImage(systemName: "mappin") else {return UIImage()}
+        guard let defaultImage = UIImage(systemName: "mappin") else { return UIImage() }
         return defaultImage
     }
 }
@@ -944,7 +988,7 @@ extension Coordinator {
         guard let poi = currentPOIs.values.first(where: { $0.itemID == poiID }),
               let clusterID = poi.userObject as? String,
               let cluster = clusters[clusterID] else {
-            print("❌ Guard statement failed")
+            os_log(.error, "Guard statement failed: poiID=%@, currentPOIs count=%d, clusters count=%d", poiID, currentPOIs.count, clusters.count)
             return
         }
         
@@ -1031,20 +1075,3 @@ extension GeoCoordinate {
     }
 }
 
-// 이미지 에러 타입 정의
-enum ImageError: Error {
-    case invalidImageFormat(String)
-    case missingAsset(String)
-    case processingError(String)
-    
-    var localizedDescription: String {
-        switch self {
-        case .invalidImageFormat(let message):
-            return "이미지 포맷 오류: \(message)"
-        case .missingAsset(let message):
-            return "에셋 누락: \(message)"
-        case .processingError(let message):
-            return "이미지 처리 오류: \(message)"
-        }
-    }
-}
