@@ -123,6 +123,9 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate, UNUserNotificationCente
         ChatNotificationCountManager.shared.debugBadgeStatus()
         NotificationCenter.default.post(name: .appDidEnterForeground, object: nil)
         
+        // 채팅 소켓 재연결 알림 전송
+        NotificationCenter.default.post(name: .chatSocketShouldReconnect, object: nil)
+        
         // 뱃지 카운트 복원
         restoreBadgeCount()
         
@@ -139,6 +142,9 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate, UNUserNotificationCente
         // 백그라운드 진입 시 간단한 메모리 정리
         print("앱이 백그라운드로 진입 - SceneDelegate")
         print("   - 앱 상태: \(UIApplication.shared.applicationState.rawValue)")
+        
+        // 채팅 소켓 해제 알림 전송
+        NotificationCenter.default.post(name: .chatSocketShouldDisconnect, object: nil)
         
         // 백그라운드 진입 시 간단한 캐시 정리 (선택적)
         Task { @MainActor in

@@ -22,50 +22,42 @@ struct CommunityView: View {
     
     var body: some View {
         ZStack {
-            ScrollView {
-                VStack(spacing: 0) {
-                    CustomNavigationBar(
-                        title: container.model.currentLocation,
-                        leftButton: {
-                            // 뒤로가기 버튼
-                            Button(action: {
-                                if !path.isEmpty {
-                                    path.removeLast()
-                                }
-                            }) {
-                                Image("chevron")
-                                    .font(.headline)
-                                    .foregroundColor(.MainTextColor)
-                            }
-                        },
-                        rightButton: {
-                            // 위치 찾기 버튼
-                            Button(action: {
-                                container.handle(.showLocationSearch)
-                            }) {
-                                Text("위치 찾기")
-                                    .font(.pretendardSubheadline)
-                                    .foregroundColor(.MainTextColor)
-                            }
+            Color.WarmLinen
+                .ignoresSafeArea()
+            
+            VStack(spacing: 0) {
+                CustomNavigationBar(
+                    title: container.model.currentLocation,
+                    rightButton: {
+                        // 위치 찾기 버튼
+                        Button(action: {
+                            container.handle(.showLocationSearch)
+                        }) {
+                            Text("위치 찾기")
+                                .font(.pretendardSubheadline)
+                                .foregroundColor(.MainTextColor)
                         }
-                    )
-                    searchBar
-                    
-                    HStack(spacing: 12) {
-                        sortView
-                        categoryView
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 16)
-                    
-                    boardView
+                )
+                
+                ScrollView {
+                    VStack(spacing: 0) {
+                        searchBar
+                        
+                        HStack(spacing: 12) {
+                            sortView
+                            categoryView
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.top, 16)
+                        
+                        boardView
+                    }
                 }
-            }
-            .background(Color.WarmLinen)
-            .navigationBarHidden(true)
-            .onAppear {
-                container.handle(.onAppear)
-                CurrentScreenTracker.shared.setCurrentScreen(.community)
+                .onAppear {
+                    container.handle(.onAppear)
+                    CurrentScreenTracker.shared.setCurrentScreen(.community)
+                }
             }
             
             // SearchAddressView 오버레이

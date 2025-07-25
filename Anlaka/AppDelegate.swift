@@ -152,6 +152,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate, MessagingDelegate {
 // MARK: - NotificationCenter Extension
 extension Notification.Name {
     static let chatNotificationUpdate = Notification.Name("chatNotificationUpdate")
+    static let postDeleted = Notification.Name("postDeleted")
+    static let postUpdated = Notification.Name("postUpdated")
+    static let profileUpdated = Notification.Name("profileUpdated")
+    static let lastMessageUpdated = Notification.Name("lastMessageUpdated")
+    static let estateLikeToggled = Notification.Name("estateLikeToggled")
+    
+    // 채팅 소켓 제어 알림
+    static let chatSocketShouldReconnect = Notification.Name("chatSocketShouldReconnect")
+    static let chatSocketShouldDisconnect = Notification.Name("chatSocketShouldDisconnect")
 }
 
 // MARK: - Dictionary Extension

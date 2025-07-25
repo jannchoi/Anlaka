@@ -87,6 +87,7 @@ final class ChattingContainer: ObservableObject {
         self.databaseRepository = databaseRepository
         self.model = ChattingModel(opponent_id: opponent_id, roomId: opponent_id)
         setupSocket()
+        setupAppLifecycleObserver()
     }
     
     init(repository: NetworkRepository, databaseRepository: DatabaseRepository, roomId: String) {
@@ -94,6 +95,7 @@ final class ChattingContainer: ObservableObject {
         self.databaseRepository = databaseRepository
         self.model = ChattingModel(opponent_id: nil, roomId: roomId)
         setupSocket()
+        setupAppLifecycleObserver()
     }
     
     private func setupSocket() {
@@ -316,6 +318,9 @@ final class ChattingContainer: ObservableObject {
             // DB 저장
             try await databaseRepository.saveMessage(message)
             
+            // 메시지 전송 성공 시 MyPageView에 마지막 메시지 업데이트 알림 전송
+            NotificationCenter.default.post(name: .lastMessageUpdated, object: (model.roomId, message.content))
+            
             // 전송 상태 업데이트 및 UI 갱신
             model.sendingMessageId = nil
             model.updateMessagesGroupedByDate()  // 실제 메시지 교체 후에만 UI 갱신
@@ -525,6 +530,59 @@ final class ChattingContainer: ObservableObject {
     
     deinit {
         socket?.disconnect()
+    }
+    
+    // MARK: - 앱 생명주기 이벤트 처리
+    private func setupAppLifecycleObserver() {
+        // SceneDelegate에서 전송하는 채팅 소켓 제어 알림
+        NotificationCenter.default
+            .publisher(for: .chatSocketShouldDisconnect)
+            .sink { [weak self] _ in
+                print("🔵 SceneDelegate: 채팅 소켓 해제 요청")
+                self?.handleAppDidEnterBackground()
+            }
+            .store(in: &cancellables)
+        
+        NotificationCenter.default
+            .publisher(for: .chatSocketShouldReconnect)
+            .sink { [weak self] _ in
+                print("🟢 SceneDelegate: 채팅 소켓 재연결 요청")
+                self?.handleAppWillEnterForeground()
+            }
+            .store(in: &cancellables)
+        
+        // 앱이 활성화될 때 (포그라운드 진입 후)
+        NotificationCenter.default
+            .publisher(for: UIApplication.didBecomeActiveNotification)
+            .sink { [weak self] _ in
+                print("🟢 앱이 활성화됨 - 채팅 소켓 상태 확인")
+                self?.handleAppDidBecomeActive()
+            }
+            .store(in: &cancellables)
+    }
+    
+    private func handleAppDidEnterBackground() {
+        // 백그라운드 진입 시 소켓 해제
+        print("🔵 채팅 소켓 해제 중...")
+        socket?.disconnect()
+        model.isConnected = false
+    }
+    
+    private func handleAppWillEnterForeground() {
+        // 포그라운드 진입 시 소켓 재연결 준비
+        print("🟢 채팅 소켓 재연결 준비 중...")
+        // 실제 연결은 didBecomeActive에서 처리
+    }
+    
+    private func handleAppDidBecomeActive() {
+        // 앱이 활성화된 후 소켓 재연결
+        guard !model.isConnected else {
+            print("🟢 이미 연결된 상태 - 재연결 불필요")
+            return
+        }
+        
+        print("🟢 채팅 소켓 재연결 시도...")
+        socket?.connect()
     }
     
     // 재연결 시도 메서드 추가
