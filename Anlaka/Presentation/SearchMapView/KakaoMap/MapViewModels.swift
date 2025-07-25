@@ -15,14 +15,14 @@ struct ClusterInfo {
 }
 
 enum ClusteringType {
-    case zoomLevel6to16  // 원형 + 숫자
-    case zoomLevel17Plus   // 대표 이미지 + 배지
+    case zoomLevel6to14
+    case zoomLevel15Plus
 }
 
 // MARK: - POI 차분 구조체
 struct POIDiff {
     let toAdd: [PinInfo]
-    let toRemove: [String]  // estateId들
+    let toRemove: [String] 
     let toUpdate: [PinInfo]
     
     var hasChanges: Bool {
