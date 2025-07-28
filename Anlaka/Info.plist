@@ -26,6 +26,16 @@
 				<string>sesac</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.jann.Anlaka</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>anlaka</string>
+			</array>
+		</dict>
 	</array>
 	<key>KAKAO_NATIVE_KEY</key>
 	<string>$(KAKAO_NATIVE_KEY)</string>
@@ -36,10 +46,6 @@
 		<key>NSAllowsArbitraryLoads</key>
 		<true/>
 	</dict>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>현재 위치 기반으로 주변 커뮤니티 게시물을 보여드리기 위해 위치 정보가 필요합니다.</string>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>현재 위치 기반으로 주변 커뮤니티 게시물을 보여드리기 위해 위치 정보가 필요합니다.</string>
 	<key>UIAppFonts</key>
 	<array>
 		<string>Pretendard-Black.otf</string>
@@ -54,6 +60,23 @@
 		<string>SOYO-Maple-Bold.otf</string>
 		<string>SOYO-Maple-Regular.otf</string>
 	</array>
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<false/>
+		<key>UISceneConfigurations</key>
+		<dict>
+			<key>UIWindowSceneSessionRoleApplication</key>
+			<array>
+				<dict>
+					<key>UISceneConfigurationName</key>
+					<string>Default Configuration</string>
+					<key>UISceneDelegateClassName</key>
+					<string>$(PRODUCT_MODULE_NAME).SceneDelegate</string>
+				</dict>
+			</array>
+		</dict>
+	</dict>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
