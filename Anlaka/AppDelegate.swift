@@ -10,11 +10,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, MessagingDelegate {
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
-        print("📱 ===== AppDelegate didFinishLaunchingWithOptions 시작 =====")
-        
         // Firebase 초기화
         FirebaseApp.configure()
-        print("📱 Firebase 초기화 완료")
         
         // 알림 권한 관리자 초기화
         let permissionManager = NotificationPermissionManager.shared
@@ -40,27 +37,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate, MessagingDelegate {
         
         return true
     }
-    func application(
-    _ application: UIApplication,
-    configurationForConnecting connectingSceneSession: UISceneSession,
-    options: UIScene.ConnectionOptions
-) -> UISceneConfiguration {
-    print("📱 ===== AppDelegate configurationForConnecting 호출 =====")
-    print("📱 sessionRole: \(connectingSceneSession.role)")
-    print("📱 connectingSceneSession: \(connectingSceneSession)")
+        func application(
+        _ application: UIApplication,
+        configurationForConnecting connectingSceneSession: UISceneSession,
+        options: UIScene.ConnectionOptions
+    ) -> UISceneConfiguration {
     
     let sceneConfig = UISceneConfiguration(name: "Default Configuration", sessionRole: connectingSceneSession.role)
     sceneConfig.delegateClass = SceneDelegate.self // SceneDelegate 연결
-    print("📱 SceneDelegate 설정: \(SceneDelegate.self)")
-    print("📱 SceneDelegate 클래스 존재 여부: \(SceneDelegate.self)")
-    
-    // SceneDelegate 인스턴스 생성 테스트
-    let testInstance = SceneDelegate()
-    print("📱 SceneDelegate 인스턴스 생성 성공: \(testInstance)")
-    
-    // SceneDelegate 설정 확인
-    print("📱 sceneConfig.delegateClass: \(String(describing: sceneConfig.delegateClass))")
-    print("📱 sceneConfig.name: \(sceneConfig.name)")
     
     return sceneConfig
 }
@@ -72,7 +56,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, MessagingDelegate {
     ) {
         let tokenParts = deviceToken.map { data in String(format: "%02.2hhx", data) }
         let token = tokenParts.joined()
-        print("📱 디바이스 토큰: \(token)")
     }
     
     func application(
@@ -97,11 +80,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, MessagingDelegate {
     
     // MARK: - MessagingDelegate
     func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
-        print("🔥 FCM 등록 토큰: \(fcmToken ?? "nil")")
+        print("디바이스 토큰: \(fcmToken ?? "nil")")
         if let token = fcmToken {
             let existingToken = UserDefaultsManager.shared.getString(forKey: .deviceToken)
             if existingToken != token {
-                print("🔥 FCM 토큰 변경 감지: \(existingToken ?? "nil") → \(token)")
+                print("디바이스 변경 감지: \(existingToken ?? "nil") → \(token)")
                 UserDefaultsManager.shared.set(token, forKey: .deviceToken)
                 UserDefaultsManager.shared.set(true, forKey: .deviceTokenChanged)
             }
@@ -165,7 +148,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, MessagingDelegate {
         ] as [String: Any]
         notifications.append(notificationData)
         sharedDefaults?.set(notifications, forKey: "notifications")
-        print("📱 알림 데이터 저장 완료")
     }
     
 
@@ -238,31 +220,31 @@ extension Dictionary {
 //     // MARK: - Notification Data Processing (App Terminated)
 //     // content-available이 없어서 앱 종료 시 호출되지 않음
 //     private func handleNotificationData(_ userInfo: [AnyHashable: Any]) {
-//         print("📱 앱 완전 종료 상태에서 알림 데이터 처리 시작")
+//         print("앱 완전 종료 상태에서 알림 데이터 처리 시작")
 //         let stringUserInfo = userInfo.compactMapKeys { $0 as? String }
 //         guard let roomId = stringUserInfo["room_id"] as? String else {
 //             print("❌ 알림 데이터에서 room_id 파싱 실패")
 //             return
 //         }
-//         print("📱 채팅방 ID 추출 성공: \(roomId)")
+//         print("채팅방 ID 추출 성공: \(roomId)")
         
 //         guard let senderId = stringUserInfo["google.c.sender.id"] as? String else {
 //             print("❌ 알림 데이터에서 google.c.sender.id 파싱 실패")
 //             return
 //         }
-//         print("📱 발신자 ID 추출 성공: \(senderId)")
+//         print("발신자 ID 추출 성공: \(senderId)")
         
 //         let isLoggedIn = UserDefaults.standard.bool(forKey: TextResource.Global.isLoggedIn.text)
-//         print("📱 로그인 상태 확인: \(isLoggedIn)")
+//         print("로그인 상태 확인: \(isLoggedIn)")
         
 //         if isLoggedIn {
 //             Task { @MainActor in
 //                 NotificationRoutingQueue.shared.enqueueChatRoom(roomId)
-//                 print("📱 로그인 상태 - 라우팅 큐에 채팅방 등록 완료: \(roomId)")
+//                 print("로그인 상태 - 라우팅 큐에 채팅방 등록 완료: \(roomId)")
 //             }
 //         } else {
 //             UserDefaultsManager.shared.set(roomId, forKey: .pendingChatRoomId)
-//             print("📱 비로그인 상태 - 채팅방 ID 저장 완료: \(roomId)")
+//             print("비로그인 상태 - 채팅방 ID 저장 완료: \(roomId)")
 //         }
 //     }
 // }

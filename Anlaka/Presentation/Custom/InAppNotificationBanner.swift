@@ -182,11 +182,8 @@ class CustomNotificationManager: ObservableObject {
     
     /// 새로운 알림 처리
     func handleNewNotification(roomId: String, senderName: String, message: String) {
-        print("📱 새로운 알림 처리: \(senderName) - \(message)")
-        
         // 현재 채팅방에 있는지 확인
         if isInCurrentChatRoom(roomId: roomId) {
-            print("📱 현재 채팅방 알림 - 표시하지 않음")
             return
         }
         

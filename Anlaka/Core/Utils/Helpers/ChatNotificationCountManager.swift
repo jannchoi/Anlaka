@@ -31,7 +31,7 @@ final class ChatNotificationCountManager: ObservableObject {
         // 앱 아이콘 배지 업데이트
         updateAppIconBadge()
         
-        print("😡 채팅방 \(roomId) 알림 카운트 증가: \(currentCount) → \(currentCount + 1)")
+        print("채팅방 \(roomId) 알림 카운트 증가: \(currentCount) → \(currentCount + 1)")
     }
     
     /// 특정 채팅방의 알림 카운트 초기화 (채팅방 진입 시)
@@ -42,8 +42,6 @@ final class ChatNotificationCountManager: ObservableObject {
             
             // 앱 아이콘 배지 업데이트
             updateAppIconBadge()
-            
-            print("📱 채팅방 \(roomId) 알림 카운트 초기화")
         }
     }
     
@@ -56,7 +54,6 @@ final class ChatNotificationCountManager: ObservableObject {
     func resetAllCounts() {
         notificationCounts.removeAll()
         saveNotificationCounts()
-        print("📱 모든 채팅방 알림 카운트 초기화")
     }
     
     /// 모든 채팅방의 알림 카운트 초기화 (clearAllCounts와 동일)
@@ -74,8 +71,6 @@ final class ChatNotificationCountManager: ObservableObject {
         
         // @Published 속성이 변경되었음을 알림
         objectWillChange.send()
-        
-        print("📱 채팅방 \(roomId) 알림 카운트 제거")
     }
     
     /// 전체 알림 카운트 합계
@@ -85,13 +80,7 @@ final class ChatNotificationCountManager: ObservableObject {
     
     /// 배지 상태 디버깅
     func debugBadgeStatus() {
-        print("📱 === 배지 상태 디버깅 ===")
-        print("📱 계산된 총 카운트: \(totalCount)")
-        print("📱 채팅방별 카운트:")
-        for (roomId, count) in notificationCounts {
-            print("   - \(roomId): \(count)")
-        }
-        print("📱 =========================")
+        // 디버그 출력 제거
     }
     
     /// 앱 아이콘 배지 업데이트
@@ -99,7 +88,6 @@ final class ChatNotificationCountManager: ObservableObject {
         DispatchQueue.main.async {
             UIApplication.shared.applicationIconBadgeNumber = self.totalCount
         }
-        print("📱 앱 아이콘 배지 업데이트: \(totalCount)")
     }
     
     /// 강제로 배지 업데이트 (iOS가 자동 처리하므로 로그만 출력)
@@ -112,7 +100,6 @@ final class ChatNotificationCountManager: ObservableObject {
         notificationCounts["test_room"] = 3
         saveNotificationCounts()
         updateAppIconBadge()
-        print("📱 테스트 배지 설정: 3")
     }
     
     // MARK: - Private Methods
@@ -125,7 +112,6 @@ final class ChatNotificationCountManager: ObservableObject {
         if let data = try? JSONEncoder().encode(notificationCounts) {
             userDefaults.set(data, forKey: notificationCountsKey)
             userDefaults.synchronize()
-            os_log(.debug, "📱 UserDefaults 저장 완료: %@", "\(notificationCounts)")
         } else {
             os_log(.error, "❌ JSONEncoder 실패")
         }
@@ -146,13 +132,13 @@ final class ChatNotificationCountManager: ObservableObject {
         if let oldData = oldData,
            let oldCounts = try? JSONDecoder().decode([String: Int].self, from: oldData),
            !oldCounts.isEmpty {
-            print("📱 기존 UserDefaults에서 알림 카운트 마이그레이션: \(oldCounts)")
+            print("기존 UserDefaults에서 알림 카운트 마이그레이션: \(oldCounts)")
             notificationCounts = oldCounts
             saveNotificationCounts()
             
             // 마이그레이션 후 기존 데이터 삭제
             standardDefaults.removeObject(forKey: notificationCountsKey)
-            print("📱 마이그레이션 완료 - 기존 데이터 삭제")
+            print("마이그레이션 완료 - 기존 데이터 삭제")
         }
     }
 } 

@@ -276,7 +276,6 @@ class ImageLoader {
                             // 캐시에 저장
                             await ImageCache.shared.setImageAsync(image, forKey: path)
                             await SafeDiskCacheManager.shared.saveImage(image, forKey: path)
-                            print("✅ 이미지 프리로딩 완료: \(path)")
                         }
                     } catch {
                         print("❌ 이미지 프리로딩 실패: \(path) - \(error.localizedDescription)")

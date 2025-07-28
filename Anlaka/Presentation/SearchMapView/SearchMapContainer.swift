@@ -147,12 +147,12 @@ final class SearchMapContainer: NSObject, ObservableObject, LocationServiceDeleg
         case .updateMonthlyRentRange(let range): //만원
             
             model.selectedMonthlyRentRange = scaleRange(range, by: 10000) //원
-            print("월세 ", model.selectedMonthlyRentRange)
+
             debounceFilterUpdate()
             
         case .updateDepositRange(let range): //만원
             model.selectedDepositRange = scaleRange(range, by: 10000) //원
-            print("보증금 ", model.selectedDepositRange)
+
             debounceFilterUpdate()
             
         case .poiGroupSelected(let estateIds):
@@ -233,7 +233,7 @@ final class SearchMapContainer: NSObject, ObservableObject, LocationServiceDeleg
             }
             model.detailEstateList = estates
             model.filteredEstates = estates.map{$0.toPresentationModel()}
-            print("👠👠👠",model.filteredEstates.count)
+
             model.showEstateScroll = true
         }
     }
@@ -327,13 +327,13 @@ final class SearchMapContainer: NSObject, ObservableObject, LocationServiceDeleg
         model.isLoading = true
         do {
             let estates = try await repository.getGeoEstate(category: category, lon: lon, lat: lat, maxD: maxD)
-            //print("🥶 estates 데이터 받아옴: \(estates.data.count)")
+
             model.curEstatesData = estateDataFiltering(estates)
-            //print("🥶 model.curEstatesData 필터링후: \(model.curEstatesData?.data.count)")
+
             if let geoEstates = model.curEstatesData {
-                //print("🥶 estates -> pininfo 전: \(geoEstates.data.count)")
+
                 model.pinInfoList = geoEstates.toPinInfoList()
-                //print("🥶 pinInfoList 업데이트 성공: \(model.pinInfoList.count)")
+
             } else {
                 model.pinInfoList = []
             }

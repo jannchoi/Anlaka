@@ -32,7 +32,6 @@ protocol NetworkRepository {
     func getMyProfileInfo() async throws -> MyProfileInfoEntity
     
     // MARK: - Push Notification Methods
-    func sendPushNotification(pushRequest: PushRequestDTO) async throws
     func updateDeviceToken(deviceToken: String) async throws -> Bool
 
     func uploadAdminRequest(adminRequest: AdminRequestMockData) async throws -> DetailEstateEntity
