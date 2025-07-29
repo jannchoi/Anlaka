@@ -37,6 +37,8 @@ enum HomeIntent {
     case goToBannerWeb(url: URL)
     case dismissBannerWeb
     case goToSearch
+    case removeFromLikeList(String) // 좋아요 해제된 매물 제거
+    case refreshLikeList // 좋아요 매물 리스트 새로고침
 }
 
 @MainActor
@@ -44,9 +46,27 @@ final class HomeContainer: ObservableObject {
     @Published var model = HomeModel()
     private let useCase: HomeUseCase
     private let tabCache = TabViewCache.shared
+    private var estateLikeToggledObserver: NSObjectProtocol? // 매물 좋아요 토글 알림 observer
     
     init(useCase: HomeUseCase) {
         self.useCase = useCase
+        
+        // 매물 좋아요 토글 알림 구독
+        estateLikeToggledObserver = NotificationCenter.default.addObserver(
+            forName: .estateLikeToggled,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            if let (estateId, isLiked) = notification.object as? (String, Bool) {
+                if isLiked {
+                    // 좋아요 추가된 경우 HomeView에서 새로고침
+                    self?.handle(.refreshLikeList)
+                } else {
+                    // 좋아요 해제된 경우 HomeView에서 제거
+                    self?.handle(.removeFromLikeList(estateId))
+                }
+            }
+        }
     }
     
     func handle(_ intent: HomeIntent) {
@@ -98,6 +118,10 @@ final class HomeContainer: ObservableObject {
             model.bannerWebURL = nil
         case .goToSearch:
             model.navigationDestination = .search
+        case .removeFromLikeList(let estateId):
+            removeEstateFromLikeList(estateId: estateId)
+        case .refreshLikeList:
+            Task { await getLikeLists(useCache: false) }
         }
     }
     
@@ -349,6 +373,23 @@ final class HomeContainer: ObservableObject {
         
         // 로그인 상태 변경 (@AppStorage isLoggedIn = false)
         UserDefaults.standard.set(false, forKey: TextResource.Global.isLoggedIn.text)
+    }
+    
+    deinit {
+        // observer 제거
+        if let observer = estateLikeToggledObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+    }
+    
+    // MARK: - 좋아요 매물 제거
+    
+    private func removeEstateFromLikeList(estateId: String) {
+        // 현재 좋아요 매물 리스트에서 해당 매물 제거
+        if case .success(var likeLists) = model.likeLists {
+            likeLists.removeAll { $0.summary.estateId == estateId }
+            model.likeLists = .success(likeLists)
+        }
     }
     
     // MARK: - 네비게이션 리셋
