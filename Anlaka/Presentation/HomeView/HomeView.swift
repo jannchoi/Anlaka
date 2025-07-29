@@ -36,7 +36,7 @@ struct HomeView: View {
                     ZStack(alignment: .top) {
                         // 오늘의 부동산 - 전체 상단 영역
                         renderTodayEstate()
-                            .frame(height: 450)
+                            .frame(height: 400)
                         
                         // 검색바를 오늘의 부동산 위에 배치
                         searchBar
@@ -146,8 +146,6 @@ struct TodayEstateView: View {
     let entity: [TodayEstateWithAddress]
     let onTap: () -> Void
     
-    // 로컬에 이미지 데이터를 캐싱하기 위한 배열
-    @State private var preloadedImages: [Int: UIImage] = [:]
     @State private var currentPage: Int = 0
     
     var body: some View {
@@ -157,21 +155,9 @@ struct TodayEstateView: View {
                 TabView(selection: $currentPage) {
                     ForEach(Array(entity.enumerated()), id: \.offset) { index, item in
                         ZStack(alignment: .bottom) {
-                            if let cachedImage = preloadedImages[index] {
-                                Image(uiImage: cachedImage)
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fill)
-                                    .frame(width: geometry.size.width, height: geometry.size.height)
-                                    .clipped()
-                            } else {
-                                CustomAsyncImage(imagePath: item.summary.thumbnail)
-                                    .frame(width: geometry.size.width, height: geometry.size.height)
-                                    .clipped()
-                                    .onAppear {
-                                        // 이미지 미리 로드
-                                        preloadImages(for: index)
-                                    }
-                            }
+                            CustomAsyncImage(imagePath: item.summary.thumbnail)
+                                .frame(width: geometry.size.width, height: geometry.size.height)
+                                .clipped()
                             
                             // 텍스트 콘텐츠
                             VStack(alignment: .leading, spacing: 8) {
@@ -214,35 +200,6 @@ struct TodayEstateView: View {
             }
         }
         .ignoresSafeArea() // 전체 영역을 무시
-        .onAppear {
-            // 모든 이미지 미리 로드
-            for index in 0..<min(entity.count, 3) {
-                preloadImages(for: index)
-            }
-        }
-    }
-    
-    // 이미지 미리 로드 함수
-    private func preloadImages(for index: Int) {
-        guard index < entity.count, preloadedImages[index] == nil else { return }
-        
-        // 현재 페이지와 앞뒤 페이지의 이미지만 로드
-        let indexesToLoad = [max(0, index-1), index, min(entity.count-1, index+1)]
-        
-        for idx in indexesToLoad {
-            guard preloadedImages[idx] == nil else { continue }
-            
-            // 이미지 로드 (CustomAsyncImage를 통해 API 키 등의 헤더 정보 포함)
-            if let url = URL(string: entity[idx].summary.thumbnail) {
-                URLSession.shared.dataTask(with: url) { data, response, error in
-                    if let data = data, let image = UIImage(data: data) {
-                        DispatchQueue.main.async {
-                            self.preloadedImages[idx] = image
-                        }
-                    }
-                }.resume()
-            }
-        }
     }
 }
 
