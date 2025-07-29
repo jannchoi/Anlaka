@@ -217,8 +217,8 @@ enum FileDownloadRepositoryFactory {
             "Content-Type": "application/json"
         ]
         
-        if let accessToken = UserDefaultsManager.shared.getString(forKey: .accessToken) as? String {
-            headers["Authorization"] = "Bearer \(accessToken)"
+        if let accessToken = KeychainManager.shared.getString(forKey: .accessToken) {
+            headers["Authorization"] = "\(accessToken)"
         }
         
         return FileDownloadRepositoryImp(

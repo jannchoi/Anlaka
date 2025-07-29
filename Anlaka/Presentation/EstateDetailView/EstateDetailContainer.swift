@@ -112,6 +112,9 @@ final class EstateDetailContainer: ObservableObject {
         do {
             let result = try await repository.postLikeEstate(model.curEstateid, LikeEstateEntity(likeStatus: !model.isLiked))
             model.isLiked = result.likeStatus
+            
+            // 좋아요 상태 변경 시 HomeView에 알림 전송
+            NotificationCenter.default.post(name: .estateLikeToggled, object: (model.curEstateid, model.isLiked))
         } catch {
             print("error: \(error)")
         }
