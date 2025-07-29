@@ -15,7 +15,7 @@ struct DownsamplingPolicy {
     static let targetPixelSizeThumbnail: CGFloat = 332  // 166pt × 2x scale
     static let targetPixelSizeListCell: CGFloat = 300   // 150pt × 2x scale
     static let targetPixelSizeDetail: CGFloat = 750     // 375pt × 2x scale
-    static let downsamplingScaleFactor: CGFloat = 1.5   // 다운샘플링 비율
+    static let downsamplingScaleFactor: CGFloat = 1.2   // 다운샘플링 비율
     static let maxImageLoadSize: Int = 5 * 1024 * 1024 // 5MB
     static let deviceScreenScale: CGFloat = UIScreen.main.scale // 2.0 or 3.0
     static let allowDownsampleBelowScale: Bool = true

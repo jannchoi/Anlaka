@@ -210,6 +210,7 @@ struct PostDetailView: View {
             container.handle(.initialRequest)
             CurrentScreenTracker.shared.setCurrentScreen(.posting)
         }
+        .customNotificationBanner()
         // Toast 적용
         .toastView(toast: $toast)
         // CustomAlertView 적용
