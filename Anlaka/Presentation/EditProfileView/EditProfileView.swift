@@ -78,7 +78,7 @@ struct EditProfileView: View {
     private var inputFieldsSection: some View {
         VStack(spacing: 20) {
             // 닉네임 입력 필드
-            NicknameInputField(nick: $container.model.nick)
+            NicknameInputField(container: container)
             
             // 자기소개 입력 필드
             IntroductionInputField(introduction: $container.model.introduction)
@@ -92,6 +92,7 @@ struct EditProfileView: View {
     private var saveButton: some View {
         SaveProfileButton(
             isLoading: container.model.isLoading,
+            isEnabled: container.model.isNicknameValid,
             onSave: saveProfile
         )
     }
@@ -204,17 +205,17 @@ struct DefaultProfileImageView: View {
 
 // MARK: - NicknameInputField
 struct NicknameInputField: View {
-    @Binding var nick: String
+    @ObservedObject var container: EditProfileContainer
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("닉네임")
-                .font(.system(size: 16, weight: .medium))
-                .foregroundColor(Color.MainTextColor)
-            
-            TextField("닉네임을 입력하세요", text: $nick)
-                .textFieldStyle(RoundedBorderTextFieldStyle())
-                .autocapitalization(.none)
+        CustomTextField(
+            title: "닉네임",
+            text: $container.model.nick,
+            validationMessage: container.model.nicknameValidationMessage,
+            isValid: container.model.isNicknameValid
+        )
+        .onChange(of: container.model.nick) {
+            container.handle(.nicknameChanged($0))
         }
     }
 }
@@ -256,6 +257,7 @@ struct PhoneNumberInputField: View {
 // MARK: - SaveProfileButton
 struct SaveProfileButton: View {
     let isLoading: Bool
+    let isEnabled: Bool
     let onSave: () -> Void
     
     var body: some View {
@@ -275,11 +277,11 @@ struct SaveProfileButton: View {
             .frame(height: 50)
             .background(
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.OliveMist)
+                    .fill(isEnabled ? Color.OliveMist : Color.Deselected)
             )
         }
         .buttonStyle(PressableButtonStyle())
-        .disabled(isLoading)
+        .disabled(!isEnabled || isLoading)
         .padding(.top, 20)
     }
 }
