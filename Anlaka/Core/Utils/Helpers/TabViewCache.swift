@@ -27,7 +27,6 @@ final class TabViewCache: ObservableObject {
     func setCachedView<T: View>(_ view: T, for tab: MyTabView.Tab) {
         let key = "view_\(tab)"
         cachedViews[key] = view
-        print("📦 뷰 캐시 저장: \(tab)")
     }
     
     /// 뷰 캐시 조회
@@ -40,7 +39,7 @@ final class TabViewCache: ObservableObject {
     func clearCachedView(for tab: MyTabView.Tab) {
         let key = "view_\(tab)"
         cachedViews.removeValue(forKey: key)
-        print("🗑️ 뷰 캐시 삭제: \(tab)")
+        print("뷰 캐시 삭제: \(tab)")
     }
     
     // MARK: - 데이터 캐시 관리
@@ -49,7 +48,6 @@ final class TabViewCache: ObservableObject {
     func setCachedData<T>(_ data: T, for tab: MyTabView.Tab) {
         let key = "data_\(tab)_\(String(describing: T.self))"
         dataCache[key] = (data: data, timestamp: Date().timeIntervalSince1970)
-        print("📦 데이터 캐시 저장: \(tab) - \(String(describing: T.self))")
     }
     
     /// 데이터 캐시 조회
@@ -61,7 +59,7 @@ final class TabViewCache: ObservableObject {
         let now = Date().timeIntervalSince1970
         if now - cached.timestamp > cacheExpiration {
             dataCache.removeValue(forKey: key)
-            print("⏰ 캐시 만료: \(tab) - \(String(describing: T.self))")
+            print("캐시 만료: \(tab) - \(String(describing: T.self))")
             return nil
         }
         
@@ -74,7 +72,7 @@ final class TabViewCache: ObservableObject {
         for key in keysToRemove {
             dataCache.removeValue(forKey: key)
         }
-        print("🗑️ 데이터 캐시 삭제: \(tab)")
+        print("데이터 캐시 삭제: \(tab)")
     }
     
     // MARK: - 전체 캐시 관리
@@ -83,7 +81,7 @@ final class TabViewCache: ObservableObject {
     func clearAllCaches() {
         cachedViews.removeAll()
         dataCache.removeAll()
-        print("🗑️ 모든 탭 캐시 정리")
+        print("모든 탭 캐시 정리")
     }
     
     func clearInactiveTabCaches(activeTab: MyTabView.Tab) {
@@ -93,6 +91,6 @@ final class TabViewCache: ObservableObject {
                 clearCachedData(for: tab)
             }
         }
-        print("🗑️ 비활성 탭 캐시 정리 (활성 탭: \(activeTab))")
+        print("비활성 탭 캐시 정리 (활성 탭: \(activeTab))")
     }
 } 

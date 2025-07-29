@@ -379,7 +379,7 @@ internal final class DatabaseRepositoryImp: DatabaseRepository {
                         // 현재 로그인한 사용자의 메시지인 경우에만 업데이트
                         if message.senderId == oldUserId {
                             message.senderId = newUserId
-                            print("✅ 메시지 senderId 업데이트: \(oldUserId) -> \(newUserId)")
+                            print("메시지 senderId 업데이트: \(oldUserId) -> \(newUserId)")
                         }
                     }
                 }
@@ -391,7 +391,7 @@ internal final class DatabaseRepositoryImp: DatabaseRepository {
                         for participant in room.participants {
                             if participant.userId == oldUserId {
                                 participant.userId = newUserId
-                                print("✅ 채팅방 participants 업데이트: \(oldUserId) -> \(newUserId)")
+                                print(" 채팅방 participants 업데이트: \(oldUserId) -> \(newUserId)")
                             }
                         }
                     }
@@ -403,7 +403,7 @@ internal final class DatabaseRepositoryImp: DatabaseRepository {
                     for chatList in chatLists {
                         if let index = chatList.participants.index(of: oldUserId) {
                             chatList.participants[index] = newUserId
-                            print("✅ 채팅 목록 participants 업데이트: \(oldUserId) -> \(newUserId)")
+                            print(" 채팅 목록 participants 업데이트: \(oldUserId) -> \(newUserId)")
                         }
                     }
                 }

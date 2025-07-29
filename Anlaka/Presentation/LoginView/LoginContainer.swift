@@ -135,7 +135,7 @@ final class LoginContainer: NSObject, ObservableObject {
         }
     }
     private func callKakaoLogin() async {
-        print(#function)
+
         let oauthToken = UserDefaultsManager.shared.getString(forKey: .kakaoToken)
         let deviceToken = UserDefaultsManager.shared.getString(forKey: .deviceToken)
         let target = KakaoLoginRequestEntity(oauthToken: oauthToken, deviceToken: deviceToken)
@@ -161,23 +161,23 @@ final class LoginContainer: NSObject, ObservableObject {
     
     // MARK: - AppleLogin
     private func handleAppleLogin(_ result: Result<ASAuthorization, Error>) async {
-        print("🧤 애플 로그인 시작, \(result)")
+
             switch result {
             case .success(let authResults):
                 guard let appleIDCredential = authResults.credential as? ASAuthorizationAppleIDCredential else {
                     model.errorMessage = "유효하지 않은 인증 정보입니다."
                     return
                 }
-                print("🧤 애플 로그인 성공, \(appleIDCredential)")
+
                 guard let idToken = appleIDCredential.identityToken,
                       let tokenString = String(data: idToken, encoding: .utf8) else {
                     model.errorMessage = "토큰 변환 실패"
                     return
                 }
-                print("🧤 애플 로그인 성공, \(tokenString)")
+ 
                 let fullName = appleIDCredential.fullName
                 let name = (fullName?.familyName ?? "") + (fullName?.givenName ?? "")
-                print(name)
+
                 UserDefaultsManager.shared.set(tokenString, forKey: .appleIdToken)
                 await callAppleLogin(name)
             case .failure(let error):
@@ -186,12 +186,12 @@ final class LoginContainer: NSObject, ObservableObject {
         }
     
     func callAppleLogin(_ nick: String) async {
-        print(#function)
+
         let nickname = nick.isEmpty ? "아무개" : nick
         let idToken = UserDefaultsManager.shared.getString(forKey: .appleIdToken)
         let deviceToken = UserDefaultsManager.shared.getString(forKey: .deviceToken)
         let target = AppleLoginRequestEntity(idToken: idToken, deviceToken: deviceToken, nick: nickname)
-        print("🧤 애플 로그인 시작, \(target)")
+
         do {
             try await repository.appleLogin(appleLoginEntity: target)
             model.loginCompleted = true
@@ -200,7 +200,7 @@ final class LoginContainer: NSObject, ObservableObject {
             // 로그인 성공 후 디바이스 토큰 서버 업데이트
             await updateDeviceTokenOnServer()
         } catch {
-            print("🧤 애플 로그인 실패, \(error)")
+            print(" 애플 로그인 실패, \(error)")
             if let error = error as? CustomError {
                 model.errorMessage = error.errorDescription
             } else {
@@ -242,22 +242,17 @@ final class LoginContainer: NSObject, ObservableObject {
         let isTokenChanged = UserDefaultsManager.shared.getBool(forKey: .deviceTokenChanged)
         
         if !isTokenChanged {
-            print("📱 로그인 성공 후 디바이스 토큰 변경 없음 - 서버 업데이트 건너뜀")
             return
         }
         
         guard let deviceToken = UserDefaultsManager.shared.getString(forKey: .deviceToken) else {
-            print("📱 저장된 디바이스 토큰이 없습니다.")
             return
         }
-        
-        print("📱 로그인 성공 후 디바이스 토큰 변경 감지 - 서버 업데이트 시작: \(deviceToken.prefix(20))...")
         
         do {
             let success = try await repository.updateDeviceToken(deviceToken: deviceToken)
             if success {
-                print("✅ 로그인 성공 후 서버에 디바이스 토큰 업데이트 성공")
-                // 서버 업데이트 성공 후 플래그 리셋
+
                 UserDefaultsManager.shared.set(false, forKey: .deviceTokenChanged)
             } else {
                 print("❌ 로그인 성공 후 서버에 디바이스 토큰 업데이트 실패")

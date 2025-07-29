@@ -88,9 +88,7 @@ final class SignUpContainer: ObservableObject {
             }
 
         case .SignUpButtonTapped:
-            print("🔍 [DEBUG] SignUpButtonTapped 호출됨")
             Task {
-                print("🔍 [DEBUG] callSignUp Task 시작")
                 model.isLoading = true
                 await callSignUp()
             }
@@ -150,8 +148,6 @@ final class SignUpContainer: ObservableObject {
     }
 
     private func callSignUp() async {
-        print("🔍 [DEBUG] callSignUp 함수 시작")
-        
         let target = SignUpRequestEntity(
             email: model.email,
             password: model.password,
@@ -160,33 +156,24 @@ final class SignUpContainer: ObservableObject {
             intro: model.introduction,
             deviceToken: nil
         )
-        print("🔍 [DEBUG] SignUpRequestEntity 생성됨: email=\(model.email), nickname=\(model.nickname)")
 
         do {
-            print("🔍 [DEBUG] repository.signUp 호출 시작")
             let response = try await repository.signUp(signUpEntity: target)
-            print("✅ [DEBUG] repository.signUp 성공: \(response)")
             
-            print("🔍 [DEBUG] 토스트 메시지 설정 시작")
             model.toast = FancyToast(
                 type: .success,
                 title: "회원가입 완료",
                 message: "성공적으로 가입되었습니다.",
                 duration: 2
             )
-            print("✅ [DEBUG] 토스트 메시지 설정 완료")
             
             model.isLoading = false
-            print("🔍 [DEBUG] isLoading = false 설정")
             
             // 토스트 메시지가 표시된 후 2초 뒤에 화면 전환
-            print("🔍 [DEBUG] 2초 후 화면 전환 예약")
             DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                print("🔍 [DEBUG] goToLoginView = true 설정")
                 self.model.goToLoginView = true
             }
         } catch {
-            print("❌ [DEBUG] repository.signUp 실패: \(error)")
             model.toast = FancyToast(
                 type: .error,
                 title: "회원가입 실패",

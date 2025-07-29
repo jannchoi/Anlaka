@@ -140,13 +140,11 @@ struct ChatMessagesView: View {
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                                 onScrollToBottom()
                             }
-                                print("📱 새 메시지 추가됨 - 이미 하단에 있음 - 바로 스크롤")
                             } else {
                                 // 하단에 없으면 newMessageButton 표시
                                 withAnimation(.easeInOut(duration: 0.3)) {
                                     showNewMessageButton = true
                                 }
-                                print("📱 새 메시지 추가됨 - 하단에 없음 - newMessageButton 표시: true")
                             }
                         }
                     }
@@ -168,7 +166,6 @@ struct ChatMessagesView: View {
                                     withAnimation(.easeInOut(duration: 0.3)) {
                                         showNewMessageButton = false
                                     }
-                                    print("📱 스크롤 중 하단 도달 - 상태 리셋 및 newMessageButton 숨김: false")
                                 }
                             }
                             .onEnded { _ in
@@ -179,7 +176,6 @@ struct ChatMessagesView: View {
                                     withAnimation(.easeInOut(duration: 0.3)) {
                                         showNewMessageButton = false
                                     }
-                                    print("📱 스크롤 끝 - 하단 도달 - 상태 리셋 및 newMessageButton 숨김: false")
                                 }
                             }
                     )
@@ -207,8 +203,7 @@ struct ChatMessagesView: View {
                 isAtBottom = isNearBottom
                 showNewMessageButton = hasMessages && !isNearBottom
             }
-                
-                print("🔍 스크롤 위치 확인 - 오프셋: \(scrollOffset), 뷰 높이: \(viewHeight), 하단 여부: \(isNearBottom), 버튼 표시: \(showNewMessageButton)")
+
             } else {
                 withAnimation(.easeInOut(duration: 0.3)) {
                     isAtBottom = true
@@ -371,7 +366,6 @@ struct MainContentView: View {
             withAnimation(.easeInOut(duration: 0.3)) {
                 showNewMessageButton = false
             }
-            print("📱 newMessageButton 탭 - 버튼 숨김: false")
             
             // 스크롤 상태 리셋
             hasUserScrolled = false

@@ -49,7 +49,6 @@ class PostingContainer: ObservableObject, LocationServiceDelegate {
     
     // 신규 작성/수정 통합 초기화
     init(post: PostResponseEntity? = nil, postingUseCase: PostingUseCase, locationService: LocationService) {
-        print("[DEBUG] PostingContainer init() called")
         if let post = post {
             self.model = PostingModel(
                 postId: post.postId,
@@ -66,7 +65,7 @@ class PostingContainer: ObservableObject, LocationServiceDelegate {
     }
     
     func handle(_ intent: PostingIntent) {
-        print("[DEBUG] PostingContainer handle() called")
+        
         switch intent {
         case .initialRequest:
             Task {
@@ -110,7 +109,7 @@ class PostingContainer: ObservableObject, LocationServiceDelegate {
     // 초기 데이터 로드
     private func loadInitialData() async {
         checkLocationPermission()
-        print("[DEBUG] loadInitialData() called")
+        
         // 수정 모드일 경우 기존 게시글 데이터 로드
         if model.isEditMode, let post = model.post {
             // 기존 데이터는 이미 model에 설정되어 있음
@@ -121,21 +120,21 @@ class PostingContainer: ObservableObject, LocationServiceDelegate {
     // 위치 권한 확인
     private func checkLocationPermission() {
         let status = locationService.authorizationStatus
-        print("[DEBUG] checkLocationPermission() - status: \(status.rawValue)")
+        
         switch status {
         case .authorizedWhenInUse, .authorizedAlways:
-            print("[DEBUG] 위치 권한 이미 허용됨")
+
             model.hasLocationPermission = true
             model.locationPermissionDenied = false
         case .denied, .restricted:
-            print("[DEBUG] 위치 권한 거부/제한됨")
+
             model.hasLocationPermission = false
             model.locationPermissionDenied = true
         case .notDetermined:
-            print("[DEBUG] 위치 권한 notDetermined → 권한 요청 시작")
+
             locationService.requestLocationPermission()
         @unknown default:
-            print("[DEBUG] 위치 권한 unknown default")
+
             model.hasLocationPermission = false
             model.locationPermissionDenied = true
         }
@@ -469,13 +468,13 @@ class PostingContainer: ObservableObject, LocationServiceDelegate {
     
     // 위치 비동기 획득 (권한 처리 포함)
     private func getCurrentLocation() async -> CLLocation? {
-        print("[DEBUG] getCurrentLocation() called")
+        
         if let coordinate = await locationService.requestCurrentLocation() {
-            print("[DEBUG] 위치 획득 성공 - lat: \(coordinate.latitude), lon: \(coordinate.longitude)")
+
             updateCurrentAddress(coordinate: coordinate)
             return CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
         } else {
-            print("[DEBUG] 위치 획득 실패")
+            print("위치 획득 실패")
             return nil
         }
     }
@@ -494,18 +493,18 @@ class PostingContainer: ObservableObject, LocationServiceDelegate {
     
     // MARK: - LocationServiceDelegate
     func locationService(didUpdateLocation coordinate: CLLocationCoordinate2D) {
-        print("[DEBUG] LocationServiceDelegate.didUpdateLocation - lat: \(coordinate.latitude), lon: \(coordinate.longitude)")
+
         model.hasLocationPermission = true
         model.locationPermissionDenied = false
         updateCurrentAddress(coordinate: coordinate)
     }
     func locationService(didFailWithError error: Error) {
-        print("[DEBUG] LocationServiceDelegate.didFailWithError - error: \(error.localizedDescription)")
+
         model.hasLocationPermission = false
         model.locationPermissionDenied = true
     }
     func locationService(didChangeAuthorization status: CLAuthorizationStatus) {
-        print("[DEBUG] LocationServiceDelegate.didChangeAuthorization - status: \(status.rawValue)")
+        
         switch status {
         case .authorizedWhenInUse, .authorizedAlways:
             model.hasLocationPermission = true
