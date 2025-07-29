@@ -12,6 +12,7 @@ struct ClusterInfo {
     let centerCoordinate: CLLocationCoordinate2D
     let count: Int
     let representativeImage: String?
+    let area: Double? // 클러스터 면적 (제곱미터), nil이면 계산되지 않음
 }
 
 enum ClusteringType {
