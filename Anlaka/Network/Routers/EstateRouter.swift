@@ -15,6 +15,7 @@ enum EstateRouter: AuthorizedTarget {
     case hotEstate
     case similarEstate
     case topicEstate
+    case likeLists(category: String?, next: String?)
     
     var requiresAuthorization: Bool {
         return true
@@ -40,6 +41,8 @@ enum EstateRouter: AuthorizedTarget {
             return "/similar-estates"
         case .topicEstate:
             return "/today-topic"
+        case .likeLists:
+            return "/likes/me"
         }
     }
 
@@ -80,6 +83,16 @@ enum EstateRouter: AuthorizedTarget {
             
         case .likeEstate(let estateId, _):
             return ["estate_id": estateId] // 쿼리로 요구된다면 추가
+        case .likeLists(let category, let next):
+            var params: [String: Any] = ["limit": "5"]
+            // category가 nil이 아니고 비어있지 않은 경우에만 추가
+            if let category = category, !category.isEmpty {
+                params["category"] = category
+            }
+            if let next = next, !next.isEmpty {
+                params["next"] = next
+            }
+            return params
         default:
             return [:]
         }
@@ -89,7 +102,7 @@ enum EstateRouter: AuthorizedTarget {
         var url = baseURL.appendingPathComponent(path)
 
         switch self {
-        case .geoEstate, .likeEstate:
+        case .geoEstate, .likeEstate, .likeLists:
             var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
             let queryItems = parameters.map {
                 URLQueryItem(name: $0.key, value: "\($0.value)")
