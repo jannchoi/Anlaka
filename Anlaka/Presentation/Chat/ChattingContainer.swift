@@ -266,7 +266,7 @@ final class ChattingContainer: ObservableObject {
                             }
                             
                             // DB 저장
-                            try await self?.databaseRepository.saveMessage(message)
+                                try await self?.databaseRepository.saveMessage(message)
                             
                             // 전송 상태 업데이트
                             self?.model.sendingMessageId = nil
