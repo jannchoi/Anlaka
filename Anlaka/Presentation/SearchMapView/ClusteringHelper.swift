@@ -1,145 +1,10 @@
 import Foundation
 import CoreLocation
 
-/*
- MARK: - 데이터 모델 설명
- 
- PinInfo: 지도에 표시되는 개별 매물 정보
- - estateId: String - 매물 고유 식별자
- - latitude, longitude: Double - 위도, 경도 좌표
- - image: String? - 매물 이미지 URL
- - title: String - 매물 제목
- 
- ClusterInfo: 클러스터링된 매물 그룹 정보
- - estateIds: [String] - 클러스터에 포함된 매물 ID 배열
- - centerCoordinate: CLLocationCoordinate2D - 클러스터 중심 좌표
- - count: Int - 클러스터에 포함된 매물 개수
- - representativeImage: String? - 클러스터 대표 이미지 URL
- */
 
 final class ClusteringHelper {
-    // MARK: - 1. 클러스터링 진입 메서드
-    
-    /// - Parameters:
-    ///   - pins: 매물 목록
-    /// - Returns: 클러스터링된 ClusterInfo 배열과 노이즈 PinInfo 배열
-    func cluster(pins: [PinInfo]) -> (clusters: [ClusterInfo], noise: [PinInfo]) {
-        guard !pins.isEmpty else { return (clusters: [], noise: []) }
-        
-        // 1. Core Distance 계산 (KDTree 기반 최적화, k=3으로 설정)
-        let coreDistances = computeCoreDistancesOptimized(pins: pins, k: 3)
-        
-        // 2. 줌 레벨에 독립적인 maxDistance 계산
-        let maxDistance = calculateZoomIndependentMaxDistance(pins: pins, k: 3, multiplier: 1.8)
-        
-        // 3. Mutual Reachability Graph 구성
-        let edges = buildMutualReachabilityEdges(pins: pins, coreDistances: coreDistances)
-        
-        // 4. MST (Minimum Spanning Tree) 구성
-        let mstEdges = computeMST(edges: edges)
-        
-        // 5. 클러스터 트리 구축 (간소화: 거리 임계값으로 분할)
-        let clusters = buildClusterTree(mstEdges: mstEdges, threshold: maxDistance)
-        
-        // 5. 클러스터 정제 및 노이즈 분리 (최소 크기 2로 설정)
-        let (validClusters, noiseIds) = extractValidClustersAndNoise(from: clusters, minClusterSize: 2, allPins: pins)
-        
-        // 6. 클러스터 간 겹침 방지를 위한 추가 정제 (주석처리 - 입력 그대로 출력)
-        // let refinedClusters = refineClustersToPreventOverlap(validClusters: validClusters, allPins: pins)
-        let refinedClusters = validClusters // 입력 그대로 출력
-        
-        // 7. pinDict 생성
-        let pinDict = Dictionary(uniqueKeysWithValues: pins.map { ($0.estateId, $0) })
-        
-        // 8. 최종 ClusterInfo 변환 (maxDistance 전달)
-        let clusterInfos = generateClusterInfo(from: refinedClusters, pinDict: pinDict, coreDistances: coreDistances, maxDistance: maxDistance)
-        
-        // 9. 노이즈 PinInfo 배열 생성
-        let noisePins = noiseIds.compactMap { pinDict[$0] }
-        
-        return (clusters: clusterInfos, noise: noisePins)
-    }
 
-    
-    // MARK: - 2. core distance 계산
-    
-    /// 각 매물의 core distance를 계산합니다.
-    /// Core distance는 해당 매물에서 k번째로 가까운 이웃까지의 거리입니다.
-    /// 
-    /// - Parameters:
-    ///   - pins: 매물 목록 (PinInfo 배열)
-    ///   - k: minPts (core distance를 계산할 이웃 수 기준, 보통 3-5)
-    /// - Returns: 각 PinInfo의 estateId를 키로 하고 core distance를 값으로 하는 딕셔너리 (이웃이 부족한 경우 nil)
-    func computeCoreDistances(pins: [PinInfo], k: Int) -> [String: Double?] {
-        var coreDistances: [String: Double?] = [:]
-        
-        for (index, pin) in pins.enumerated() {
-            var distances: [Double] = []
-            
-            // 모든 다른 점과의 거리 계산
-            for (otherIndex, otherPin) in pins.enumerated() {
-                if index != otherIndex {
-                    let distance = haversineDistance(
-                        from: CLLocationCoordinate2D(latitude: pin.latitude, longitude: pin.longitude),
-                        to: CLLocationCoordinate2D(latitude: otherPin.latitude, longitude: otherPin.longitude)
-                    )
-                    distances.append(distance)
-                }
-            }
-            
-            // k번째 최근접 이웃까지의 거리 (core distance)
-            if distances.count >= k {
-                distances.sort()
-                coreDistances[pin.estateId] = distances[k - 1]
-            } else {
-                coreDistances[pin.estateId] = nil
-            }
-        }
-        
-        return coreDistances
-    }
-    
-    
-    // MARK: - 3. mutual reachability graph 구성
-    
-    /// 모든 매물 쌍 간의 mutual reachability distance를 계산하여 간선 리스트를 생성합니다.
-    /// Mutual reachability distance = max(coreDistance(p1), coreDistance(p2), distance(p1, p2))
-    /// 
-    /// - Parameters:
-    ///   - pins: 매물 목록 (PinInfo 배열)
-    ///   - coreDistances: 각 매물의 core distance (estateId -> Double? 딕셔너리)
-    /// - Returns: 간선 리스트 (estateId1, estateId2, mutualReachabilityDistance) 튜플 배열
-    /// - Note: O(n²) 복잡도로, 모든 매물 쌍을 계산합니다
-    func buildMutualReachabilityEdges(pins: [PinInfo], coreDistances: [String: Double?]) -> [(String, String, Double)] {
-        var edges: [(String, String, Double)] = []
-        
-        for i in 0..<pins.count {
-            for j in (i+1)..<pins.count {
-                let pin1 = pins[i]
-                let pin2 = pins[j]
-                
-                // 두 점 간의 거리
-                let distance = haversineDistance(
-                    from: CLLocationCoordinate2D(latitude: pin1.latitude, longitude: pin1.longitude),
-                    to: CLLocationCoordinate2D(latitude: pin2.latitude, longitude: pin2.longitude)
-                )
-                
-                // Core distances
-                let core1: Double = coreDistances[pin1.estateId].flatMap { $0 } ?? Double.infinity
-                let core2: Double = coreDistances[pin2.estateId].flatMap { $0 } ?? Double.infinity
-                
-                // Mutual reachability distance = max(core1, core2, distance)
-                let mutualReachability = max(core1, core2, distance)
-                
-                edges.append((pin1.estateId, pin2.estateId, mutualReachability))
-            }
-        }
-        
-        return edges
-    }
-    
-    
-    // MARK: - 4. MST (Minimum Spanning Tree) 구성
+    // MARK: MST (Minimum Spanning Tree) 구성
     
     /// Kruskal 알고리즘을 사용하여 mutual reachability graph에서 최소 신장 트리를 구성합니다.
     /// 
@@ -174,7 +39,7 @@ final class ClusteringHelper {
     }
     
     
-    // MARK: - 5. 클러스터 트리 구축 (간소화: 거리 임계값으로 분할)
+    // MARK: 클러스터 트리 구축 (간소화: 거리 임계값으로 분할)
     
     /// MST 간선을 거리 임계값으로 분할하여 클러스터 후보들을 생성합니다.
     /// 임계값보다 큰 간선을 제거하면 연결된 컴포넌트들이 클러스터가 됩니다.
@@ -189,7 +54,7 @@ final class ClusteringHelper {
         let filteredEdges = mstEdges.filter { $0.2 <= threshold }
         
         // Union-Find를 사용하여 연결된 컴포넌트 찾기
-        var unionFind = UnionFind<String>()
+        let unionFind = UnionFind<String>()
         var allNodes = Set<String>()
         
         // 모든 노드 초기화
@@ -216,7 +81,7 @@ final class ClusteringHelper {
     }
     
     
-    // MARK: - 6. 클러스터 정제 및 노이즈 분리
+    // MARK: 클러스터 정제 및 노이즈 분리
     
     /// 클러스터 후보들에서 유효한 클러스터와 노이즈를 분리합니다.
     /// 최소 크기 미만의 클러스터는 제거하고, 클러스터에 포함되지 않은 매물들을 노이즈로 분류합니다.
@@ -248,77 +113,8 @@ final class ClusteringHelper {
         
         return (validClusters: validClusters, noiseIds: noiseIds)
     }
-    
 
-    
-    /// 클러스터 간 겹침을 방지하기 위해 클러스터를 정제합니다.
-    /// 클러스터 간 거리가 너무 가까우면 더 큰 클러스터를 우선하고 작은 클러스터는 분해합니다.
-    /// 
-    /// - Parameters:
-    ///   - validClusters: 유효한 클러스터 배열 (각 클러스터는 estateId 배열)
-    ///   - allPins: 전체 PinInfo 배열
-    /// - Returns: 겹침이 방지된 클러스터 배열
-    private func refineClustersToPreventOverlap(validClusters: [[String]], allPins: [PinInfo]) -> [[String]] {
-        guard validClusters.count > 1 else { return validClusters }
-        
-        // 줌 레벨에 독립적인 maxDistance 계산
-        let maxDistance = calculateZoomIndependentMaxDistance(pins: allPins, k: 3, multiplier: 1.5)
-        
-        let pinDict = Dictionary(uniqueKeysWithValues: allPins.map { ($0.estateId, $0) })
-        var refinedClusters: [[String]] = []
-        var processedClusters = Set<Int>()
-        
-        // 클러스터를 크기 순으로 정렬 (큰 클러스터 우선)
-        let sortedClusterIndices = validClusters.enumerated().sorted { $0.element.count > $1.element.count }.map { $0.offset }
-        
-        for mainIndex in sortedClusterIndices {
-            if processedClusters.contains(mainIndex) { continue }
-            
-            let mainCluster = validClusters[mainIndex]
-            let mainCenter = calculateClusterCenter(clusterIds: mainCluster, pinDict: pinDict)
-            var mergedCluster = mainCluster
-            processedClusters.insert(mainIndex)
-            
-            // 다른 클러스터들과의 거리 확인
-            for otherIndex in sortedClusterIndices {
-                if otherIndex == mainIndex || processedClusters.contains(otherIndex) { continue }
-                
-                let otherCluster = validClusters[otherIndex]
-                let otherCenter = calculateClusterCenter(clusterIds: otherCluster, pinDict: pinDict)
-                
-                // 두 클러스터 중심점 간의 거리 계산
-                let distance = haversineDistance(from: mainCenter, to: otherCenter)
-                
-                // 거리가 너무 가까우면 (maxDistance의 1.5배 이내) 병합 고려
-                if distance <= maxDistance * 1.5 {
-                    // 클러스터 내 모든 매물 간의 최대 거리 확인
-                    let allPinsInBothClusters = (mainCluster + otherCluster).compactMap { pinDict[$0] }
-                    let maxInternalDistance = calculateMaxInternalDistance(pins: allPinsInBothClusters)
-                    
-                    // 내부 거리가 허용 범위 내라면 병합
-                    if maxInternalDistance <= maxDistance * 2.0 {
-                        mergedCluster.append(contentsOf: otherCluster)
-                        processedClusters.insert(otherIndex)
-                    }
-                }
-            }
-            
-            refinedClusters.append(mergedCluster)
-        }
-        
-        return refinedClusters
-    }
-    
-    /// 클러스터의 중심점을 계산합니다.
-    /// 
-    /// - Parameters:
-    ///   - clusterIds: 클러스터 내 매물 ID 배열
-    ///   - pinDict: 매물 ID로 PinInfo를 조회할 수 있는 딕셔너리
-    /// - Returns: 클러스터 중심점
-    private func calculateClusterCenter(clusterIds: [String], pinDict: [String: PinInfo]) -> CLLocationCoordinate2D {
-        let pinInfos = clusterIds.compactMap { pinDict[$0] }
-        return calculateWeightedCenter(pinInfos: pinInfos)
-    }
+
     
     /// 매물 배열 내에서 가장 멀리 떨어진 두 매물 간의 거리를 계산합니다.
     /// 
@@ -343,7 +139,7 @@ final class ClusteringHelper {
         return maxDistance
     }
     
-    // MARK: - 7. 최종 ClusterInfo 변환
+    // MARK: 최종 ClusterInfo 변환
     
     /// 클러스터 ID 배열을 ClusterInfo 객체 배열로 변환합니다.
     /// 각 클러스터의 중심 좌표, 매물 개수, 대표 이미지 등을 계산합니다.
@@ -398,7 +194,8 @@ final class ClusteringHelper {
                 centerCoordinate: clusterInfo.centerCoordinate,
                 coreDistances: coreDistances,
                 allClusterInfos: clusterInfos,
-                maxDistance: maxDistance
+                maxDistance: maxDistance,
+                pinDict: pinDict
             )
             
             // 새로운 ClusterInfo 생성 (maxRadius 포함)
@@ -479,7 +276,7 @@ final class ClusteringHelper {
         return CLLocationCoordinate2D(latitude: finalCenterLat, longitude: finalCenterLon)
     }
     
-    // MARK: - 유틸리티 메서드
+    // MARK: 유틸리티 메서드
     
     /// Haversine 공식을 사용한 두 좌표 간의 정확한 거리를 계산합니다.
     /// 지구의 곡률을 고려하여 정확한 거리를 계산합니다.
@@ -520,7 +317,7 @@ final class ClusteringHelper {
         return R * c
     }
 }
-// MARK: - KDTree 구현
+    // MARK: KDTree 구현
 
 fileprivate class KDTree {
     private var root: KDNode?
@@ -652,7 +449,7 @@ fileprivate struct Neighbor {
     let distance: Double
 }
 
-// MARK: - Union-Find 자료구조 (MST 알고리즘용)
+// MARK: Union-Find 자료구조 (MST 알고리즘용)
 
 private class UnionFind<T: Hashable> {
     private var parent: [T: T] = [:]
@@ -689,7 +486,7 @@ private class UnionFind<T: Hashable> {
     }
 }
 
-// MARK: - 최적화된 Core Distance 계산 (KDTree 활용)
+// MARK: 최적화된 Core Distance 계산 (KDTree 활용)
 
 extension ClusteringHelper {
     
@@ -754,16 +551,17 @@ extension ClusteringHelper {
         return KDTree.fastDistanceApproximation(pin1: pin1, pin2: pin2)
     }
     
-    /// 줌 레벨에 독립적인 maxDistance를 계산합니다.
-    /// Core distance의 75% 백분위수를 기반으로 계산하여 데이터 분포에 적응합니다.
+    /// 줌 레벨과 매물 분포를 모두 고려한 maxDistance를 계산합니다.
+    /// Core distance의 75% 백분위수와 동적 기준 거리를 모두 고려하여 적응형 클러스터링을 제공합니다.
     /// 
     /// - Parameters:
     ///   - pins: 매물 목록 (PinInfo 배열)
     ///   - k: minPts (core distance 계산용, 기본값 3)
     ///   - multiplier: 배율 (기본값 1.0, 1.5나 2.0으로 조정 가능)
-    /// - Returns: 줌 레벨에 독립적인 maxDistance (미터 단위)
-    /// - Note: 데이터 분포에 따라 자동으로 조정되며, 줌 레벨과 무관하게 일관된 클러스터링을 제공합니다
-    func calculateZoomIndependentMaxDistance(pins: [PinInfo], k: Int = 3, multiplier: Double = 1.0) -> Double {
+    ///   - zoomLevel: 현재 줌 레벨 (6-14, 기본값 12)
+    /// - Returns: 줌 레벨과 매물 분포를 고려한 maxDistance (미터 단위)
+    /// - Note: 데이터 분포에 따라 동적으로 조정된 기준 거리를 사용하여 더 정확한 클러스터링을 제공합니다
+    func calculateZoomIndependentMaxDistance(pins: [PinInfo], k: Int = 3, multiplier: Double = 1.0, zoomLevel: Double = 12.0) -> Double {
         // 1. Core distance 계산
         let coreDistances = computeCoreDistancesOptimized(pins: pins, k: k)
         
@@ -771,8 +569,8 @@ extension ClusteringHelper {
         let validCoreDistances = coreDistances.compactMap { $0.value }
         
         guard !validCoreDistances.isEmpty else {
-            // Core distance가 없는 경우 기본값 반환
-            return 100.0
+            // Core distance가 없는 경우 줌 레벨 기반 기본값 반환
+            return getBaseDistanceForZoom(zoomLevel: zoomLevel)
         }
         
         // 3. Core distance를 오름차순 정렬
@@ -782,101 +580,543 @@ extension ClusteringHelper {
         let percentileIndex = Int(floor(0.75 * Double(sortedCoreDistances.count - 1)))
         let percentile75 = sortedCoreDistances[percentileIndex]
         
-        // 5. 배율 적용하여 maxDistance 계산
-        let maxDistance = percentile75 * multiplier
+        // 5. 데이터 분포를 고려한 동적 기준 거리 계산
+        let zoomBasedDistance = getBaseDistanceForZoom(zoomLevel: zoomLevel, coreDistances: coreDistances)
         
-        // 디버깅용 로그 (나중에 제거 가능)
-        print("🔍 줌 독립적 maxDistance 계산:")
-        print("   - 총 매물 수: \(pins.count)")
-        print("   - 유효한 core distance 수: \(validCoreDistances.count)")
-        print("   - 75% 백분위수: \(percentile75)m")
-        print("   - 최종 maxDistance: \(maxDistance)m (배율: \(multiplier))")
+        // 6. 매물 분포 기반 거리와 동적 기준 거리를 가중 평균으로 결합
+        let mrdBasedDistance = percentile75 * multiplier
         
-        return maxDistance
+        // 7. 줌 레벨에 따른 가중치 계산
+        let zoomWeight = calculateZoomWeight(zoomLevel: zoomLevel)
+        let mrdWeight = 1.0 - zoomWeight
+        
+        // 8. 가중 평균으로 최종 maxDistance 계산
+        let maxDistance = (zoomBasedDistance * zoomWeight) + (mrdBasedDistance * mrdWeight)
+        
+        // 9. 최소값과 최대값 범위 내로 제한 (동적 기준 거리 기반)
+        let minDistance = zoomBasedDistance * 0.3
+        let maxAllowedDistance = zoomBasedDistance * 2.0
+        
+        let finalDistance = max(minDistance, min(maxAllowedDistance, maxDistance))
+        
+        return finalDistance
+    }
+    
+    /// 줌 레벨에 따른 가중치를 계산합니다.
+    /// 줌 레벨이 낮을수록 줌 기반 거리에 더 높은 가중치를 부여합니다.
+    /// 
+    /// - Parameter zoomLevel: 현재 줌 레벨 (6-14)
+    /// - Returns: 줌 기반 거리에 대한 가중치 (0.0-1.0)
+    private func calculateZoomWeight(zoomLevel: Double) -> Double {
+        switch zoomLevel {
+        case 6: return 0.8   // 매우 낮은 줌 - 줌 기반 거리에 높은 가중치
+        case 7: return 0.7
+        case 8: return 0.6
+        case 9: return 0.5
+        case 10: return 0.4
+        case 11: return 0.3
+        case 12: return 0.2  // 중간 줌 - 균형잡힌 가중치
+        case 13: return 0.1
+        case 14: return 0.05 // 높은 줌 - MRD 기반 거리에 높은 가중치
+        default: return 0.2
+        }
     }
     
     // MARK: - 최적 반지름 계산 함수들
     
     /// 클러스터의 최적 maxRadius를 계산합니다.
-    /// maxDistance를 기반으로 동적 범위를 설정하여 적응적인 클러스터링을 제공합니다.
+    /// 클러스터의 실제 지리적 범위를 상한선과 하한선 사이에서 비례적으로 매핑합니다.
     /// 
     /// - Parameters:
     ///   - clusterIds: 클러스터 내 매물 ID 배열
     ///   - centerCoordinate: 클러스터 중심 좌표
     ///   - coreDistances: 각 매물의 core distance (estateId -> Double? 딕셔너리)
     ///   - allClusterInfos: 모든 클러스터 정보 배열
-    ///   - maxDistance: 클러스터링에 사용된 최대 거리 (동적 범위 설정용)
-    /// - Returns: 최적화된 maxRadius (미터 단위, maxDistance 기반 동적 범위)
-    /// - Note: maxDistance를 기반으로 반지름 범위를 동적으로 조정하여 데이터 분포에 적응합니다
+    ///   - maxDistance: 클러스터링에 사용된 최대 거리 (겹침 방지용)
+    ///   - pinDict: 매물 ID로 PinInfo를 조회할 수 있는 딕셔너리
+    /// - Returns: 최적화된 maxRadius (미터 단위, 지리적 범위 비례 매핑)
+    /// - Note: 실제 반지름을 상한선과 하한선 사이에서 비례적으로 매핑하여 겹침을 방지합니다
     private func calculateOptimalMaxRadius(
         clusterIds: [String],
         centerCoordinate: CLLocationCoordinate2D,
         coreDistances: [String: Double?]?,
         allClusterInfos: [ClusterInfo],
-        maxDistance: Double? = nil
+        maxDistance: Double? = nil,
+        pinDict: [String: PinInfo]? = nil
     ) -> Double {
         let clusterCount = clusterIds.count
         
-        // maxDistance 기반 동적 범위 설정
-        let baseMaxDistance = maxDistance ?? 100.0
-        let minRadius = baseMaxDistance * 0.1 // maxDistance의 10%
-        let maxRadius = baseMaxDistance * 0.8 // maxDistance의 80%
+        // 상한선과 하한선 설정
+        let maxAllowedRadius = (maxDistance ?? 100.0) * 0.5 // 상한선
+        let minRadius = 10.0 // 하한선
         
-        // 매물 수에 기반한 기본 반지름 계산 (로그 스케일 사용)
-        let baseRadius: Double
+        // 클러스터의 실제 지리적 범위 계산
+        let actualRadius: Double
         if clusterCount == 1 {
-            baseRadius = minRadius // 노이즈는 최소 크기
+            actualRadius = minRadius // 노이즈는 최소 크기
         } else {
-            // 로그 스케일을 사용하여 매물 수에 비례한 반지름 계산
-            let logCount = log10(Double(clusterCount))
-            let maxLogCount = log10(100.0) // 100개를 최대 기준으로 설정
-            
-            let ratio = min(1.0, logCount / maxLogCount)
-            baseRadius = minRadius + (maxRadius - minRadius) * ratio
-        }
-        
-        // 클러스터 간 겹침 방지를 위한 조정
-        var adjustedRadius = baseRadius
-        
-        for otherCluster in allClusterInfos {
-            let distance = haversineDistance(from: centerCoordinate, to: otherCluster.centerCoordinate)
-            let totalRadius = adjustedRadius + otherCluster.maxRadius
-            
-            if distance < totalRadius && distance > 0 {
-                // 겹침 발생 시, 거리의 절반으로 조정
-                let safeRadius = distance / 2.0
-                adjustedRadius = min(adjustedRadius, safeRadius)
+            // 클러스터 내 매물 간 최대 거리를 반지름으로 사용
+            if let pinDict = pinDict {
+                let pinInfos = clusterIds.compactMap { pinDict[$0] }
+                let maxInternalDistance = calculateMaxInternalDistance(pins: pinInfos)
+                actualRadius = max(maxInternalDistance * 0.5, minRadius) // 최대 거리의 절반을 반지름으로
+            } else {
+                // pinDict가 없는 경우 기본값 사용
+                actualRadius = minRadius + (maxAllowedRadius - minRadius) * 0.5
             }
         }
         
-        // 범위 제한 (maxDistance 기반)
-        let finalRadius = max(minRadius, min(maxRadius, adjustedRadius))
+        // 모든 클러스터의 실제 반지름을 계산하여 최소/최대값 찾기
+        let allActualRadii = calculateAllActualRadii(allClusterInfos: allClusterInfos, pinDict: pinDict)
+        let minActualRadius = allActualRadii.min() ?? minRadius
+        let maxActualRadius = allActualRadii.max() ?? maxAllowedRadius
         
-        print("🔍 maxRadius 계산: count=\(clusterCount), base=\(baseRadius)m, final=\(finalRadius)m (maxDistance=\(baseMaxDistance)m)")
+        // 실제 반지름을 상한선과 하한선 사이에서 비례적으로 매핑
+        let finalRadius: Double
+        if minActualRadius == maxActualRadius {
+            finalRadius = (minRadius + maxAllowedRadius) / 2 // 모든 클러스터가 같은 크기인 경우 중간값
+        } else {
+            let ratio = (actualRadius - minActualRadius) / (maxActualRadius - minActualRadius)
+            finalRadius = minRadius + (maxAllowedRadius - minRadius) * ratio
+        }
+        
+
         
         return finalRadius
     }
-
-    /// 다른 클러스터와의 거리를 기반으로 최대 반지름을 계산합니다.
-    /// 가장 가까운 클러스터와의 거리의 절반을 반환하여 겹침을 방지합니다.
+    
+    /// 모든 클러스터의 실제 반지름을 계산합니다.
     /// 
     /// - Parameters:
-    ///   - centerCoordinate: 현재 클러스터의 중심 좌표
     ///   - allClusterInfos: 모든 클러스터 정보 배열
-    /// - Returns: 거리 기반 최대 반지름 (미터 단위)
-    /// - Note: 다른 클러스터가 없는 경우 기본값 100m를 반환합니다
-    private func calculateMaxRadiusFromClusterDistance(
-        centerCoordinate: CLLocationCoordinate2D,
-        allClusterInfos: [ClusterInfo]
-    ) -> Double {
-        var minDistance = Double.infinity
-        for otherCluster in allClusterInfos {
-            let distance = haversineDistance(from: centerCoordinate, to: otherCluster.centerCoordinate)
-            minDistance = min(minDistance, distance)
+    ///   - pinDict: 매물 ID로 PinInfo를 조회할 수 있는 딕셔너리
+    /// - Returns: 모든 클러스터의 실제 반지름 배열
+    private func calculateAllActualRadii(allClusterInfos: [ClusterInfo], pinDict: [String: PinInfo]?) -> [Double] {
+        var actualRadii: [Double] = []
+        
+        for clusterInfo in allClusterInfos {
+            let clusterCount = clusterInfo.estateIds.count
+            
+            if clusterCount == 1 {
+                actualRadii.append(10.0) // 노이즈는 최소 크기
+            } else {
+                if let pinDict = pinDict {
+                    let pinInfos = clusterInfo.estateIds.compactMap { pinDict[$0] }
+                    let maxInternalDistance = calculateMaxInternalDistance(pins: pinInfos)
+                    let actualRadius = max(maxInternalDistance * 0.5, 10.0)
+                    actualRadii.append(actualRadius)
+                } else {
+                    actualRadii.append(10.0) // 기본값
+                }
+            }
         }
-        return minDistance == Double.infinity ? 100.0 : minDistance / 2.0 // 기본값 100m, 최소 거리 반영
+        
+        return actualRadii
+    }
+
+    
+}
+
+// MARK: 적응형 k 계산 및 최적화된 클러스터링
+
+extension ClusteringHelper {
+    
+    /// 줌 레벨과 데이터 특성을 고려한 적응형 k 계산
+    /// 
+    /// - Parameters:
+    ///   - pins: 매물 목록
+    ///   - zoomLevel: 현재 줌 레벨 (6-14)
+    /// - Returns: 최적화된 k값
+    /// - Note: 데이터 크기에 따라 동적으로 k 상한을 조정하여 더 정확한 밀도 추정을 제공합니다
+    func calculateAdaptiveK(pins: [PinInfo], zoomLevel: Double) -> Int {
+        let n = pins.count
+        
+        // 1. 데이터 크기 기반 기본 k 계산
+        let baseK = getBaseKBySize(n: n)
+        
+        // 2. 줌 레벨 기반 밀도 추정
+        let densityFactor = estimateDensityWithKDTree(pins: pins, zoomLevel: zoomLevel)
+        
+        // 3. 동적 상한 계산 (로그 스케일)
+        let maxK = calculateDynamicMaxK(dataSize: n)
+        
+        // 4. 최종 k 계산 및 동적 범위 제한
+        let finalK = max(3, min(maxK, Int(Double(baseK) * densityFactor)))
+        
+        return finalK
     }
     
+    /// 데이터 크기에 따른 동적 k 상한을 계산합니다.
+    /// 로그 스케일을 사용하여 대용량 데이터에서도 적절한 세밀도를 유지합니다.
+    /// 
+    /// - Parameter dataSize: 데이터 크기
+    /// - Returns: 동적으로 계산된 k 상한값
+    /// - Note: 데이터 크기가 클수록 약간 더 큰 k를 허용하되, 계산 부담을 최소화합니다
+    private func calculateDynamicMaxK(dataSize: Int) -> Int {
+        // 로그 스케일 상한: min(100, log2(n))
+        let logBasedMax = Int(log2(Double(dataSize)))
+        let absoluteMax = 100
+        
+        // 데이터 크기별 세밀한 조정
+        let adjustedMax: Int
+        switch dataSize {
+        case 0..<100:
+            adjustedMax = 20      // 작은 데이터셋: 보수적 상한
+        case 100..<1000:
+            adjustedMax = 40      // 중간 데이터셋: 적당한 상한
+        case 1000..<10000:
+            adjustedMax = 60      // 큰 데이터셋: 더 큰 상한
+        case 10000..<100000:
+            adjustedMax = 80      // 매우 큰 데이터셋: 큰 상한
+        default:
+            adjustedMax = 100     // 대용량 데이터셋: 최대 상한
+        }
+        
+        // 로그 기반 상한과 절대 상한 중 더 작은 값 선택
+        let logMax = min(logBasedMax, absoluteMax)
+        
+        // 데이터 크기별 조정된 상한과 로그 기반 상한 중 더 작은 값 선택
+        return min(adjustedMax, logMax)
+    }
     
+    /// 데이터 크기 기반 기본 k 계산
+    /// 
+    /// - Parameter n: 데이터 개수
+    /// - Returns: 기본 k값
+    private func getBaseKBySize(n: Int) -> Int {
+        switch n {
+        case 0..<100: return 3
+        case 100..<500: return 5
+        case 500..<2000: return 8
+        default: return 12
+        }
+    }
+    
+    /// 줌 레벨과 데이터 분포를 고려한 동적 기준 거리 계산
+    /// 
+    /// - Parameters:
+    ///   - zoomLevel: 현재 줌 레벨 (6-14)
+    ///   - coreDistances: Core distance 딕셔너리 (데이터 분포 분석용)
+    /// - Returns: 데이터 분포에 맞게 조정된 기준 거리 (미터)
+    /// - Note: Core distance의 분산을 분석하여 기준 거리를 동적으로 조정합니다
+    private func getBaseDistanceForZoom(zoomLevel: Double, coreDistances: [String: Double?]? = nil) -> Double {
+        let baseDistance: Double
+        switch zoomLevel {
+        case 6: baseDistance = 5000   // 122km의 약 4%
+        case 7: baseDistance = 2500   // 61km의 약 4%
+        case 8: baseDistance = 1200   // 30km의 약 4%
+        case 9: baseDistance = 600    // 15km의 약 4%
+        case 10: baseDistance = 300   // 7km의 약 4%
+        case 11: baseDistance = 150   // 3km의 약 4%
+        case 12: baseDistance = 80    // 1km의 약 8%
+        case 13: baseDistance = 40    // 500m의 약 8%
+        case 14: baseDistance = 20    // 250m의 약 8%
+        default: baseDistance = 100
+        }
+        
+        // Core distance가 제공된 경우 데이터 분포 기반 조정
+        guard let coreDistances = coreDistances else { return baseDistance }
+        
+        let validCoreDistances = coreDistances.compactMap { $0.value }
+        guard !validCoreDistances.isEmpty else { return baseDistance }
+        
+        // 데이터 분포 분석
+        let adjustedDistance = calculateDistributionAdjustedDistance(
+            baseDistance: baseDistance,
+            coreDistances: validCoreDistances
+        )
+        
+        return adjustedDistance
+    }
+    
+    /// Core distance의 분포를 분석하여 기준 거리를 동적으로 조정합니다.
+    /// 
+    /// - Parameters:
+    ///   - baseDistance: 줌 레벨 기반 기본 거리
+    ///   - coreDistances: 유효한 Core distance 배열
+    /// - Returns: 데이터 분포에 맞게 조정된 거리
+    /// - Note: 분산, IQR, 그리고 극값을 모두 고려하여 안정적인 조정을 수행합니다
+    private func calculateDistributionAdjustedDistance(baseDistance: Double, coreDistances: [Double]) -> Double {
+        guard coreDistances.count >= 3 else { return baseDistance } // 최소 3개 이상 필요
+        
+        let sortedDistances = coreDistances.sorted()
+        let count = sortedDistances.count
+        
+        // 1. 기본 통계 계산
+        let mean = sortedDistances.reduce(0, +) / Double(count)
+        let variance = sortedDistances.reduce(0) { $0 + pow($1 - mean, 2) } / Double(count)
+        let stdDev = sqrt(variance)
+        
+        // 2. IQR (Interquartile Range) 계산
+        let q1Index = Int(floor(0.25 * Double(count - 1)))
+        let q3Index = Int(floor(0.75 * Double(count - 1)))
+        let q1 = sortedDistances[q1Index]
+        let q3 = sortedDistances[q3Index]
+        let iqr = q3 - q1
+        
+        // 3. 분산 기반 조정 팩터 (CV: Coefficient of Variation 사용)
+        let coefficientOfVariation = stdDev / mean
+        let varianceFactor = min(0.8, coefficientOfVariation * 0.5) // 최대 80% 증가
+        
+        // 4. IQR 기반 조정 팩터 (더 안정적인 지표)
+        let iqrFactor = min(0.6, (iqr / mean) * 0.3) // 최대 60% 증가
+        
+        // 5. 극값 영향 최소화 (상위/하위 10% 제외)
+        let lowerBound = Int(floor(0.1 * Double(count)))
+        let upperBound = Int(floor(0.9 * Double(count)))
+        let trimmedMean = Array(sortedDistances[lowerBound..<upperBound]).reduce(0, +) / Double(upperBound - lowerBound)
+        let trimmedVariance = Array(sortedDistances[lowerBound..<upperBound]).reduce(0) { $0 + pow($1 - trimmedMean, 2) } / Double(upperBound - lowerBound)
+        let trimmedStdDev = sqrt(trimmedVariance)
+        let trimmedCV = trimmedStdDev / trimmedMean
+        let trimmedFactor = min(0.4, trimmedCV * 0.4) // 최대 40% 증가
+        
+        // 6. 최종 조정 팩터 계산 (가중 평균)
+        let finalFactor = (varianceFactor * 0.3) + (iqrFactor * 0.4) + (trimmedFactor * 0.3)
+        
+        // 7. 조정된 거리 계산
+        let adjustedDistance = baseDistance * (1 + finalFactor)
+        
+        // 8. 합리적인 범위 내로 제한
+        let minDistance = baseDistance * 0.5  // 최소 50%
+        let maxDistance = baseDistance * 2.0  // 최대 200%
+        
+        return max(minDistance, min(maxDistance, adjustedDistance))
+    }
+    
+    /// KDTree를 활용한 밀도 기반 계층적 샘플링으로 밀도 추정 (줌 레벨 고려)
+    /// 
+    /// - Parameters:
+    ///   - pins: 매물 목록
+    ///   - zoomLevel: 현재 줌 레벨
+    /// - Returns: 밀도 조정 팩터
+    /// - Note: 밀도가 높은 지역에서 더 많은 샘플을 선택하여 편향을 줄입니다
+    private func estimateDensityWithKDTree(pins: [PinInfo], zoomLevel: Double) -> Double {
+        let kdTree = KDTree(pins: pins)
+        let sampleSize = min(50, pins.count)
+        
+        // 밀도 기반 샘플링
+        let densityWeights = calculateDensityWeights(kdTree: kdTree, pins: pins) // O(n)
+        let sampledIndices = selectWeightedSamples(weights: densityWeights, sampleSize: sampleSize) // O(n)
+        
+        var totalNearestDistance = 0.0
+        var count = 0
+        
+        // 밀도 가중치 기반 샘플링으로 밀도 추정
+        for idx in sampledIndices {
+            let pin = pins[idx]
+            let nearestNeighbors = kdTree.kNearestNeighbors(of: pin, k: 1) // O(log n)
+            if let nearest = nearestNeighbors.first {
+                totalNearestDistance += nearest.distance
+                count += 1
+            }
+        }
+        
+        let avgNearestDistance = count > 0 ? totalNearestDistance / Double(count) : 0
+        let baseDistance = getBaseDistanceForZoom(zoomLevel: zoomLevel)
+        let densityRatio = avgNearestDistance / baseDistance
+        
+        // 밀도에 따른 조정 팩터 반환
+        return getDensityFactor(densityRatio: densityRatio)
+    }
+    
+    /// KDTree 노드의 밀도를 기반으로 각 포인트의 가중치를 계산합니다.
+    /// 밀도가 높은 지역의 포인트에 더 높은 가중치를 부여합니다.
+    /// 
+    /// - Parameters:
+    ///   - kdTree: 구축된 KDTree
+    ///   - pins: 매물 목록
+    /// - Returns: 각 포인트의 밀도 가중치 배열
+    /// - Note: O(n) 복잡도로 모든 노드를 순회하며 밀도 가중치를 계산합니다
+    private func calculateDensityWeights(kdTree: KDTree, pins: [PinInfo]) -> [Double] {
+        var weights = [Double](repeating: 1.0, count: pins.count)
+        
+        // KDTree의 모든 노드를 순회하며 밀도 계산
+        var nodeDensities: [String: Int] = [:] // estateId -> 노드 내 포인트 수
+        
+        // 각 포인트가 속한 노드의 크기를 계산
+        for pin in pins {
+            let nodeSize = calculateNodeSize(for: pin, in: kdTree)
+            nodeDensities[pin.estateId] = nodeSize
+        }
+        
+        // 노드 크기를 기반으로 가중치 계산
+        let maxNodeSize = nodeDensities.values.max() ?? 1
+        let minNodeSize = nodeDensities.values.min() ?? 1
+        
+        for (index, pin) in pins.enumerated() {
+            let nodeSize = nodeDensities[pin.estateId] ?? 1
+            
+            // 밀도가 높은 노드(큰 노드)에 더 높은 가중치 부여
+            if maxNodeSize > minNodeSize {
+                let densityRatio = Double(nodeSize - minNodeSize) / Double(maxNodeSize - minNodeSize)
+                weights[index] = 1.0 + (densityRatio * 2.0) // 최대 3배 가중치
+            }
+        }
+        
+        return weights
+    }
+    
+    /// 특정 포인트가 속한 KDTree 노드의 크기를 계산합니다.
+    /// 
+    /// - Parameters:
+    ///   - pin: 대상 포인트
+    ///   - kdTree: KDTree
+    /// - Returns: 노드 내 포인트 수
+    private func calculateNodeSize(for pin: PinInfo, in kdTree: KDTree) -> Int {
+        // 간단한 근사: k=5 이웃 검색으로 지역 밀도 추정
+        let neighbors = kdTree.kNearestNeighbors(of: pin, k: 5)
+        let avgDistance = neighbors.map { $0.distance }.reduce(0, +) / Double(neighbors.count)
+        
+        // 평균 거리가 작을수록 밀도가 높음
+        let densityFactor = max(1.0, 100.0 / max(avgDistance, 1.0))
+        return Int(densityFactor)
+    }
+    
+    /// 가중치 기반 무작위 샘플링을 수행합니다.
+    /// 밀도가 높은 지역에서 더 많은 샘플을 선택합니다.
+    /// 
+    /// - Parameters:
+    ///   - weights: 각 포인트의 가중치 배열
+    ///   - sampleSize: 선택할 샘플 수
+    /// - Returns: 선택된 샘플 인덱스 배열
+    /// - Note: O(n) 복잡도로 가중치 기반 샘플링을 수행합니다
+    private func selectWeightedSamples(weights: [Double], sampleSize: Int) -> [Int] {
+        guard !weights.isEmpty else { return [] }
+        
+        // 누적 가중치 계산
+        var cumulativeWeights: [Double] = []
+        var totalWeight = 0.0
+        
+        for weight in weights {
+            totalWeight += weight
+            cumulativeWeights.append(totalWeight)
+        }
+        
+        var selectedIndices: [Int] = []
+        var usedIndices = Set<Int>()
+        
+        // 가중치 기반 무작위 샘플링
+        while selectedIndices.count < sampleSize && selectedIndices.count < weights.count {
+            let randomValue = Double.random(in: 0..<totalWeight)
+            
+            // 이진 탐색으로 해당 가중치에 해당하는 인덱스 찾기
+            var left = 0
+            var right = cumulativeWeights.count - 1
+            var selectedIndex = 0
+            
+            while left <= right {
+                let mid = (left + right) / 2
+                if randomValue <= cumulativeWeights[mid] {
+                    selectedIndex = mid
+                    right = mid - 1
+                } else {
+                    left = mid + 1
+                }
+            }
+            
+            // 중복 방지
+            if !usedIndices.contains(selectedIndex) {
+                selectedIndices.append(selectedIndex)
+                usedIndices.insert(selectedIndex)
+            }
+        }
+        
+        return selectedIndices
+    }
+    
+    /// 밀도 비율에 따른 조정 팩터 계산
+    /// 
+    /// - Parameter densityRatio: 밀도 비율 (실제 거리 / 기준 거리)
+    /// - Returns: k 조정 팩터
+    private func getDensityFactor(densityRatio: Double) -> Double {
+        switch densityRatio {
+        case 0..<0.3: return 1.5   // 매우 고밀도
+        case 0.3..<0.7: return 1.2  // 고밀도
+        case 0.7..<1.2: return 1.0  // 중밀도
+        case 1.2..<2.0: return 0.8  // 저밀도
+        default: return 0.6         // 매우 저밀도
+        }
+    }
+    
+    /// 최적화된 클러스터링 (O(n log n) 복잡도)
+    /// 
+    /// - Parameters:
+    ///   - pins: 매물 목록
+    ///   - zoomLevel: 현재 줌 레벨 (6-14)
+    /// - Returns: 클러스터링 결과
+    func clusterOptimized(pins: [PinInfo], zoomLevel: Double) -> (clusters: [ClusterInfo], noise: [PinInfo]) {
+        guard !pins.isEmpty else { return (clusters: [], noise: []) }
+        let randomInt = Int.random(in: 0...100)
+        
+        // 1. 적응형 k 계산 (O(n log n))
+        let k = calculateAdaptiveK(pins: pins, zoomLevel: zoomLevel)
+        
+        // 2. Core Distance 계산 (O(n log n))
+        let coreDistances = computeCoreDistancesOptimized(pins: pins, k: k)
+        
+        // 3. 근사 Mutual Reachability 계산 (O(n log n))
+        let edges = buildApproximateMutualReachability(pins: pins, coreDistances: coreDistances, k: k)
+        
+        // 4. 근사 MST 계산 (O(n log n))
+        let mstEdges = computeApproximateMST(edges: edges)
+        
+        // 5. 줌 레벨과 매물 분포를 고려한 임계값 계산 (O(n log n))
+        let maxDistance = calculateZoomIndependentMaxDistance(pins: pins, k: k, multiplier: 1.8, zoomLevel: zoomLevel)
+        
+        // 6. 클러스터 트리 구축 (O(n log n))
+        let clusters = buildClusterTree(mstEdges: mstEdges, threshold: maxDistance)
+        
+        // 7. 클러스터 정제 및 노이즈 분리 (O(n))
+        let (validClusters, noiseIds) = extractValidClustersAndNoise(from: clusters, minClusterSize: 2, allPins: pins)
+        
+        // 8. 최종 ClusterInfo 생성 (O(n))
+        let pinDict = Dictionary(uniqueKeysWithValues: pins.map { ($0.estateId, $0) })
+        let clusterInfos = generateClusterInfo(from: validClusters, pinDict: pinDict, coreDistances: coreDistances, maxDistance: maxDistance)
+        let noisePins = noiseIds.compactMap { pinDict[$0] }
+        return (clusters: clusterInfos, noise: noisePins)
+    }
+    
+    /// 근사 Mutual Reachability 계산 (O(n log n))
+    /// 
+    /// - Parameters:
+    ///   - pins: 매물 목록
+    ///   - coreDistances: Core Distance 딕셔너리
+    ///   - k: 고려할 이웃 수
+    /// - Returns: 근사 Mutual Reachability 간선 목록
+    private func buildApproximateMutualReachability(pins: [PinInfo], coreDistances: [String: Double?], k: Int) -> [(String, String, Double)] {
+        let kdTree = KDTree(pins: pins)
+        var edges: [(String, String, Double)] = []
+        
+        // 각 매물마다 k개의 가장 가까운 이웃만 고려
+        for pin in pins {
+            let neighbors = kdTree.kNearestNeighbors(of: pin, k: k)
+            
+            for neighbor in neighbors {
+                let core1: Double = coreDistances[pin.estateId].flatMap { $0 } ?? Double.infinity
+                let core2: Double = coreDistances[neighbor.pin.estateId].flatMap { $0 } ?? Double.infinity
+                let mutualReachability = max(core1, core2, neighbor.distance)
+                
+                // 중복 방지를 위한 정렬된 추가
+                let edge = pin.estateId < neighbor.pin.estateId ? 
+                    (pin.estateId, neighbor.pin.estateId, mutualReachability) :
+                    (neighbor.pin.estateId, pin.estateId, mutualReachability)
+                
+                if !edges.contains(where: { $0.0 == edge.0 && $0.1 == edge.1 }) {
+                    edges.append(edge)
+                }
+            }
+        }
+        
+        return edges
+    }
+    
+    /// 근사 MST 계산 (O(n log n))
+    /// 
+    /// - Parameter edges: 근사 Mutual Reachability 간선 목록
+    /// - Returns: MST 간선 목록
+    private func computeApproximateMST(edges: [(String, String, Double)]) -> [(String, String, Double)] {
+        // 간선 수가 O(n)이므로 기존 MST 알고리즘 사용 가능
+        return computeMST(edges: edges) // O(n log n)
+    }
 }
 
