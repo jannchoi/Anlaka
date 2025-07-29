@@ -136,21 +136,50 @@ private struct SignUpInputFieldsView: View {
 private struct SignUpIntroductionView: View {
     @ObservedObject var container: SignUpContainer
     
+    // 글자수 계산을 위한 computed properties
+    private var characterCount: Int {
+        container.model.introduction.count
+    }
+    
+    private var isOverLimit: Bool {
+        characterCount > 60
+    }
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("자기소개")
                 .font(.soyoHeadline)
                 .foregroundColor(Color.MainTextColor)
-            TextEditor(text: $container.model.introduction)
-                .onChange(of: container.model.introduction) { container.handle(.introChanged($0)) }
+            
+            TextEditor(text: Binding(
+                get: { container.model.introduction },
+                set: { newValue in
+                    // 글자수 제한 적용 (공백 포함 60자)
+                    let charCount = newValue.count
+                    
+                    if charCount <= 60 {
+                        container.model.introduction = newValue
+                        container.handle(.introChanged(newValue))
+                    }
+                    // 제한을 초과하면 아무것도 하지 않음 (이전 값 유지)
+                }
+            ))
                 .frame(height: 100)
                 .padding(12)
                 .background(Color(.systemGray6))
                 .cornerRadius(12)
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                        .stroke(isOverLimit ? Color.TomatoRed : Color.gray.opacity(0.2), lineWidth: 1)
                 )
+            
+            // 글자수 카운터
+            HStack {
+                Spacer()
+                Text("\(characterCount)/60")
+                    .font(.pretendardCaption)
+                    .foregroundColor(isOverLimit ? Color.TomatoRed : Color.SubText)
+            }
         }
     }
 }
