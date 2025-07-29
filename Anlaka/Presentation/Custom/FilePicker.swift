@@ -97,21 +97,46 @@ struct FilePicker: UIViewControllerRepresentable {
                             result.itemProvider.loadFileRepresentation(forTypeIdentifier: "public.image") { url, error in
                                 let fileName = url?.lastPathComponent ?? "image.jpg"
                                 let ext = (fileName as NSString).pathExtension.lowercased()
-                                if self?.parent.pickerType.allowedImageExtensions.contains(ext) == true {
-                                    // 중복 검사
-                                    if existingFileNames.contains(fileName) {
-                                        hasDuplicate = true
+                                
+                                // 확장자가 없는 경우 UTType으로 정확한 확장자 자동 추가
+                                let finalFileName: String
+                                if ext.isEmpty {
+                                    // UTType으로 정확한 파일 타입 감지
+                                    var detectedExtension = "jpg" // 기본값
+                                    
+                                    if result.itemProvider.hasItemConformingToTypeIdentifier(UTType.png.identifier) {
+                                        detectedExtension = "png"
+                                    } else if result.itemProvider.hasItemConformingToTypeIdentifier(UTType.gif.identifier) {
+                                        detectedExtension = "gif"
+                                    } else if result.itemProvider.hasItemConformingToTypeIdentifier(UTType.webP.identifier) {
+                                        detectedExtension = "webp"
                                     }
                                     
-                                    let selectedFile = SelectedFile(
-                                        fileName: fileName,
-                                        fileType: .image,
-                                        image: image,
-                                        data: nil
-                                    )
-                                    DispatchQueue.main.async {
-                                        self?.parent.selectedFiles.append(selectedFile)
+                                    // 확장자 추가
+                                    let baseName = (fileName as NSString).deletingPathExtension
+                                    finalFileName = "\(baseName).\(detectedExtension)"
+                                    print("🔄 [FilePicker] 확장자 자동 추가: \(fileName) -> \(finalFileName)")
+                                } else {
+                                    // 확장자가 있지만 허용되지 않는 경우 업로드 거부
+                                    if !(self?.parent.pickerType.allowedImageExtensions.contains(ext) == true) {
+                                        print("❌ [FilePicker] 지원하지 않는 이미지 확장자: \(ext)")
+                                        return
                                     }
+                                    finalFileName = fileName
+                                }
+                                // 중복 검사
+                                if existingFileNames.contains(fileName) {
+                                    hasDuplicate = true
+                                }
+                                
+                                let selectedFile = SelectedFile(
+                                    fileName: finalFileName,
+                                    fileType: .image,
+                                    image: image,
+                                    data: nil
+                                )
+                                DispatchQueue.main.async {
+                                    self?.parent.selectedFiles.append(selectedFile)
                                 }
                             }
                         }
@@ -120,26 +145,43 @@ struct FilePicker: UIViewControllerRepresentable {
                 // 비디오 (커뮤니티만)
                 else if parent.pickerType.allowedVideoExtensions.count > 0,
                         result.itemProvider.hasItemConformingToTypeIdentifier(UTType.movie.identifier) {
-                    result.itemProvider.loadFileRepresentation(forTypeIdentifier: UTType.movie.identifier) { url, error in
+                    result.itemProvider.loadFileRepresentation(forTypeIdentifier: UTType.movie.identifier) { [weak self] url, error in
                         if let url = url {
                             let ext = url.pathExtension.lowercased()
-                            if self.parent.pickerType.allowedVideoExtensions.contains(ext) {
-                                // 중복 검사
-                                if existingFileNames.contains(url.lastPathComponent) {
-                                    hasDuplicate = true
+                            let fileName = url.lastPathComponent
+                            
+                            // 확장자가 없는 경우 UTType으로 정확한 확장자 자동 추가
+                            let finalFileName: String
+                            if ext.isEmpty {
+                                // iOS 갤러리 비디오는 대부분 MOV
+                                let baseName = (fileName as NSString).deletingPathExtension
+                                finalFileName = "\(baseName).mov"
+                                print("🔄 [FilePicker] 비디오 확장자 자동 추가: \(fileName) -> \(finalFileName)")
+                            } else {
+                                // 확장자가 있지만 허용되지 않는 경우 업로드 거부
+                                guard let self = self else { return }
+                                if !self.parent.pickerType.allowedVideoExtensions.contains(ext) {
+                                    print("❌ [FilePicker] 지원하지 않는 비디오 확장자: \(ext)")
+                                    print("🔍 [FilePicker] 허용된 확장자: \(self.parent.pickerType.allowedVideoExtensions)")
+                                    return
                                 }
-                                
-                                // 비디오 파일을 Data로 로드
-                                if let videoData = try? Data(contentsOf: url) {
-                                    let selectedFile = SelectedFile(
-                                        fileName: url.lastPathComponent,
-                                        fileType: .video,
-                                        image: nil,
-                                        data: videoData
-                                    )
-                                    DispatchQueue.main.async {
-                                        self.parent.selectedFiles.append(selectedFile)
-                                    }
+                                finalFileName = fileName
+                            }
+                            // 중복 검사
+                            if existingFileNames.contains(url.lastPathComponent) {
+                                hasDuplicate = true
+                            }
+                            
+                            // 비디오 파일을 Data로 로드
+                            if let videoData = try? Data(contentsOf: url) {
+                                let selectedFile = SelectedFile(
+                                    fileName: finalFileName,
+                                    fileType: .video,
+                                    image: nil,
+                                    data: videoData
+                                )
+                                DispatchQueue.main.async {
+                                    self?.parent.selectedFiles.append(selectedFile)
                                 }
                             }
                         }
@@ -148,7 +190,7 @@ struct FilePicker: UIViewControllerRepresentable {
                 // PDF (채팅만)
                 else if parent.pickerType.allowPDF,
                         result.itemProvider.hasItemConformingToTypeIdentifier(UTType.pdf.identifier) {
-                    result.itemProvider.loadFileRepresentation(forTypeIdentifier: UTType.pdf.identifier) { url, error in
+                    result.itemProvider.loadFileRepresentation(forTypeIdentifier: UTType.pdf.identifier) { [weak self] url, error in
                         if let url = url {
                             let ext = url.pathExtension.lowercased()
                             if ext == "pdf" {
@@ -166,7 +208,7 @@ struct FilePicker: UIViewControllerRepresentable {
                                         data: pdfData
                                     )
                                     DispatchQueue.main.async {
-                                        self.parent.selectedFiles.append(selectedFile)
+                                        self?.parent.selectedFiles.append(selectedFile)
                                     }
                                 }
                             }

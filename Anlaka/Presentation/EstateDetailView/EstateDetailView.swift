@@ -90,6 +90,7 @@ struct EstateDetailView: View {
                 path.append(opponent_id)
             }
         }
+        .customNotificationBanner()
     }
     
 }

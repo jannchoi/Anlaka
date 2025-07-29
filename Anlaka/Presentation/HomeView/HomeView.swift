@@ -187,7 +187,7 @@ var body: some View {
             TabView(selection: $currentPage) {
                 ForEach(Array(entity.enumerated()), id: \.offset) { index, item in
                     ZStack(alignment: .bottom) {
-                        CustomAsyncImage.detail(
+                        CustomAsyncImage.thumbnail(
                             imagePath: item.summary.thumbnail
                         ) { image in
                             // 이미지 로드 완료 시 밝기 확인
@@ -432,7 +432,7 @@ struct HotEstateItemView: View {
         VStack(alignment: .leading, spacing: 0) {
             // 썸네일 이미지 with overlays
             ZStack {
-                CustomAsyncImage.detail(
+                CustomAsyncImage.thumbnail(
                     imagePath: item.summary.thumbnail
                 )
                     .frame(width: 235, height: 130)
