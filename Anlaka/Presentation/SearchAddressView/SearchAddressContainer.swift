@@ -96,7 +96,7 @@ class SearchAddressContainer: ObservableObject {
         guard !query.isEmpty else { return }
         do {
             let response = try await repository.getGeofromAddressQuery(query, page: model.addressCurPage)
-            print("🧶🧶🧶",response.documents.count)
+
             await MainActor.run {
                 model.addressCurPage += 1
                 model.addressQueryIsEnd = response.meta.isEnd

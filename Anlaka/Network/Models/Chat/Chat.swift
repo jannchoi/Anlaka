@@ -34,7 +34,7 @@ struct ChatResponseDTO: Codable {
 
     func toEntity() -> ChatEntity {
         if chatId.isEmpty || roomId.isEmpty {
-            print("👤 채팅 ID가 비어있습니다. chatId: \(chatId), roomId: \(roomId)")
+            print(" 채팅 ID가 비어있습니다. chatId: \(chatId), roomId: \(roomId)")
         }
         return ChatEntity(
             chatId: chatId,
@@ -49,7 +49,7 @@ struct ChatResponseDTO: Codable {
 }
 
 
-struct ChatEntity: Identifiable {
+struct ChatEntity: Identifiable, Equatable {
     let chatId: String
     let roomId: String
     let content: String
@@ -66,6 +66,17 @@ struct ChatEntity: Identifiable {
     }
     var id: String {
         return chatId
+    }
+    
+    // Equatable 구현
+    static func == (lhs: ChatEntity, rhs: ChatEntity) -> Bool {
+        return lhs.chatId == rhs.chatId &&
+               lhs.roomId == rhs.roomId &&
+               lhs.content == rhs.content &&
+               lhs.createdAt == rhs.createdAt &&
+               lhs.updatedAt == rhs.updatedAt &&
+               lhs.sender == rhs.sender &&
+               lhs.files == rhs.files
     }
 }
     

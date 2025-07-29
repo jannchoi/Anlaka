@@ -540,7 +540,7 @@ struct ImageValidationHelper {
             return image
         }
         
-        //print("🔄 픽셀 포맷 변환: \(bitsPerComponent)비트/컴포넌트, \(bitsPerPixel)비트/픽셀 -> 8비트 RGBA")
+        //print(" 픽셀 포맷 변환: \(bitsPerComponent)비트/컴포넌트, \(bitsPerPixel)비트/픽셀 -> 8비트 RGBA")
         
         // 안전한 CGContext 생성 (8비트 RGBA로 강제 변환)
         guard let context = CGContext(
@@ -629,7 +629,7 @@ actor SafeDiskCacheManager {
         
         do {
             try data.write(to: fileURL)
-            //print("✅ 디스크 캐시 저장 성공: \(key)")
+            //print("디스크 캐시 저장 성공: \(key)")
         } catch {
             print("❌ 디스크 캐시 저장 실패: \(error) - 키: \(key)")
         }
@@ -1164,7 +1164,7 @@ class ThreadSafetyBenchmark {
         let endTime = CFAbsoluteTimeGetCurrent()
         let duration = endTime - startTime
         
-        print("📋 DispatchQueue 방식: \(String(format: "%.3f", duration))초")
+        print("DispatchQueue 방식: \(String(format: "%.3f", duration))초")
     }
     
     private func benchmarkActor(testCount: Int, concurrentCount: Int) async {
@@ -1185,8 +1185,7 @@ class ThreadSafetyBenchmark {
         
         let endTime = CFAbsoluteTimeGetCurrent()
         let duration = endTime - startTime
-        
-        print("🎭 Actor 방식: \(String(format: "%.3f", duration))초")
+
     }
 }
 
@@ -1194,7 +1193,7 @@ class ThreadSafetyBenchmark {
 extension ImageCache {
     /// 캐시 성능 테스트를 위한 함수
     static func runPerformanceTest() {
-        print("🧪 캐시 성능 테스트 시작...")
+        print(" 캐시 성능 테스트 시작...")
         
         let testImages = [
             "test_image_1.jpg",
@@ -1217,7 +1216,7 @@ extension ImageCache {
         let stats = ImageCache.shared.getCacheStatistics()
         let perfStats = CachePerformanceMonitor.shared.getStatistics()
         
-        print("📊 캐시 테스트 결과:")
+        print("캐시 테스트 결과:")
         print("   - 메모리 사용량: \(stats.totalCost / 1024 / 1024)MB")
         print("   - 캐시된 이미지 수: \(stats.count)")
         print("   - 캐시 히트율: \(String(format: "%.1f", perfStats.hitRate))%")
@@ -1252,7 +1251,7 @@ class ImagePreloader {
             if let image = await DownsamplingImageLoader.shared.loadImage(url: url, context: .thumbnail) {
                 // 메모리 캐시에 저장
                 ImageCache.shared.setImage(image, forKey: imagePath)
-                print("✅ 이미지 프리로딩 완료: \(imagePath)")
+                print("이미지 프리로딩 완료: \(imagePath)")
             } else {
                 print("❌ 이미지 프리로딩 실패: \(imagePath)")
             }

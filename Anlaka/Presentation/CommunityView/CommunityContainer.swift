@@ -121,13 +121,13 @@ final class CommunityContainer: NSObject, ObservableObject, LocationServiceDeleg
     
     private func getCurrentLocation() {
         Task {
-            print("📍 LocationService: 위치 요청 시작")
+
             // 위치 권한 요청과 현재 위치 요청을 한 번에 처리
             if let coordinate = await locationService.requestCurrentLocation() {
-                print("📍 LocationService: 위치 획득 성공 - \(coordinate.latitude), \(coordinate.longitude)")
+
                 handle(.locationUpdated(coordinate))
             } else {
-                print("📍 LocationService: 위치 획득 실패, 기본 좌표 사용")
+
                 // 기본 좌표 사용
                 handle(.locationUpdated(LocationService.defaultCoordinate))
             }
@@ -154,7 +154,7 @@ final class CommunityContainer: NSObject, ObservableObject, LocationServiceDeleg
                     next: nil,
                     order: model.selectedSort.rawValue
                 )
-                //print("📍 게시물 로드 성공 - \(posts.data.count)개")
+
                 model.allPosts = posts.data
                 model.nextCursor = posts.next == "0" ? nil : posts.next
                 model.posts = .success(posts.data)

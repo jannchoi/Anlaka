@@ -71,7 +71,6 @@ class Coordinator: NSObject, MapControllerDelegate, KakaoMapEventDelegate {
         onMapReady: ((Double) -> Void)? = nil,
         onMapChanged: ((CLLocationCoordinate2D, Double) -> Void)? = nil
     ) {
-        //print(#function)
         self.longitude = centerCoordinate.longitude
         self.latitude = centerCoordinate.latitude
         self.onMapReady = onMapReady
@@ -80,14 +79,12 @@ class Coordinator: NSObject, MapControllerDelegate, KakaoMapEventDelegate {
     }
     
     func createController(_ view: KMViewContainer) {
-        //print(#function)
         container = view
         controller = KMController(viewContainer: view)
         controller?.delegate = self
     }
     
     func addViews() {
-        //print(#function)
         guard !isViewAdded else { return }
         let defaultPosition = MapPoint(longitude: longitude, latitude: latitude)
         let mapviewInfo = MapviewInfo(viewName: "mapview", viewInfoName: "map", defaultPosition: defaultPosition)
@@ -103,12 +100,10 @@ class Coordinator: NSObject, MapControllerDelegate, KakaoMapEventDelegate {
     }
     
     func authenticationSucceeded() {
-        //print(#function)
         addViews()
     }
     
     func addViewSucceeded(_ viewName: String, viewInfoName: String) {
-        //print(#function)
         guard let mapView = controller?.getView("mapview") as? KakaoMap else { return }
         mapView.viewRect = container!.bounds
         mapView.setScaleBarPosition(origin: GuiAlignment(vAlign: .bottom, hAlign: .right), position: CGPoint(x: 10.0, y: 10.0))
@@ -132,14 +127,12 @@ class Coordinator: NSObject, MapControllerDelegate, KakaoMapEventDelegate {
     }
     
     func containerDidResized(_ size: CGSize) {
-        //print(#function)
         guard let mapView = controller?.getView("mapview") as? KakaoMap else { return }
         mapView.viewRect = CGRect(origin: .zero, size: size)
         mapView.eventDelegate = self
     }
     
     func updateCenterCoordinate(_ newCoordinate: CLLocationCoordinate2D) {
-        //print(#function)
         guard let kakaoMap = controller?.getView("mapview") as? KakaoMap else { return }
         
         // 현재 카메라 위치와 새로운 좌표의 차이가 유의미한 경우에만 이동
@@ -165,7 +158,6 @@ class Coordinator: NSObject, MapControllerDelegate, KakaoMapEventDelegate {
     }
     
     func cameraDidStopped(kakaoMap: KakaoMap, by: MoveBy) {
-        //print(#function)
         // 현재 줌 레벨과 좌표 정보 출력
         let currentZoomLevel = kakaoMap.zoomLevel
 
@@ -202,7 +194,6 @@ class Coordinator: NSObject, MapControllerDelegate, KakaoMapEventDelegate {
     }
     
     func calculateMaxDistance(mapView: KakaoMap) -> Double {
-        //print(#function)
         let viewSize = mapView.viewRect.size
         let centerPoint = CGPoint(x: viewSize.width / 2, y: viewSize.height / 2)
         let corners = [
@@ -221,7 +212,6 @@ class Coordinator: NSObject, MapControllerDelegate, KakaoMapEventDelegate {
     }
     
     private func estimateMapResolution(mapView: KakaoMap) -> Double {
-        //print(#function)
         let zoomLevel = mapView.zoomLevel
         let latitudeRadians = latitude * .pi / 180
         return 156543.03 * cos(latitudeRadians) / pow(2.0, Double(zoomLevel))
@@ -229,7 +219,6 @@ class Coordinator: NSObject, MapControllerDelegate, KakaoMapEventDelegate {
     
     
     private func setupPOILayer(_ mapView: KakaoMap) {
-        //print(#function)
         let manager = mapView.getLabelManager()
         
         // SimplePOI 예제와 동일한 레이어 옵션 사용
@@ -244,7 +233,6 @@ class Coordinator: NSObject, MapControllerDelegate, KakaoMapEventDelegate {
     }
 
     func clearAllPOIs() {
-        //print(#function)
         guard let kakaoMap = controller?.getView("mapview") as? KakaoMap,
               let layer = kakaoMap.getLabelManager().getLabelLayer(layerID: layerID) else { return }
         layer.clearAllItems()
@@ -259,7 +247,6 @@ extension Coordinator {
 
     /// POI들을 제거하는 메서드
     private func removePOIs(_ estateIds: [String], from layer: LabelLayer) {
-        //print(#function)
         var removedCount = 0
         
         for estateId in estateIds {
@@ -274,13 +261,12 @@ extension Coordinator {
         }
         
         if removedCount > 0 {
-            //print("🗑️ POI \(removedCount)개 제거 완료")
+            // POI 제거 완료
         }
     }
     
     /// POI들을 추가하는 메서드
     private func addPOIs(_ poiOptionsArray: [(poiData: (pinInfo: PinInfo, image: UIImage, index: Int), styleID: String, poiOption: PoiOptions)], to layer: LabelLayer) {
-        //print(#function)
         var addedCount = 0
         
         for poiOptionData in poiOptionsArray {
@@ -309,7 +295,7 @@ extension Coordinator {
         }
         
         if addedCount > 0 {
-            // print("✅ POI \(addedCount)개 추가 완료")
+            // POI 추가 완료
         }
     }
 
@@ -335,7 +321,6 @@ extension Coordinator {
     
     // MARK: - 줌 레벨에 따른 클러스터링 타입 결정
     private func getClusteringType(for zoomLevel: Int) -> ClusteringType {
-        //print(#function, "🔷\(zoomLevel)")
         if zoomLevel >= 6 && zoomLevel <= 14 {
             return .zoomLevel6to14
         } else {
@@ -345,7 +330,6 @@ extension Coordinator {
     
     // MARK: - 클러스터링 메인 메서드
     private func performClustering(_ pinInfos: [PinInfo], zoomLevel: Int) -> ([ClusterInfo], CGFloat?) {
-        //print(#function, pinInfos.count)
         let clusteringType = getClusteringType(for: zoomLevel)
         guard let kakaoMap = controller?.getView("mapview") as? KakaoMap else { return ([], 0) }
         
@@ -401,7 +385,6 @@ extension Coordinator {
         gridWidth: Double,
         gridHeight: Double
     ) -> CLLocationCoordinate2D {
-        //print(#function)
         // 격자의 중심까지 위도/경도를 이동
         let centerOffsetX = Double(gridX) + 0.5
         let centerOffsetY = Double(gridY) + 0.5
@@ -423,7 +406,6 @@ extension Coordinator {
         _ pinInfos: [PinInfo],
         kakaoMap: KakaoMap
     ) -> ([ClusterInfo], CGFloat) {
-        //print(#function, pinInfos.count)
         guard !pinInfos.isEmpty else { return ([], 0) }
         guard let kakaoMap = controller?.getView("mapview") as? KakaoMap else { return ([], 0) }
         // 1. 화면 모서리 좌표
@@ -485,13 +467,11 @@ extension Coordinator {
             
             clusterInfos.append(cluster)
         }
-        //print("🔍 clusterInfos 생성 성공: \(clusterInfos.count)")
         return (clusterInfos, maxPoiSize)
     }
     
     // MARK: - 원형 이미지 생성 (매물 수 표시용)
     private func createCircleImage(count: Int, poiSize: CGFloat?) -> UIImage {
-        //print("🔍 createCircleImage - 시작: count=\(count), poiSize=\(String(describing: poiSize))")
         let size = CGSize(width: poiSize ?? 50, height: poiSize ?? 50)
         let renderer = UIGraphicsImageRenderer(size: size)
 
@@ -500,7 +480,6 @@ extension Coordinator {
 
             // Assets의 원형 배경 이미지
             if let backgroundImage = UIImage(named: "Ellipse") {
-                //print("✅ Ellipse 이미지 로드 성공")
                 backgroundImage.draw(in: rect)
             } else {
                 print("❌ Ellipse 이미지 로드 실패")
@@ -522,7 +501,6 @@ extension Coordinator {
             text.draw(in: textRect, withAttributes: attributes)
         }
         
-        //print("✅ createCircleImage - 이미지 생성 완료: size=\(image.size), scale=\(image.scale)")
         return image
     }
 
@@ -579,13 +557,13 @@ extension Coordinator {
         private func convertToPNGRGBA(_ image: UIImage) -> UIImage {
         guard let cgImage = image.cgImage else {
             print("❌ [convertToPNGRGBA] CGImage 없음 - 원본 이미지 크기: \(image.size)")
-            print("🔍 [convertToPNGRGBA] 기본 이미지 사용 - 이유: CGImage 변환 실패")
+            print(" [convertToPNGRGBA] 기본 이미지 사용 - 이유: CGImage 변환 실패")
             return UIImage(systemName: "mappin") ?? UIImage() // 기본 이미지 반환
         }
         
         guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB) else {
             print("❌ [convertToPNGRGBA] 색상 공간 생성 실패")
-            print("🔍 [convertToPNGRGBA] 기본 이미지 사용 - 이유: 색상 공간 생성 실패")
+            print(" [convertToPNGRGBA] 기본 이미지 사용 - 이유: 색상 공간 생성 실패")
             return image
         }
     
@@ -621,13 +599,13 @@ extension Coordinator {
     
     guard let finalImage = UIImage(data: pngData) else {
         print("❌ [convertToPNGRGBA] PNG 데이터에서 UIImage 생성 실패")
-        print("🔍 [convertToPNGRGBA] 기본 이미지 사용 - 이유: PNG에서 UIImage 생성 실패")
+        print(" [convertToPNGRGBA] 기본 이미지 사용 - 이유: PNG에서 UIImage 생성 실패")
         return image
     }
     
     guard ImageValidationHelper.validateUIImage(finalImage) else {
         print("❌ [convertToPNGRGBA] 이미지 유효성 검사 실패 - finalImage 크기: \(finalImage.size)")
-        print("🔍 [convertToPNGRGBA] 기본 이미지 사용 - 이유: 이미지 유효성 검사 실패")
+        print(" [convertToPNGRGBA] 기본 이미지 사용 - 이유: 이미지 유효성 검사 실패")
         return image
     }
 
@@ -639,12 +617,9 @@ extension Coordinator {
 extension Coordinator {
     
     @MainActor func updatePOIsWithClustering(_ pinInfos: [PinInfo], currentCenter: CLLocationCoordinate2D, maxDistance: Double, forceUpdate: Bool = false) {
-        //print(#function, "pinInfos.count: \(pinInfos.count)")
         guard let kakaoMap = controller?.getView("mapview") as? KakaoMap else {
-            print("🚫 KakaoMap 객체를 가져올 수 없습니다.")
             return
         }
-//        print("🔍 KakaoMap 객체 생성 성공")
         // 현재 카메라 상태 확인
         let currentZoomLevel = Int(kakaoMap.zoomLevel)
 
@@ -667,10 +642,8 @@ extension Coordinator {
         let isSignificantChange = topLeftDistance > 10 || bottomRightDistance > 10
 
         if !isSignificantChange && !forceUpdate {
-//            print("변화 없음")
             return
         }
-        //print("🔍 변화 있음")
         // 변화가 있을 경우에만 이전 좌표 업데이트
         previousTopLeft = topLeftLocation.coordinate
         previousBottomRight = bottomRightLocation.coordinate
@@ -680,16 +653,12 @@ extension Coordinator {
         for pinInfo in pinInfos {
             currentPinInfos[pinInfo.estateId] = pinInfo
         }
-        //print("🔍 currentPinInfos 업데이트 성공")
         // 기존 POI 모두 제거
         clearAllPOIs()
         currentPOIs.removeAll()
-        //clusters.removeAll()
-        //print("🔍 기존 POI 모두 제거 성공")
         // 클러스터링 수행
         let (clusterInfos, maxPoiSize) = performClustering(pinInfos, zoomLevel: currentZoomLevel)
         let clusteringType = getClusteringType(for: currentZoomLevel)
-        //print("🔍 clusteringType 계산 성공")
         // zoomLevel에 따라 다른 처리
         switch clusteringType {
         case .zoomLevel6to14:
@@ -697,12 +666,11 @@ extension Coordinator {
         case .zoomLevel15Plus:
             createClusterPOIsForHighZoom(clusterInfos, zoomLevel: currentZoomLevel)
         }
-        //print("🔍 클러스터링 수행 성공")
     }
     
     @MainActor
     private func createClusterPOIsForLowZoom(_ clusterInfos: [ClusterInfo], maxPoiSize: CGFloat?) {
-        //print(#function, clusterInfos.count)
+
         guard let kakaoMap = controller?.getView("mapview") as? KakaoMap,
               let layer = kakaoMap.getLabelManager().getLabelLayer(layerID: layerID),
               let maxPoiSize = maxPoiSize else {
@@ -716,7 +684,6 @@ extension Coordinator {
         // clusterInfos가 빈 배열일 때 counts.min()과 counts.max()가 nil이 됨
         let counts = clusterInfos.map { $0.count }
         guard !clusterInfos.isEmpty else {
-            print("❌ 클러스터가 비어있음")
             return
         }
         
@@ -756,7 +723,7 @@ extension Coordinator {
                 poi.show()
                 currentPOIs[clusterID] = poi
             } else {
-                print("❌ POI 생성 실패: clusterID=\(clusterID)")
+                // POI 생성 실패
             }
         }
 
@@ -836,7 +803,6 @@ extension Coordinator {
 
     // 원형 스타일 생성 (zoomLevel 14 이하)
     private func createCircleStyle(for cluster: ClusterInfo, index: Int, poiSize: CGFloat?) -> String {
-        //print(#function)
         guard let kakaoMap = controller?.getView("mapview") as? KakaoMap else { return "" }
         let manager = kakaoMap.getLabelManager()
         
@@ -876,7 +842,6 @@ private func createImageStyle(with image: UIImage, for cluster: ClusterInfo, ind
         let size = CGSize(width: 40, height: 40)
 
         guard let imagePath = pinInfo.image else {
-            print("🔍 [processEstateImage] 기본 이미지 사용 - 이유: 이미지 경로 없음 (pinInfo.estateId: \(pinInfo.estateId))")
             return createDefaultEstateImage(size: size)
         }
         
@@ -886,13 +851,9 @@ private func createImageStyle(with image: UIImage, for cluster: ClusterInfo, ind
                 let processedImage = try applyStyle(to: loadedImage, size: size)
                 return processedImage
             } catch {
-                print("❌ [processEstateImage] 스타일 적용 실패 - 오류: \(error.localizedDescription)")
-                print("🔍 [processEstateImage] 기본 이미지 사용 - 이유: 스타일 적용 실패")
                 return createDefaultEstateImage(size: size)
             }
         } else {
-            print("❌ [processEstateImage] 이미지 로드 실패 - 경로: \(imagePath)")
-            print("🔍 [processEstateImage] 기본 이미지 사용 - 이유: 이미지 로드 실패")
             return createDefaultEstateImage(size: size)
         }
     }
@@ -951,7 +912,6 @@ return finalImage
     
     // 기본 이미지 생성 (zoomLevel 17 이상)
     private func createDefaultEstateImage(size: CGSize) -> UIImage {
-        //print(#function)
         guard let defaultImage = UIImage(systemName: "mappin") else { return UIImage() }
         return defaultImage
     }
@@ -961,28 +921,12 @@ return finalImage
 extension Coordinator {
     
     func poiDidTapped(kakaoMap: KakaoMap, layerID: String, poiID: String, position: MapPoint) {
-//        print("📍poi tapped")
-//        print("🔍 Debug Info:")
-//        print("- poiID: \(poiID)")
-//        print("- currentPOIs count: \(currentPOIs.count)")
-//        print("- currentPOIs keys: \(currentPOIs.keys)")
-//        
+
         // POI 검색 시도
         if let poi = currentPOIs.values.first(where: { $0.itemID == poiID }) {
-            //print("✅ Found POI with itemID: \(poi.itemID)")
-            if let userObject = poi.userObject {
-                //print("✅ userObject type: \(type(of: userObject))")
-                //print("✅ userObject value: \(userObject)")
-            } else {
-                //print("❌ userObject is nil")
-            }
+            // POI 찾음
         } else {
-            //print("❌ No POI found with itemID: \(poiID)")
-            // 모든 POI의 itemID 출력
-            //print("Available POI itemIDs:")
-            currentPOIs.values.forEach { poi in
-                //print("- \(poi.itemID)")
-            }
+            // POI를 찾을 수 없음
         }
         
         guard let poi = currentPOIs.values.first(where: { $0.itemID == poiID }),
@@ -992,7 +936,7 @@ extension Coordinator {
             return
         }
         
-        //print("📍📍poi tapped")
+
         let currentZoomLevel = Int(kakaoMap.zoomLevel)
         let clusteringType = getClusteringType(for: currentZoomLevel)
         var pininfos = [PinInfo]()
@@ -1002,7 +946,7 @@ extension Coordinator {
             }
         }
         
-        //print("🪣 \(clusteringType)")
+
         switch clusteringType {
         case .zoomLevel6to14:
             onClusterTap?(cluster)
@@ -1010,17 +954,16 @@ extension Coordinator {
             
         case .zoomLevel15Plus:
             if cluster.estateIds.count == 1 {
-                //print("🧤 \(cluster.estateIds.count)")
+
                 onPOITap?(cluster.estateIds.first!)
             } else {
-                //print("🧤🧤🧤 \(cluster.estateIds.count)")
+
                 onPOIGroupTap?(cluster.estateIds)
             }
         }
     }
     
     private func expandToShowAllEstates(_ pinInfos: [PinInfo], kakaoMap: KakaoMap) {
-        //print(#function)    
         // 클러스터 내 모든 매물을 포함하는 경계 계산
         guard !pinInfos.isEmpty else { return }
         
@@ -1045,7 +988,6 @@ extension Coordinator {
 
 extension CLLocation {
     func coordinate(with distanceMeters: Double, bearing: Double) -> CLLocationCoordinate2D {
-        //print(#function)
         let distanceRadians = distanceMeters / (6371000.0) // 지구 반경(m)
         let bearingRadians = bearing * .pi / 180 // 각도를 라디안으로 변환
         
@@ -1070,7 +1012,6 @@ extension CLLocation {
 }
 extension GeoCoordinate {
     var clLocationCoordinate: CLLocationCoordinate2D {
-        //print(#function)
         return CLLocationCoordinate2D(latitude: self.latitude, longitude: self.longitude)
     }
 }

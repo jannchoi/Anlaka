@@ -135,7 +135,7 @@ final class LoginContainer: NSObject, ObservableObject {
         }
     }
     private func callKakaoLogin() async {
-        print(#function)
+
         let oauthToken = UserDefaultsManager.shared.getString(forKey: .kakaoToken)
         let deviceToken = UserDefaultsManager.shared.getString(forKey: .deviceToken)
         let target = KakaoLoginRequestEntity(oauthToken: oauthToken, deviceToken: deviceToken)
@@ -143,6 +143,9 @@ final class LoginContainer: NSObject, ObservableObject {
             try await repository.kakaoLogin(kakaoLoginEntity: target)
             model.loginCompleted = true
             model.isLoading = false
+            
+            // 로그인 성공 후 디바이스 토큰 서버 업데이트
+            await updateDeviceTokenOnServer()
         } catch {
             if let error = error as? CustomError {
                 model.errorMessage = error.errorDescription
@@ -158,23 +161,23 @@ final class LoginContainer: NSObject, ObservableObject {
     
     // MARK: - AppleLogin
     private func handleAppleLogin(_ result: Result<ASAuthorization, Error>) async {
-        print("🧤 애플 로그인 시작, \(result)")
+
             switch result {
             case .success(let authResults):
                 guard let appleIDCredential = authResults.credential as? ASAuthorizationAppleIDCredential else {
                     model.errorMessage = "유효하지 않은 인증 정보입니다."
                     return
                 }
-                print("🧤 애플 로그인 성공, \(appleIDCredential)")
+
                 guard let idToken = appleIDCredential.identityToken,
                       let tokenString = String(data: idToken, encoding: .utf8) else {
                     model.errorMessage = "토큰 변환 실패"
                     return
                 }
-                print("🧤 애플 로그인 성공, \(tokenString)")
+ 
                 let fullName = appleIDCredential.fullName
                 let name = (fullName?.familyName ?? "") + (fullName?.givenName ?? "")
-                print(name)
+
                 UserDefaultsManager.shared.set(tokenString, forKey: .appleIdToken)
                 await callAppleLogin(name)
             case .failure(let error):
@@ -183,18 +186,21 @@ final class LoginContainer: NSObject, ObservableObject {
         }
     
     func callAppleLogin(_ nick: String) async {
-        print(#function)
+
         let nickname = nick.isEmpty ? "아무개" : nick
         let idToken = UserDefaultsManager.shared.getString(forKey: .appleIdToken)
         let deviceToken = UserDefaultsManager.shared.getString(forKey: .deviceToken)
         let target = AppleLoginRequestEntity(idToken: idToken, deviceToken: deviceToken, nick: nickname)
-        print("🧤 애플 로그인 시작, \(target)")
+
         do {
             try await repository.appleLogin(appleLoginEntity: target)
             model.loginCompleted = true
             model.isLoading = false
+            
+            // 로그인 성공 후 디바이스 토큰 서버 업데이트
+            await updateDeviceTokenOnServer()
         } catch {
-            print("🧤 애플 로그인 실패, \(error)")
+            print(" 애플 로그인 실패, \(error)")
             if let error = error as? CustomError {
                 model.errorMessage = error.errorDescription
             } else {
@@ -222,8 +228,37 @@ final class LoginContainer: NSObject, ObservableObject {
             try await repository.emailLogin(emailLoginEntity: entity)
             model.loginCompleted = true
             model.isLoading = false
+            
+            // 로그인 성공 후 디바이스 토큰 서버 업데이트
+            await updateDeviceTokenOnServer()
         } catch {
             model.errorMessage = "Login failed: \(error.localizedDescription)"
+        }
+    }
+    
+    // MARK: - Device Token Update
+    private func updateDeviceTokenOnServer() async {
+        // 디바이스 토큰 변경 플래그 확인
+        let isTokenChanged = UserDefaultsManager.shared.getBool(forKey: .deviceTokenChanged)
+        
+        if !isTokenChanged {
+            return
+        }
+        
+        guard let deviceToken = UserDefaultsManager.shared.getString(forKey: .deviceToken) else {
+            return
+        }
+        
+        do {
+            let success = try await repository.updateDeviceToken(deviceToken: deviceToken)
+            if success {
+
+                UserDefaultsManager.shared.set(false, forKey: .deviceTokenChanged)
+            } else {
+                print("❌ 로그인 성공 후 서버에 디바이스 토큰 업데이트 실패")
+            }
+        } catch {
+            print("❌ 로그인 성공 후 서버에 디바이스 토큰 업데이트 중 오류: \(error.localizedDescription)")
         }
     }
 

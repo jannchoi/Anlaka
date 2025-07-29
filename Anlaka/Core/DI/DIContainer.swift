@@ -36,7 +36,11 @@ final class DIContainer: ObservableObject {
         SignUpContainer(repository: networkRepository)
     }
     func makeHomeContainer() -> HomeContainer {
-        HomeContainer(repository: networkRepository)
+        let homeUseCase = HomeUseCase(
+            networkRepository: networkRepository,
+            addressRepository: addressNetworkRepository
+        )
+        return HomeContainer(useCase: homeUseCase)
     }
     func makeSearchMapContainer() -> SearchMapContainer {
         SearchMapContainer(repository: networkRepository, locationService: locationService)

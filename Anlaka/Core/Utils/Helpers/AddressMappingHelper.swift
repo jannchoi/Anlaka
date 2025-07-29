@@ -229,7 +229,7 @@ extension AddressMappingHelper {
                             updatedAt: summary.updatedAt,
                             address: "알 수 없음"
                         )
-                        return (index, .success(updatedSummary)) 
+                        return (index, .success(updatedSummary))
                     }
                 }
             }
