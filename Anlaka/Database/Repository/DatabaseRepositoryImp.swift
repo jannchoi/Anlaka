@@ -20,7 +20,7 @@ final class DatabaseRepositoryImp: DatabaseRepository {
                             content: chat.content,
                             createdAt: PresentationMapper.parseISO8601ToDate(chat.createdAt),
                             updatedAt: PresentationMapper.parseISO8601ToDate(chat.updatedAt),
-                            senderId: chat.sender.userId,
+                            senderId: chat.sender,
                             files: chat.files,
                             roomId: room.roomId
                         )
@@ -30,8 +30,8 @@ final class DatabaseRepositoryImp: DatabaseRepository {
                         UserInfoRealmModel(
                             userId: participant.userId,
                             nick: participant.nick,
-                            introduction: participant.introduction ?? "",
-                            profileImage: participant.profileImage ?? ""
+                            introduction: participant.introduction,
+                            profileImage: participant.profileImage
                         )
                     }
                     
@@ -67,12 +67,7 @@ final class DatabaseRepositoryImp: DatabaseRepository {
                             content: chat.content,
                             createdAt: PresentationMapper.formatDateToISO8601(chat.createdAt),
                             updatedAt: PresentationMapper.formatDateToISO8601(chat.updatedAt),
-                            sender: UserInfoEntity(
-                                userId: chat.senderId,
-                                nick: "",
-                                introduction: "",
-                                profileImage: ""
-                            ),
+                            sender: chat.senderId,
                             files: Array(chat.files)
                         )
                     }
@@ -113,7 +108,7 @@ final class DatabaseRepositoryImp: DatabaseRepository {
                             content: chat.content,
                             createdAt: PresentationMapper.parseISO8601ToDate(chat.createdAt),
                             updatedAt: PresentationMapper.parseISO8601ToDate(chat.updatedAt),
-                            senderId: chat.sender.userId,
+                            senderId: chat.sender,
                             files: chat.files,
                             roomId: room.roomId
                         )
@@ -180,14 +175,14 @@ final class DatabaseRepositoryImp: DatabaseRepository {
                         }
                         
                         let realmMessage = ChatRealmModel(
-                        chatId: message.chatId,
-                        content: message.content,
-                        createdAt: PresentationMapper.parseISO8601ToDate(message.createdAt),
-                        updatedAt: PresentationMapper.parseISO8601ToDate(message.updatedAt),
-                        senderId: message.sender.userId,
-                        files: message.files,
-                        roomId: message.roomId
-                    )
+                            chatId: message.chatId,
+                            content: message.content,
+                            createdAt: PresentationMapper.parseISO8601ToDate(message.createdAt),
+                            updatedAt: PresentationMapper.parseISO8601ToDate(message.updatedAt),
+                            senderId: message.sender,
+                            files: message.files,
+                            roomId: message.roomId
+                        )
                         
                         // 채팅방 찾기 또는 생성
                         let chatList = realm.object(ofType: ChatListRealmModel.self, forPrimaryKey: message.roomId) ?? ChatListRealmModel(
@@ -196,16 +191,9 @@ final class DatabaseRepositoryImp: DatabaseRepository {
                             participants: []
                         )
                         
-                        // 새로운 참여자 추가
-                        let senderInfo = UserInfoRealmModel(
-                            userId: message.sender.userId,
-                            nick: message.sender.nick,
-                            introduction: message.sender.introduction,
-                            profileImage: message.sender.profileImage
-                        )
-                        
-                        if !chatList.participants.contains(where: { $0.userId == senderInfo.userId }) {
-                            chatList.participants.append(senderInfo)
+                        // 새로운 참여자 추가 (String으로)
+                        if !chatList.participants.contains(message.sender) {
+                            chatList.participants.append(message.sender)
                         }
                         
                         // 메시지 추가
@@ -237,7 +225,7 @@ final class DatabaseRepositoryImp: DatabaseRepository {
                     content: message.content,
                     createdAt: PresentationMapper.parseISO8601ToDate(message.createdAt),
                     updatedAt: PresentationMapper.parseISO8601ToDate(message.updatedAt),
-                    senderId: message.sender.userId,
+                    senderId: message.sender,
                     files: message.files,
                     roomId: message.roomId
                 )
@@ -250,16 +238,9 @@ final class DatabaseRepositoryImp: DatabaseRepository {
                         participants: []
                     )
                     
-                    // 새로운 참여자 추가
-                    let senderInfo = UserInfoRealmModel(
-                        userId: message.sender.userId,
-                        nick: message.sender.nick,
-                        introduction: message.sender.introduction,
-                        profileImage: message.sender.profileImage
-                    )
-                    
-                    if !chatList.participants.contains(where: { $0.userId == senderInfo.userId }) {
-                        chatList.participants.append(senderInfo)
+                    // 새로운 참여자 추가 (String으로)
+                    if !chatList.participants.contains(message.sender) {
+                        chatList.participants.append(message.sender)
                     }
                     
                     // 메시지 추가
@@ -283,28 +264,14 @@ final class DatabaseRepositoryImp: DatabaseRepository {
                     return
                 }
                 
-                // 현재 로그인한 사용자 정보 가져오기
-                guard let userInfo = UserDefaultsManager.shared.getObject(forKey: .profileData, as: MyProfileInfoEntity.self) else {
-                    continuation.resume(throwing: NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "사용자 정보를 찾을 수 없습니다."]))
-                    return
-                }
-                
                 let messages = chatList.chats.sorted(by: { $0.createdAt < $1.createdAt }).map { message -> ChatEntity in
-                    // senderId를 통해 participant 정보 찾기
-                    let sender = chatList.participants.first(where: { $0.userId == message.senderId })
-                    
                     return ChatEntity(
                         chatId: message.chatId,
                         roomId: roomId,
                         content: message.content,
                         createdAt: PresentationMapper.formatDateToISO8601(message.createdAt),
                         updatedAt: PresentationMapper.formatDateToISO8601(message.updatedAt),
-                        sender: UserInfoEntity(
-                            userId: message.senderId,
-                            nick: sender?.nick ?? "",
-                            introduction: sender?.introduction ?? "",
-                            profileImage: sender?.profileImage ?? ""
-                        ),
+                        sender: message.senderId,
                         files: Array(message.files)
                     )
                 }
@@ -323,26 +290,14 @@ final class DatabaseRepositoryImp: DatabaseRepository {
                     .filter("roomId == %@ AND createdAt >= %@", roomId, date)
                     .sorted(byKeyPath: "createdAt", ascending: true)
                 
-                // 현재 로그인한 사용자 정보 가져오기
-                guard let userInfo = UserDefaultsManager.shared.getObject(forKey: .profileData, as: MyProfileInfoEntity.self) else {
-                    continuation.resume(throwing: NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "사용자 정보를 찾을 수 없습니다."]))
-                    return
-                }
-                
                 let messages = realmMessages.map { message -> ChatEntity in
-                    let sender = realm.object(ofType: UserInfoRealmModel.self, forPrimaryKey: message.senderId)
                     return ChatEntity(
                         chatId: message.chatId,
                         roomId: message.roomId,
                         content: message.content,
                         createdAt: PresentationMapper.formatDateToISO8601(message.createdAt),
                         updatedAt: PresentationMapper.formatDateToISO8601(message.updatedAt),
-                        sender: UserInfoEntity(
-                            userId: message.senderId,
-                            nick: sender?.nick ?? "",
-                            introduction: sender?.introduction ?? "",
-                            profileImage: sender?.profileImage ?? ""
-                        ),
+                        sender: message.senderId,
                         files: Array(message.files)
                     )
                 }
@@ -403,13 +358,26 @@ final class DatabaseRepositoryImp: DatabaseRepository {
                     }
                 }
                 
-                // UserInfoRealmModel의 userId 업데이트
-                let userInfos = realm.objects(UserInfoRealmModel.self)
+                // ChatRoomRealmModel의 participants 업데이트 (UserInfoRealmModel)
+                let chatRooms = realm.objects(ChatRoomRealmModel.self)
                 try realm.write {
-                    for userInfo in userInfos {
-                        if userInfo.userId == oldUserId {
-                            userInfo.userId = newUserId
-                            print("✅ 사용자 정보 userId 업데이트: \(oldUserId) -> \(newUserId)")
+                    for room in chatRooms {
+                        for participant in room.participants {
+                            if participant.userId == oldUserId {
+                                participant.userId = newUserId
+                                print("✅ 채팅방 participants 업데이트: \(oldUserId) -> \(newUserId)")
+                            }
+                        }
+                    }
+                }
+                
+                // ChatListRealmModel의 participants 업데이트 (String)
+                let chatLists = realm.objects(ChatListRealmModel.self)
+                try realm.write {
+                    for chatList in chatLists {
+                        if let index = chatList.participants.index(of: oldUserId) {
+                            chatList.participants[index] = newUserId
+                            print("✅ 채팅 목록 participants 업데이트: \(oldUserId) -> \(newUserId)")
                         }
                     }
                 }
@@ -440,10 +408,19 @@ final class DatabaseRepositoryImp: DatabaseRepository {
         try await withCheckedThrowingContinuation { continuation in
             do {
                 let realm = try Realm(configuration: configuration)
-                let userExists = realm.objects(UserInfoRealmModel.self)
-                    .filter("userId == %@", userId)
-                    .first != nil
-                continuation.resume(returning: userExists)
+                // participants에서 userId 확인
+                let chatRooms = realm.objects(ChatRoomRealmModel.self)
+                let chatLists = realm.objects(ChatListRealmModel.self)
+                
+                let userExistsInRooms = chatRooms.contains { room in
+                    room.participants.contains(where: { $0.userId == userId })
+                }
+                
+                let userExistsInLists = chatLists.contains { chatList in
+                    chatList.participants.contains(userId)
+                }
+                
+                continuation.resume(returning: userExistsInRooms || userExistsInLists)
             } catch {
                 continuation.resume(throwing: error)
             }
@@ -455,7 +432,7 @@ final class DatabaseRepositoryImp: DatabaseRepository {
             do {
                 let realm = try Realm(configuration: configuration)
                 if let chatList = realm.object(ofType: ChatListRealmModel.self, forPrimaryKey: roomId) {
-                    let userExists = chatList.participants.contains(where: { $0.userId == userId })
+                    let userExists = chatList.participants.contains(userId)
                     continuation.resume(returning: userExists)
                 } else {
                     continuation.resume(returning: false)
@@ -465,4 +442,31 @@ final class DatabaseRepositoryImp: DatabaseRepository {
             }
         }
     }
-} 
+    
+    func getOpponentProfile(roomId: String, opponentId: String) async throws -> OpponentEntity? {
+        try await withCheckedThrowingContinuation { continuation in
+            do {
+                let realm = try Realm(configuration: configuration)
+                if let chatList = realm.object(ofType: ChatListRealmModel.self, forPrimaryKey: roomId) {
+                    // participants에서 opponentId와 일치하는 사용자 찾기 (String 리스트)
+                    if chatList.participants.contains(opponentId) {
+                        // 기본 정보로 OpponentEntity 생성 (실제 프로필 정보는 별도로 가져와야 함)
+                        let opponentEntity = OpponentEntity(
+                            userId: opponentId,
+                            nick: "",
+                            introduction: "",
+                            profileImage: ""
+                        )
+                        continuation.resume(returning: opponentEntity)
+                    } else {
+                        continuation.resume(returning: nil)
+                    }
+                } else {
+                    continuation.resume(returning: nil)
+                }
+            } catch {
+                continuation.resume(throwing: error)
+            }
+        }
+    }
+}
