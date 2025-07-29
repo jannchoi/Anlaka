@@ -107,7 +107,7 @@ final class LoginContainer: NSObject, ObservableObject {
                 }
                 else {
                     guard let oauthToken = oauthToken else {return}
-                    UserDefaultsManager.shared.set(oauthToken.accessToken, forKey: .kakaoToken)
+                    KeychainManager.shared.set(oauthToken.accessToken, forKey: .kakaoToken)
                     
                     Task {
                         await self.callKakaoLogin()
@@ -125,7 +125,7 @@ final class LoginContainer: NSObject, ObservableObject {
                 }
                 else {
                     guard let oauthToken = oauthToken else {return}
-                    UserDefaultsManager.shared.set(oauthToken.accessToken, forKey: .kakaoToken)
+                    KeychainManager.shared.set(oauthToken.accessToken, forKey: .kakaoToken)
                     
                     Task {
                         await self.callKakaoLogin()
@@ -136,7 +136,7 @@ final class LoginContainer: NSObject, ObservableObject {
     }
     private func callKakaoLogin() async {
 
-        let oauthToken = UserDefaultsManager.shared.getString(forKey: .kakaoToken)
+        let oauthToken = KeychainManager.shared.getString(forKey: .kakaoToken)
         let deviceToken = UserDefaultsManager.shared.getString(forKey: .deviceToken)
         let target = KakaoLoginRequestEntity(oauthToken: oauthToken, deviceToken: deviceToken)
         do {
@@ -178,7 +178,7 @@ final class LoginContainer: NSObject, ObservableObject {
                 let fullName = appleIDCredential.fullName
                 let name = (fullName?.familyName ?? "") + (fullName?.givenName ?? "")
 
-                UserDefaultsManager.shared.set(tokenString, forKey: .appleIdToken)
+                KeychainManager.shared.set(tokenString, forKey: .appleIdToken)
                 await callAppleLogin(name)
             case .failure(let error):
                 model.errorMessage = "Apple 로그인 실패: \(error.localizedDescription)"
@@ -188,7 +188,7 @@ final class LoginContainer: NSObject, ObservableObject {
     func callAppleLogin(_ nick: String) async {
 
         let nickname = nick.isEmpty ? "아무개" : nick
-        let idToken = UserDefaultsManager.shared.getString(forKey: .appleIdToken)
+        let idToken = KeychainManager.shared.getString(forKey: .appleIdToken)
         let deviceToken = UserDefaultsManager.shared.getString(forKey: .deviceToken)
         let target = AppleLoginRequestEntity(idToken: idToken, deviceToken: deviceToken, nick: nickname)
 

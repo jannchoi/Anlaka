@@ -206,7 +206,7 @@ class DownsamplingImageLoader {
     private func downloadImage(_ url: URL) async -> Data? {
         var request = URLRequest(url: url)
         request.addValue(AppConfig.apiKey, forHTTPHeaderField: "SeSACKey")
-        if let accessToken = UserDefaultsManager.shared.getString(forKey: .accessToken) {
+        if let accessToken = KeychainManager.shared.getString(forKey: .accessToken) {
             request.addValue(accessToken, forHTTPHeaderField: "Authorization")
         }
         
@@ -447,7 +447,7 @@ class ImageDownsampler {
         
         var request = URLRequest(url: url)
         request.addValue(AppConfig.apiKey, forHTTPHeaderField: "SeSACKey")
-        if let accessToken = UserDefaultsManager.shared.getString(forKey: .accessToken) {
+        if let accessToken = KeychainManager.shared.getString(forKey: .accessToken) {
             request.addValue(accessToken, forHTTPHeaderField: "Authorization")
         }
         
