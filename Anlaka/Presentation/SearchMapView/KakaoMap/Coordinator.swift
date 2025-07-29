@@ -569,7 +569,7 @@ extension Coordinator {
             print("🚫 KakaoMap 객체를 가져올 수 없습니다.")
             return
         }
-        print("🔍 KakaoMap 객체 생성 성공")
+//        print("🔍 KakaoMap 객체 생성 성공")
         // 현재 카메라 상태 확인
         let currentZoomLevel = Int(kakaoMap.zoomLevel)
 
@@ -592,7 +592,7 @@ extension Coordinator {
         let isSignificantChange = topLeftDistance > 10 || bottomRightDistance > 10
 
         if !isSignificantChange && !forceUpdate {
-            print("변화 없음")
+//            print("변화 없음")
             return
         }
         //print("🔍 변화 있음")
@@ -803,36 +803,36 @@ extension Coordinator {
                 }
             }
             
-            do {
-                if let downloadedImage = try await ImageDownsampler.downloadAndDownsample(
-                    imagePath: imagePath,
-                    to: size
-                ) {
-                    // 이미지 포맷 검증
-                    guard let cgImage = downloadedImage.cgImage else {
-                        print("❌ CGImage 변환 실패")
-                        return createDefaultEstateImage(size: size)
-                    }
-                    
-                    // 이미지 포맷 검사
-                    let bitsPerComponent = cgImage.bitsPerComponent
-                    let bitsPerPixel = cgImage.bitsPerPixel
-                    
-                    // 이미지 포맷이 유효한지 검사
-                    guard bitsPerComponent == 8 && bitsPerPixel == 32 else {
-                        print("❌ 지원하지 않는 이미지 포맷: bitsPerComponent=\(bitsPerComponent), bitsPerPixel=\(bitsPerPixel)")
-                        return createDefaultEstateImage(size: size)
-                    }
-                    
-                    ImageCache.shared.setImage(downloadedImage, forKey: imagePath)
-                    let processedImage = try applyStyle(to: downloadedImage, size: size)
-                    return processedImage
-                } else {
-                    print("❌ 이미지 다운로드 실패")
+            if let downloadedImage = await ImageDownsampler.downloadAndDownsample(
+                imagePath: imagePath,
+                to: size
+            ) {
+                // 이미지 포맷 검증
+                guard let cgImage = downloadedImage.cgImage else {
+                    print("❌ CGImage 변환 실패")
                     return createDefaultEstateImage(size: size)
                 }
-            } catch {
-                print("❌ 이미지 처리 중 에러 발생: \(error.localizedDescription)")
+                
+                // 이미지 포맷 검사
+                let bitsPerComponent = cgImage.bitsPerComponent
+                let bitsPerPixel = cgImage.bitsPerPixel
+                
+                // 이미지 포맷이 유효한지 검사
+                guard bitsPerComponent == 8 && bitsPerPixel == 32 else {
+                    print("❌ 지원하지 않는 이미지 포맷: bitsPerComponent=\(bitsPerComponent), bitsPerPixel=\(bitsPerPixel)")
+                    return createDefaultEstateImage(size: size)
+                }
+                
+                ImageCache.shared.setImage(downloadedImage, forKey: imagePath)
+                do {
+                    let processedImage = try applyStyle(to: downloadedImage, size: size)
+                    return processedImage
+                } catch {
+                    print("❌ 이미지 스타일 적용 실패: \(error.localizedDescription)")
+                    return createDefaultEstateImage(size: size)
+                }
+            } else {
+                print("❌ 이미지 다운로드 실패")
                 return createDefaultEstateImage(size: size)
             }
         } else {
