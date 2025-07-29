@@ -19,6 +19,13 @@ struct ChattingModel {
     var isReconnecting: Bool = false
     var reconnectAttempts: Int = 0
     
+    // 파일 검증 관련 상태
+    var invalidFileIndices: Set<Int> = []
+    var invalidFileReasons: [Int: String] = [:]
+    
+    // CustomToastView 관련 상태
+    var toast: FancyToast? = nil
+    
     // 시간순으로 정렬된 메시지 반환
     var sortedMessages: [ChatEntity] {
         // 중복 제거 (chatId 기준) - Dictionary 사용
@@ -56,7 +63,8 @@ struct ChattingModel {
 
 enum ChattingIntent {
     case initialLoad
-    case sendMessage(text: String, files: [GalleryImage])
+    case sendMessage(text: String, files: [SelectedFile])
+    case validateFiles([SelectedFile])
     case loadMoreMessages
     case reconnectSocket
     case disconnectSocket
@@ -119,6 +127,8 @@ final class ChattingContainer: ObservableObject {
             Task {
                 await sendMessage(text: text, files: files)
             }
+        case .validateFiles(let files):
+            validateFiles(files)
         case .loadMoreMessages:
             Task {
                 await loadMoreMessages()
@@ -218,7 +228,7 @@ final class ChattingContainer: ObservableObject {
         model.isLoading = false
     }
 
-    private func sendMessage(text: String, files: [GalleryImage]) async {
+    private func sendMessage(text: String, files: [SelectedFile]) async {
         // 임시 메시지 ID 생성
         let tempMessageId = "temp_\(UUID().uuidString)"
         model.sendingMessageId = tempMessageId
@@ -246,33 +256,39 @@ final class ChattingContainer: ObservableObject {
         print("📝 임시 메시지 추가: \(tempMessageId)")
         
         do {
-            // 1. GalleryImage를 ChatFile로 변환
-            let chatFiles = files.map { galleryImage in
-                let fileExtension = galleryImage.fileName.split(separator: ".").last?.lowercased() ?? "jpg"
-                print("📝 파일 변환 중: \(galleryImage.fileName), 확장자: \(fileExtension)")
-                
-                // 파일 확장자에 따른 데이터 변환 및 MIME 타입 설정
-                let (data, mimeType) = convertImageToData(galleryImage.image, fileExtension: fileExtension)
-                print("📝 변환된 데이터 크기: \(data.count) bytes, MIME 타입: \(mimeType)")
-                
-                return ChatFile(
-                    data: data,
-                    fileName: galleryImage.fileName,
-                    mimeType: mimeType,
-                    fileExtension: fileExtension
-                )
+            // 1. SelectedFile을 FileData로 변환
+            let fileDataArray = files.compactMap { selectedFile in
+                selectedFile.toFileData()
             }
             
-            // 2. 파일 업로드
+            // 2. 파일 검증
+            let validatedFiles = FileManageHelper.shared.validateFiles(fileDataArray, uploadType: FileUploadType.chat)
+            // 유효한 파일이 없고 원본 파일이 있었다면 에러 처리
+            if validatedFiles.isEmpty && !files.isEmpty {
+                model.error = "선택된 파일 중 유효하지 않은 파일이 있습니다."
+                model.messages.removeAll { $0.chatId == tempMessageId }
+                model.sendingMessageId = nil
+                model.updateMessagesGroupedByDate()
+                return
+            }
+            
+            // 유효한 파일이 일부만 있는 경우 로그 출력
+            if validatedFiles.count < files.count {
+                print("⚠️ 일부 파일이 검증을 통과하지 못했습니다.")
+                print("   - 원본 파일 개수: \(files.count)")
+                print("   - 유효한 파일 개수: \(validatedFiles.count)")
+            }
+            
+            // 3. 파일 업로드
             var uploadedFiles: [String] = []
-            if !chatFiles.isEmpty {
+            if !validatedFiles.isEmpty {
                 print("📝 파일 업로드 시작")
-                let chatFile = try await repository.uploadFiles(roomId: model.roomId, files: chatFiles)
-                uploadedFiles = chatFile.files
+                let chatFile = try await repository.uploadFiles(roomId: model.roomId, files: validatedFiles)
+                uploadedFiles = chatFile
                 print("✅ 파일 업로드 성공 - 업로드된 파일 URL: \(uploadedFiles)")
             }
             
-            // 3. Socket.IO를 통한 메시지 전송 (업로드된 파일 URL을 그대로 전송)
+            // 4. Socket.IO를 통한 메시지 전송 (업로드된 파일 URL을 그대로 전송)
             let messageData: [String: Any] = [
                 "content": text,
                 "files": uploadedFiles,  // 서버에서 받은 파일 URL 그대로 사용
@@ -339,24 +355,7 @@ final class ChattingContainer: ObservableObject {
         }
     }
     
-    // 이미지를 적절한 형식의 데이터로 변환하는 헬퍼 메서드
-    private func convertImageToData(_ image: UIImage, fileExtension: String) -> (Data, String) {
-        switch fileExtension {
-        case "jpg", "jpeg":
-            return (image.jpegData(compressionQuality: 0.8) ?? Data(), "image/jpeg")
-        case "png":
-            return (image.pngData() ?? Data(), "image/png")
-        case "gif":
-            // GIF는 현재 UIImage에서 직접 변환할 수 없으므로 JPEG로 대체
-            return (image.jpegData(compressionQuality: 0.8) ?? Data(), "image/jpeg")
-        case "pdf":
-            // PDF는 현재 UIImage에서 직접 변환할 수 없으므로 JPEG로 대체
-            return (image.jpegData(compressionQuality: 0.8) ?? Data(), "image/jpeg")
-        default:
-            // 기본값으로 JPEG 사용
-            return (image.jpegData(compressionQuality: 0.8) ?? Data(), "image/jpeg")
-        }
-    }
+
     
     private func loadMoreMessages() async {
         guard let firstMessage = model.messages.first else { return }
@@ -412,6 +411,90 @@ final class ChattingContainer: ObservableObject {
                 print("❌ 메시지 저장 실패: \(error.localizedDescription)")
                 // 에러가 발생해도 채팅은 계속 진행 (model.error 설정하지 않음)
             }
+        }
+    }
+    
+    // MARK: - 파일 검증
+    private func validateFiles(_ files: [SelectedFile]) {
+        let maxFileSize = 5 * 1024 * 1024 // 5MB
+        let allowedExtensions = ["jpg", "jpeg", "png", "gif", "pdf"]
+        
+        var newInvalidIndices: Set<Int> = []
+        var newInvalidReasons: [Int: String] = [:]
+        var hasDuplicate = false
+        
+        // 중복 파일 검사
+        let fileNames = files.map { $0.fileName }
+        let uniqueFileNames = Set(fileNames)
+        if fileNames.count != uniqueFileNames.count {
+            hasDuplicate = true
+        }
+        
+        for (index, file) in files.enumerated() {
+            let fileData = file.data ?? file.image?.jpegData(compressionQuality: 0.8) ?? Data()
+            let fileExtension = file.fileExtension.lowercased()
+            
+            // 크기 검증
+            let isSizeValid = fileData.count <= maxFileSize
+            // 확장자 검증
+            let isExtensionValid = allowedExtensions.contains(fileExtension)
+            
+            if !isSizeValid || !isExtensionValid {
+                newInvalidIndices.insert(index)
+                
+                // 구체적인 원인 감지
+                var reasons: [String] = []
+                if !isSizeValid {
+                    let formatter = ByteCountFormatter()
+                    formatter.allowedUnits = [.useKB, .useMB]
+                    formatter.countStyle = .file
+                    let fileSizeString = formatter.string(fromByteCount: Int64(fileData.count))
+                    let maxSizeString = formatter.string(fromByteCount: Int64(maxFileSize))
+                    reasons.append("크기: \(fileSizeString) (제한: \(maxSizeString))")
+                }
+                if !isExtensionValid {
+                    reasons.append("확장자: \(fileExtension.uppercased()) (지원: JPG, PNG, GIF, PDF)")
+                }
+                
+                newInvalidReasons[index] = reasons.joined(separator: ", ")
+                
+                print("❌ 유효하지 않은 파일: \(file.fileName)")
+                print("   - 원인: \(reasons.joined(separator: ", "))")
+            }
+        }
+        
+        // 유효하지 않은 파일 정보 업데이트
+        model.invalidFileIndices = newInvalidIndices
+        model.invalidFileReasons = newInvalidReasons
+        
+        // 중복 파일이 감지된 경우 토스트 표시
+        if hasDuplicate {
+            model.toast = FancyToast(
+                type: .warning,
+                title: "중복 파일",
+                message: "중복된 파일이 포함되어 있습니다.",
+                duration: 3.0
+            )
+            print("⚠️ 중복된 파일이 감지되었습니다")
+        }
+        // 유효하지 않은 파일이 새로 추가된 경우 토스트 표시
+        else if !newInvalidIndices.isEmpty {
+            // 유효하지 않은 파일들의 이름을 가져와서 토스트 메시지 생성
+            let invalidFileNames = newInvalidReasons.keys.compactMap { index in
+                if index < files.count {
+                    return files[index].fileName
+                }
+                return nil
+            }
+            let message = "유효하지 않은 파일이 있습니다: \(invalidFileNames.joined(separator: ", "))"
+            
+            model.toast = FancyToast(
+                type: .error,
+                title: "파일 오류",
+                message: message,
+                duration: 5.0
+            )
+            print("⚠️ 유효하지 않은 파일이 감지되었습니다: \(newInvalidIndices.count)개")
         }
     }
     

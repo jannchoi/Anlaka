@@ -120,7 +120,7 @@ struct LoginView: View {
                     isLoggedIn = true
                 }
             }
-            .navigationDestination(for: LoginRoute.self) { route in
+            .navigationDestination(for: AppRoute.LoginRoute.self) { route in
                 switch route {
                 case .signUp:
                     SignUpView(

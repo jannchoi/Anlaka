@@ -65,10 +65,10 @@ enum EstateRouter: AuthorizedTarget {
         ]
     }
 
-    var parameters: [String: Any] {
+    var parameters: [String: Any?] {
         switch self {
         case .geoEstate(let category, let lon, let lat, let maxD):
-            var params: [String: Any] = [
+            var params: [String: Any?] = [
                 "longitude": lon ?? "",
                 "latitude": lat ?? "",
                 "maxDistance": maxD ?? ""
@@ -78,13 +78,12 @@ enum EstateRouter: AuthorizedTarget {
             if let category = category, !category.isEmpty {
                 params["category"] = category
             }
-            //print(params)
             return params
             
         case .likeEstate(let estateId, _):
-            return ["estate_id": estateId] // 쿼리로 요구된다면 추가
+            return ["estate_id": estateId]
         case .likeLists(let category, let next):
-            var params: [String: Any] = ["limit": "5"]
+            var params: [String: Any?] = ["limit": "5"]
             // category가 nil이 아니고 비어있지 않은 경우에만 추가
             if let category = category, !category.isEmpty {
                 params["category"] = category
@@ -104,8 +103,10 @@ enum EstateRouter: AuthorizedTarget {
         switch self {
         case .geoEstate, .likeEstate, .likeLists:
             var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
-            let queryItems = parameters.map {
-                URLQueryItem(name: $0.key, value: "\($0.value)")
+            let queryItems = parameters.compactMap { (key: String, value: Any?) -> URLQueryItem? in
+                // Optional 값을 안전하게 처리
+                guard let unwrappedValue = value else { return nil }
+                return URLQueryItem(name: key, value: "\(unwrappedValue)")
             }
             components?.queryItems = queryItems
             if let composedURL = components?.url {
