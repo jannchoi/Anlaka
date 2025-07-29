@@ -6,12 +6,26 @@
 //
 
 import SwiftUI
+import KakaoSDKCommon
+import KakaoSDKAuth
 
 @main
 struct AnlakaApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    @StateObject private var di = DIContainer(networkRepository: NetworkRepositoryImp())
+    
+    init() {
+        KakaoSDK.initSDK(appKey: Environment.kakaoKey)
+    }
+    
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            LoginView(di: di)
+                .onOpenURL(perform: { url in
+                                if (AuthApi.isKakaoTalkLoginUrl(url)) {
+                                    AuthController.handleOpenUrl(url: url)
+                                }
+                            })
         }
     }
 }
