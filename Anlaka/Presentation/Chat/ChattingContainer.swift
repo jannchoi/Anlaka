@@ -29,6 +29,12 @@ struct ChattingModel {
     // newMessageButton 흔들림 관련 상태
     var shouldShakeNewMessageButton: Bool = false
     
+    // 페이지네이션 관련 상태 (New)
+    var isLoadingMoreMessages: Bool = false  // 이전 메시지 로딩 중
+    var hasMoreMessages: Bool = true  // 더 로드할 메시지가 있는지
+    var oldestLoadedDate: Date? = nil  // 현재 로드된 가장 오래된 메시지 날짜
+    var isInitialLoadComplete: Bool = false  // 초기 로드 완료 여부
+    
     // 시간순으로 정렬된 메시지 반환
     var sortedMessages: [ChatEntity] {
         // 중복 제거 (chatId 기준) - Dictionary 사용
@@ -69,6 +75,7 @@ enum ChattingIntent {
     case sendMessage(text: String, files: [SelectedFile])
     case validateFiles([SelectedFile])
     case loadMoreMessages
+    case loadPreviousMessages  // 이전 메시지 로드 (New)
     case reconnectSocket
     case disconnectSocket
     case setError(String?)  // 에러 설정을 위한 새로운 Intent 추가
@@ -138,6 +145,10 @@ final class ChattingContainer: ObservableObject {
             Task {
                 await loadMoreMessages()
             }
+        case .loadPreviousMessages:
+            Task {
+                await loadPreviousMessages()
+            }
         case .reconnectSocket:
             socket?.connect()
         case .disconnectSocket:
@@ -195,25 +206,77 @@ final class ChattingContainer: ObservableObject {
             let userInChatRoom = try await databaseRepository.isUserInChatRoom(roomId: model.roomId, userId: userInfo.userid)
             
             if !userInChatRoom {
-                // 4. 현재 사용자가 채팅방에 없는 경우(이 기기를 사용하던 사람이 아니므로 db에 없음) db에서 채팅방 삭제
+                // 4. 현재 사용자가 채팅방에 없는 경우(이 기기를 사용하던 사람이 아니므로 db에 없음) 
+                // 서버에서 최근 30일 채팅 내역만 가져와서 DB 초기화
+                print("🆕 새 사용자: 서버에서 최근 30일 채팅 내역 로드")
+                
+                // DB에서 기존 채팅방 삭제
                 try await databaseRepository.deleteChatRoom(roomId: model.roomId)
                 
-                // 5. 서버에서 전체 채팅 내역 가져오기
+                // 서버에서 최근 30일 채팅 내역 가져오기 (from 파라미터 없이)
                 let chatList = try await repository.getChatList(roomId: model.roomId, from: nil)
+                
+                // DB에 저장
                 try await databaseRepository.saveMessages(chatList.chats)
                 model.messages = chatList.chats
+                
+                // 가장 오래된 메시지 날짜 설정
+                if let oldestMessage = chatList.chats.min(by: { 
+                    PresentationMapper.parseISO8601ToDate($0.createdAt) < PresentationMapper.parseISO8601ToDate($1.createdAt) 
+                }) {
+                    model.oldestLoadedDate = PresentationMapper.parseISO8601ToDate(oldestMessage.createdAt)
+                }
+                
+                // 더 오래된 메시지가 있는지 확인 (서버에서 한 번 더 요청해서 확인)
+                if !chatList.chats.isEmpty {
+                    let oldestDate = PresentationMapper.parseISO8601ToDate(chatList.chats.first!.createdAt)
+                    let olderChatList = try await repository.getChatList(roomId: model.roomId, from: PresentationMapper.formatDateToISO8601(oldestDate))
+                    model.hasMoreMessages = !olderChatList.chats.isEmpty
+                    
+                    if !olderChatList.chats.isEmpty {
+                        print("📄 서버에 더 많은 메시지가 있습니다 (초기 로드 확인: \(olderChatList.chats.count)개)")
+                    } else {
+                        print("📭 서버에서 더 이상 메시지가 없습니다 (초기 로드 확인)")
+                    }
+                } else {
+                    model.hasMoreMessages = false
+                    print("📭 서버에서 메시지가 없습니다 (초기 로드)")
+                }
+                
             } else {
-                // 6. 기존 사용자인 경우 로컬 DB에서 채팅 내역 조회
-                let localMessages = try await databaseRepository.getMessages(roomId: model.roomId)
+                // 5. 기존 사용자인 경우 로컬 DB에서 최근 30일 채팅 내역 조회
+                print("👤 기존 사용자: 로컬 DB에서 최근 30일 채팅 내역 로드")
+                
+                // 30일 전 날짜 계산
+                let calendar = Calendar.current
+                let thirtyDaysAgo = calendar.date(byAdding: .day, value: -30, to: Date()) ?? Date()
+                
+                // 로컬 DB에서 최근 30일 메시지 조회
+                let localMessages = try await databaseRepository.getMessagesInDateRange(
+                    roomId: model.roomId, 
+                    from: thirtyDaysAgo, 
+                    to: Date()
+                )
                 model.messages = localMessages
                 
-                // 7. 마지막 메시지 날짜 가져오기
+                // 가장 오래된 메시지 날짜 설정
+                if let oldestMessage = localMessages.min(by: { 
+                    PresentationMapper.parseISO8601ToDate($0.createdAt) < PresentationMapper.parseISO8601ToDate($1.createdAt) 
+                }) {
+                    model.oldestLoadedDate = PresentationMapper.parseISO8601ToDate(oldestMessage.createdAt)
+                }
+                
+                // 더 오래된 메시지가 있는지 확인
+                let totalMessageCount = try await databaseRepository.getMessagesCount(roomId: model.roomId)
+                model.hasMoreMessages = totalMessageCount > localMessages.count
+                
+                // 6. 마지막 메시지 날짜 가져오기
                 if let lastDate = try await databaseRepository.getLastMessageDate(roomId: model.roomId) {
-                    // 8. 서버에서 최신 메시지 동기화
+                    // 7. 서버에서 최신 메시지 동기화
                     let formattedDate = PresentationMapper.formatDateToISO8601(lastDate)
                     let chatList = try await repository.getChatList(roomId: model.roomId, from: formattedDate)
                     
-                    // 9. 새 메시지 저장 및 UI 업데이트
+                    // 8. 새 메시지 저장 및 UI 업데이트
                     try await databaseRepository.saveMessages(chatList.chats)
                     
                     // 중복되지 않은 새 메시지만 추가
@@ -224,8 +287,11 @@ final class ChattingContainer: ObservableObject {
                 }
             }
             
-            // 10. 메시지 그룹화 업데이트
+            // 9. 메시지 그룹화 업데이트
             model.updateMessagesGroupedByDate()
+            
+            // 10. 초기 로드 완료 표시
+            model.isInitialLoadComplete = true
             
             // 11. WebSocket 연결
             print(" WebSocket 연결 시도: roomId = \(model.roomId)")
@@ -354,6 +420,129 @@ final class ChattingContainer: ObservableObject {
             model.messages.insert(contentsOf: chatList.chats, at: 0)
         } catch {
             model.error = error.localizedDescription
+        }
+    }
+    
+    private func loadPreviousMessages() async {
+        // 이미 로딩 중이거나 더 이상 메시지가 없으면 리턴
+        guard !model.isLoadingMoreMessages && model.hasMoreMessages else { return }
+        
+        // 초기 로드가 완료되지 않았으면 리턴
+        guard model.isInitialLoadComplete else { return }
+        
+        model.isLoadingMoreMessages = true
+        
+        do {
+            let pageSize = 50 // 한 번에 로드할 메시지 개수
+            
+            if let oldestDate = model.oldestLoadedDate {
+                // 기존 사용자: 로컬 DB에서 이전 메시지 로드
+                let previousMessages = try await databaseRepository.getMessagesBeforeDate(
+                    roomId: model.roomId,
+                    date: oldestDate,
+                    limit: pageSize
+                )
+                
+                if !previousMessages.isEmpty {
+                    // 메시지를 앞쪽에 추가 (UI에서 상하반전되므로)
+                    model.messages.insert(contentsOf: previousMessages, at: 0)
+                    
+                    // 가장 오래된 메시지 날짜 업데이트
+                    if let newOldestMessage = previousMessages.min(by: { 
+                        PresentationMapper.parseISO8601ToDate($0.createdAt) < PresentationMapper.parseISO8601ToDate($1.createdAt) 
+                    }) {
+                        model.oldestLoadedDate = PresentationMapper.parseISO8601ToDate(newOldestMessage.createdAt)
+                    }
+                    
+                    // 더 로드할 메시지가 있는지 확인
+                    let totalMessageCount = try await databaseRepository.getMessagesCount(roomId: model.roomId)
+                    model.hasMoreMessages = totalMessageCount > model.messages.count
+                    
+                    // 메시지 그룹화 업데이트
+                    model.updateMessagesGroupedByDate()
+                    
+                    print("📄 이전 메시지 로드 완료: \(previousMessages.count)개")
+                } else {
+                    // 로컬 DB에 더 이상 메시지가 없으면 서버에서 요청
+                    await loadPreviousMessagesFromServer(oldestDate: oldestDate, pageSize: pageSize)
+                }
+            } else {
+                // oldestLoadedDate가 없는 경우 (새 사용자) 서버에서 요청
+                await loadPreviousMessagesFromServer(oldestDate: Date(), pageSize: pageSize)
+            }
+            
+        } catch {
+            model.error = error.localizedDescription
+            print("❌ 이전 메시지 로드 실패: \(error.localizedDescription)")
+        }
+        
+        model.isLoadingMoreMessages = false
+    }
+    
+    private func loadPreviousMessagesFromServer(oldestDate: Date, pageSize: Int) async {
+        do {
+            // 서버에서 이전 메시지 요청
+            let formattedDate = PresentationMapper.formatDateToISO8601(oldestDate)
+            let chatList = try await repository.getChatList(
+                roomId: model.roomId,
+                from: formattedDate
+            )
+            
+            if !chatList.chats.isEmpty {
+                // DB에 저장
+                try await databaseRepository.saveMessages(chatList.chats)
+                
+                // 메시지를 앞쪽에 추가 (UI에서 상하반전되므로)
+                model.messages.insert(contentsOf: chatList.chats, at: 0)
+                
+                // 가장 오래된 메시지 날짜 업데이트
+                if let newOldestMessage = chatList.chats.min(by: { 
+                    PresentationMapper.parseISO8601ToDate($0.createdAt) < PresentationMapper.parseISO8601ToDate($1.createdAt) 
+                }) {
+                    model.oldestLoadedDate = PresentationMapper.parseISO8601ToDate(newOldestMessage.createdAt)
+                }
+                
+                // 더 로드할 메시지가 있는지 확인
+                // 현재 받은 메시지 개수가 pageSize보다 적으면 더 이상 메시지가 없는 것으로 판단
+                if chatList.chats.count < pageSize {
+                    model.hasMoreMessages = false
+                    print("📭 서버에서 더 이상 메시지가 없습니다 (받은 메시지: \(chatList.chats.count)개)")
+                } else {
+                    // pageSize만큼 받았다면 더 있을 가능성이 있으므로 한 번 더 확인
+                    if let oldestMessage = chatList.chats.min(by: { 
+                        PresentationMapper.parseISO8601ToDate($0.createdAt) < PresentationMapper.parseISO8601ToDate($1.createdAt) 
+                    }) {
+                        let oldestDate = PresentationMapper.parseISO8601ToDate(oldestMessage.createdAt)
+                        let olderChatList = try await repository.getChatList(
+                            roomId: model.roomId, 
+                            from: PresentationMapper.formatDateToISO8601(oldestDate)
+                        )
+                        model.hasMoreMessages = !olderChatList.chats.isEmpty
+                        
+                        if !olderChatList.chats.isEmpty {
+                            print("📄 서버에 더 많은 메시지가 있습니다 (추가 확인: \(olderChatList.chats.count)개)")
+                        } else {
+                            print("📭 서버에서 더 이상 메시지가 없습니다 (추가 확인 결과)")
+                        }
+                    }
+                }
+                
+                // 메시지 그룹화 업데이트
+                model.updateMessagesGroupedByDate()
+                
+                print("🌐 서버에서 이전 메시지 로드 완료: \(chatList.chats.count)개")
+            } else {
+                // 서버에서 빈 배열을 반환한 경우 - 더 이상 메시지가 없음
+                model.hasMoreMessages = false
+                print("📭 서버에서 더 이상 메시지가 없습니다 (빈 응답)")
+            }
+            
+        } catch {
+            model.error = error.localizedDescription
+            print("❌ 서버에서 이전 메시지 로드 실패: \(error.localizedDescription)")
+            
+            // 에러 발생 시에도 더 이상 시도하지 않도록 설정 (선택사항)
+            // model.hasMoreMessages = false
         }
     }
     

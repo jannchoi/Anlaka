@@ -218,7 +218,7 @@ enum FileDownloadRepositoryFactory {
         ]
         
         if let accessToken = KeychainManager.shared.getString(forKey: .accessToken) {
-            headers["Authorization"] = "Bearer \(accessToken)"
+            headers["Authorization"] = "\(accessToken)"
         }
         
         return FileDownloadRepositoryImp(
