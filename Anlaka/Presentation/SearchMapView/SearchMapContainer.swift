@@ -144,6 +144,7 @@ final class SearchMapContainer: NSObject, ObservableObject {
     private func getGeoFromAddressQuery(_ query: String) async {
         guard !query.isEmpty else { return }
         model.isLoading = true
+        print("query🐿️🐿️🐿️🐿️🐿️🐿️", query)
         do {
             let response = try await repository.getGeofromAddressQuery(query)
             let coordinate = CLLocationCoordinate2D(
