@@ -62,41 +62,45 @@ enum CustomError: LocalizedError, Equatable {
     }
     
     static func from(code: Int, router: Any) -> CustomError {
-           switch code {
-           case 401: return .unauthorized
-           case 403: return .forbidden
-           case 419: return .tokenExpired
-           case 420: return .invalidAPIKey
-           case 429: return .tooManyRequests
-           case 444: return .abnormalRequest
-           case 500...599: return .serverError
-               
-           case 400:
-               switch router {
-               case is UserRouter:
-                   return .badRequest(message: "필수값을 채워주세요.")
-               case is AuthRouter:
-                   return .badRequest(message: "잘못된 요청입니다.")
-               default:
-                   return .badRequest(message: "요청이 잘못되었습니다.")
-               }
-           case 409:
-               switch router {
-               case UserRouter.emailValidation:
-                   return .conflict(message: "사용이 불가한 이메일입니다.")
-               case UserRouter.signUp:
-                   return .conflict(message: "이미 가입된 유저입니다.")
-               default:
-                   return .conflict(message: "중복된 요청입니다.")
-               }
-           case 418:
-               if router is AuthRouter {
-                   return .authError(message: "리프레시 토큰이 만료되었습니다. 다시 로그인 해주세요.")
-               }
-           default:
-               break
-           }
+        print("❌ CustomError 발생:")
+        print("   상태 코드: \(code)")
+        print("   라우터 타입: \(type(of: router))")
+        
+        switch code {
+        case 401: return .unauthorized
+        case 403: return .forbidden
+        case 419: return .tokenExpired
+        case 420: return .invalidAPIKey
+        case 429: return .tooManyRequests
+        case 444: return .abnormalRequest
+        case 500...599: return .serverError
+            
+        case 400:
+            switch router {
+            case is UserRouter:
+                return .badRequest(message: "필수값을 채워주세요.")
+            case is AuthRouter:
+                return .badRequest(message: "잘못된 요청입니다.")
+            default:
+                return .badRequest(message: "요청이 잘못되었습니다.")
+            }
+        case 409:
+            switch router {
+            case UserRouter.emailValidation:
+                return .conflict(message: "사용이 불가한 이메일입니다.")
+            case UserRouter.signUp:
+                return .conflict(message: "이미 가입된 유저입니다.")
+            default:
+                return .conflict(message: "중복된 요청입니다.")
+            }
+        case 418:
+            if router is AuthRouter {
+                return .authError(message: "리프레시 토큰이 만료되었습니다. 다시 로그인 해주세요.")
+            }
+        default:
+            break
+        }
 
-           return .unknown(code: code, message: "알 수 없는 오류가 발생했습니다. (code: \(code))")
-       }
+        return .unknown(code: code, message: "알 수 없는 오류가 발생했습니다. (code: \(code))")
+    }
 }

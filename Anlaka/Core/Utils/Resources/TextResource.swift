@@ -97,6 +97,10 @@ enum TextResource {
                 return self.rawValue
             }
             
+            var displayName: String {
+                return self.rawValue
+            }
+            
             var serverValue: String? {
                 switch self {
                 case .all:

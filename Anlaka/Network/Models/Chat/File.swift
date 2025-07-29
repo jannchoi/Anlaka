@@ -8,7 +8,7 @@
 import SwiftUI
 
 // MARK: - Server File Entity (서버에서 다운로드한 파일용)
-struct ServerFileEntity: Equatable {
+struct ServerFileEntity: Equatable, Hashable {
     let serverPath: String      // 서버 상대경로 (ex: "/data/posts/image_1712739634962.png")
     var localPath: String?      // 로컬에 다운로드된 파일 경로 (다운로드 완료 후 설정)
     let fileName: String        // 파일명
@@ -65,6 +65,11 @@ struct ServerFileEntity: Equatable {
     // Equatable 구현
     static func == (lhs: ServerFileEntity, rhs: ServerFileEntity) -> Bool {
         return lhs.serverPath == rhs.serverPath
+    }
+    
+    // Hashable 구현
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(serverPath)
     }
 }
 
@@ -256,5 +261,77 @@ extension FileDB {
         return files.map {
             return FileEntity(previewImage: UIImage(), path: $0)
         }
+    }
+}
+
+
+// ChattingView에서 사용할 뷰 전용 파일 모델 정의
+struct ChattingSelectedFileViewModel: Identifiable, Equatable {
+    let id = UUID()
+    let name: String
+    let sizeMB: Double
+    // 필요시 썸네일, 타입 등 추가
+}
+
+// ProfileView에서 사용할 뷰 전용 파일 모델 정의
+struct ProfileSelectedFileViewModel: Identifiable, Equatable {
+    let id = UUID()
+    let name: String
+    let sizeMB: Double
+    // 필요시 썸네일, 타입 등 추가
+}
+
+
+struct PostingSelectedFileViewModel: Identifiable, Equatable {
+    let id = UUID()
+    let name: String
+    let sizeMB: Double
+}
+
+
+
+
+// ProfileSelectedFileViewModel -> SelectedFile 변환 extension
+extension ProfileSelectedFileViewModel {
+    func toSelectedFile(with image: UIImage) -> SelectedFile {
+        SelectedFile(
+            fileName: self.name,
+            fileType: .image,
+            image: image,
+            data: image.jpegData(compressionQuality: 0.8)
+        )
+    }
+}
+// 네트워크 SelectedFile -> PostingViewModel 변환 함수
+extension SelectedFile {
+    func toPostingViewModel() -> PostingSelectedFileViewModel {
+        PostingSelectedFileViewModel(
+            name: self.fileName,
+            sizeMB: Double(self.data?.count ?? 0) / 1024.0 / 1024.0
+        )
+    }
+}
+// 네트워크 SelectedFile -> 뷰모델 변환 함수
+extension SelectedFile {
+    func toChattingViewModel() -> ChattingSelectedFileViewModel {
+        ChattingSelectedFileViewModel(
+            name: self.fileName,
+            sizeMB: Double(self.data?.count ?? 0) / 1024.0 / 1024.0
+        )
+    }
+}
+// 네트워크 SelectedFile -> 뷰모델 변환 함수
+extension SelectedFile {
+    func toProfileViewModel() -> ProfileSelectedFileViewModel {
+        ProfileSelectedFileViewModel(
+            name: self.fileName,
+            sizeMB: Double(self.data?.count ?? 0) / 1024.0 / 1024.0
+        )
+    }
+}
+extension SelectedFile {
+    var sizeMB: Double {
+        let dataSize = data?.count ?? image?.jpegData(compressionQuality: 0.8)?.count ?? 0
+        return Double(dataSize) / 1024.0 / 1024.0
     }
 }

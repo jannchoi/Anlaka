@@ -15,7 +15,7 @@ struct HomeModel {
     var address = AddressResponseEntity(roadAddressName: "", roadRegion1: "", roadRegion2: "", roadRegion3: "")
     var likeLists: Loadable<[LikeEstateWithAddress]> = .idle
     // Navigation state
-    var navigationDestination: HomeRoute? = nil
+    var navigationDestination: AppRoute.HomeRoute? = nil
     var showSafariSheet: Bool = false
     var safariURL: URL? = nil
     var selectedEstateId: IdentifiableString? = nil

@@ -52,5 +52,16 @@ struct FormatManager {
         }
         return String(url.absoluteString[range.upperBound...])
     }
+
+    /// 파일 경로에서 파일 크기를 읽어 사람이 읽기 쉬운 문자열로 반환
+    static func formatFileSize(fromPath path: String) -> String {
+        let url = URL(fileURLWithPath: path)
+        let data = try? Data(contentsOf: url)
+        let size = data?.count ?? 0
+        let formatter = ByteCountFormatter()
+        formatter.allowedUnits = [.useKB, .useMB]
+        formatter.countStyle = .file
+        return formatter.string(fromByteCount: Int64(size))
+    }
 }
 

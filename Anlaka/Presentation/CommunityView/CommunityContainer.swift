@@ -8,6 +8,7 @@
 import Foundation
 import CoreLocation
 import Combine
+import CoreLocation
 
 struct CommunityModel {
     var posts: Loadable<[PostSummaryResponseEntity]> = .idle
@@ -46,24 +47,28 @@ enum CommunityIntent {
 }
 
 @MainActor
-final class CommunityContainer: NSObject, ObservableObject {
+final class CommunityContainer: NSObject, ObservableObject, LocationServiceDelegate {
     @Published var model = CommunityModel()
     private let useCase: PostSummaryUseCase
-    private let locationManager = CLLocationManager()
+    private let locationService: LocationService // DI로 받음
     
     // 파일 다운로드 관련
     private let fileDownloadRepository = FileDownloadRepositoryFactory.createWithAuth()
     private var cancellables = Set<AnyCancellable>()
+    private var hasAppeared = false // 중복 호출 방지 플래그 추가
     
-    init(repository: CommunityNetworkRepository, useCase: PostSummaryUseCase) {
+    init(repository: CommunityNetworkRepository, useCase: PostSummaryUseCase, locationService: LocationService) {
         self.useCase = useCase
+        self.locationService = locationService // DI로 받음
         super.init()
-        setupLocationManager()
+        locationService.delegate = self
     }
     
     func handle(_ intent: CommunityIntent) {
         switch intent {
         case .onAppear:
+            guard !hasAppeared else { return }
+            hasAppeared = true
             handleOnAppear()
         case .loadPosts:
             loadPosts()
@@ -108,34 +113,24 @@ final class CommunityContainer: NSObject, ObservableObject {
     
     // MARK: - Private Methods
     
-    private func setupLocationManager() {
-        locationManager.delegate = self
-        locationManager.desiredAccuracy = kCLLocationAccuracyBest
-    }
-    
     private func handleOnAppear() {
         // 1. Get current location
         getCurrentLocation()
-        
-        // 2. Load posts with current location
-        loadPosts()
+        // loadPosts() 호출 제거: 위치 획득 후에만 게시글 요청
     }
     
     private func getCurrentLocation() {
-        switch locationManager.authorizationStatus {
-        case .notDetermined:
-            locationManager.requestWhenInUseAuthorization()
-        case .authorizedWhenInUse, .authorizedAlways:
-            locationManager.requestLocation()
-        case .denied, .restricted:
-            // Use default location
-            let defaultCoordinate = CLLocationCoordinate2D(
-                latitude: 37.6522582058481,
-                longitude: 127.045432300312
-            )
-            handle(.locationUpdated(defaultCoordinate))
-        @unknown default:
-            break
+        Task {
+            print("📍 LocationService: 위치 요청 시작")
+            // 위치 권한 요청과 현재 위치 요청을 한 번에 처리
+            if let coordinate = await locationService.requestCurrentLocation() {
+                print("📍 LocationService: 위치 획득 성공 - \(coordinate.latitude), \(coordinate.longitude)")
+                handle(.locationUpdated(coordinate))
+            } else {
+                print("📍 LocationService: 위치 획득 실패, 기본 좌표 사용")
+                // 기본 좌표 사용
+                handle(.locationUpdated(LocationService.defaultCoordinate))
+            }
         }
     }
     
@@ -159,7 +154,7 @@ final class CommunityContainer: NSObject, ObservableObject {
                     next: nil,
                     order: model.selectedSort.rawValue
                 )
-                
+                print("📍 게시물 로드 성공 - \(posts.data.count)개")
                 model.allPosts = posts.data
                 model.nextCursor = posts.next == "0" ? nil : posts.next
                 model.posts = .success(posts.data)
@@ -353,38 +348,24 @@ final class CommunityContainer: NSObject, ObservableObject {
     func getDownloadState(for serverPath: String) -> FileDownloadProgress.DownloadState {
         return model.downloadStates[serverPath] ?? .notStarted
     }
-}
-
-// MARK: - CLLocationManagerDelegate
-extension CommunityContainer: CLLocationManagerDelegate {
-    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        guard let location = locations.first else { return }
-        handle(.locationUpdated(location.coordinate))
-    }
     
-    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        print("Location error: \(error)")
-        // Use default location
-        let defaultCoordinate = CLLocationCoordinate2D(
-            latitude: 37.6522582058481,
-            longitude: 127.045432300312
-        )
-        handle(.locationUpdated(defaultCoordinate))
+    // MARK: - LocationServiceDelegate
+    func locationService(didUpdateLocation coordinate: CLLocationCoordinate2D) {
+        handle(.locationUpdated(coordinate))
     }
-    
-    func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
-        switch status {
-        case .authorizedWhenInUse, .authorizedAlways:
-            manager.requestLocation()
-        case .denied, .restricted:
-            // Use default location
-            let defaultCoordinate = CLLocationCoordinate2D(
-                latitude: 37.6522582058481,
-                longitude: 127.045432300312
-            )
-            handle(.locationUpdated(defaultCoordinate))
-        default:
-            break
+    func locationService(didFailWithError error: Error) {
+        // 기본 좌표 사용
+        handle(.locationUpdated(LocationService.defaultCoordinate))
+    }
+    func locationService(didChangeAuthorization status: CLAuthorizationStatus) {
+        if status == .authorizedWhenInUse || status == .authorizedAlways {
+            Task {
+                if let coordinate = await locationService.requestCurrentLocation() {
+                    handle(.locationUpdated(coordinate))
+                }
+            }
+        } else {
+            handle(.locationUpdated(LocationService.defaultCoordinate))
         }
     }
 }

@@ -42,5 +42,11 @@ extension MyProfileInfoDTO {
             phoneNum: phoneNum,
             introduction: introduction
         )
-    }   
+    }
+  
+}
+extension MyProfileInfoEntity {
+    func toUserInfoEntity() -> UserInfoEntity {
+        return UserInfoEntity(userId: userid, nick: nick, introduction: introduction ?? "", profileImage: profileImage ?? "")
+    }
 }

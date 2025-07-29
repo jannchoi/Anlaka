@@ -12,7 +12,7 @@ struct GeolocationDTO: Decodable {
     let latitude: Double?
 }
 
-struct GeolocationEntity {
+struct GeolocationEntity: Equatable, Hashable {
     let longitude: Double
     let latitude: Double
 }

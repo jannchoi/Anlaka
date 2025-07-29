@@ -481,56 +481,77 @@ struct ChatInputView: View {
     let onImagePicker: () -> Void
     let onDocumentPicker: () -> Void
     let isSending: Bool
+    let showFileUpload: Bool // 파일 업로드 기능 표시 여부
+    
+    init(
+        text: Binding<String>,
+        selectedFiles: Binding<[SelectedFile]>,
+        invalidFileIndices: Set<Int>,
+        onSend: @escaping () -> Void,
+        onImagePicker: @escaping () -> Void,
+        onDocumentPicker: @escaping () -> Void,
+        isSending: Bool,
+        showFileUpload: Bool = true // 기본값은 true (채팅에서 사용)
+    ) {
+        self._text = text
+        self._selectedFiles = selectedFiles
+        self.invalidFileIndices = invalidFileIndices
+        self.onSend = onSend
+        self.onImagePicker = onImagePicker
+        self.onDocumentPicker = onDocumentPicker
+        self.isSending = isSending
+        self.showFileUpload = showFileUpload
+    }
     
     var body: some View {
         VStack(spacing: 8) {
-            // 파일 선택 안내
-            HStack {
-                Text(selectedFiles.isEmpty ? "파일을 선택하세요" : "\(selectedFiles.count)개 선택됨")
-                    .font(.pretendardCaption)
-                    .foregroundColor(.gray)
-                Spacer()
-            }
-            .padding(.horizontal, 4)
-            
-            // 선택된 파일 미리보기
-            if !selectedFiles.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(selectedFiles.indices, id: \.self) { index in
-                            FileThumbnailView(
-                                file: selectedFiles[index],
-                                isInvalid: invalidFileIndices.contains(index),
-                                invalidReason: nil
-                            ) {
-                                selectedFiles.remove(at: index)
+            // 파일 선택 안내 (파일 업로드가 활성화된 경우에만 표시)
+            if showFileUpload {
+                HStack {
+                    Text(selectedFiles.isEmpty ? "파일을 선택하세요" : "\(selectedFiles.count)개 선택됨")
+                        .font(.pretendardCaption)
+                        .foregroundColor(.gray)
+                    Spacer()
+                }
+                .padding(.horizontal, 4)
+                
+                // 선택된 파일 미리보기
+                if !selectedFiles.isEmpty {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(selectedFiles.indices, id: \.self) { idx in
+                                FileThumbnailView(file: selectedFiles[idx].toChattingViewModel(), isInvalid: invalidFileIndices.contains(idx), invalidReason: nil) {
+                                    selectedFiles.remove(at: idx)
+                                }
                             }
                         }
+                        .padding(.horizontal, 4)
                     }
-                    .padding(.horizontal, 4)
+                    .frame(height: 80)
                 }
-                .frame(height: 80)
             }
             
             // 입력 영역
             HStack(spacing: 8) {
-                // 갤러리 버튼
-                Button(action: onImagePicker) {
-                    Image(systemName: "photo")
-                        .font(.system(size: 20))
-                        .foregroundColor(Color.DeepForest)
+                // 갤러리 버튼 (파일 업로드가 활성화된 경우에만 표시)
+                if showFileUpload {
+                    Button(action: onImagePicker) {
+                        Image(systemName: "photo")
+                            .font(.system(size: 20))
+                            .foregroundColor(Color.DeepForest)
+                    }
+                    .disabled(isSending)
+                    
+                    // 문서 선택 버튼 (파일 업로드가 활성화된 경우에만 표시)
+                    Button(action: onDocumentPicker) {
+                        Image(systemName: "doc")
+                            .font(.system(size: 20))
+                            .foregroundColor(Color.DeepForest)
+                    }
+                    .disabled(isSending)
                 }
-                .disabled(isSending)
                 
-                // 문서 선택 버튼 (채팅에서만 표시)
-                Button(action: onDocumentPicker) {
-                    Image(systemName: "doc")
-                        .font(.system(size: 20))
-                        .foregroundColor(Color.DeepForest)
-                }
-                .disabled(isSending)
-                
-                TextField("메시지를 입력하세요", text: $text, axis: .vertical)
+                TextField(showFileUpload ? "메시지를 입력하세요" : "댓글을 입력하세요", text: $text, axis: .vertical)
                     .textFieldStyle(.roundedBorder)
                     .lineLimit(1...3)
                     .disabled(isSending)
@@ -659,7 +680,7 @@ struct FileInfoView: View {
 }
 
 struct FileThumbnailView: View {
-    let file: SelectedFile
+    let file: ChattingSelectedFileViewModel
     let isInvalid: Bool
     let invalidReason: String?
     let onRemove: () -> Void
@@ -668,32 +689,43 @@ struct FileThumbnailView: View {
         ZStack(alignment: .topTrailing) {
             // 파일 타입에 따른 썸네일 표시
             Group {
-                switch file.fileType {
-                case .image:
-                    if let image = file.image {
+                switch file.name.split(separator: ".").last?.lowercased() {
+                case "jpg", "jpeg", "png", "gif":
+                    if let image = UIImage(contentsOfFile: file.name) {
                         Image(uiImage: image)
                             .resizable()
                             .aspectRatio(contentMode: .fill)
                     } else {
                         Color.gray.opacity(0.3)
                     }
-                case .video:
+                case "mp4", "mov":
                     VStack(spacing: 4) {
-                        Image(systemName: "video.fill")
+                        Image(systemName: "video.slash")
                             .font(.system(size: 20))
                             .foregroundColor(.gray)
-                        Text(file.fileExtension.uppercased())
+                        Text(file.name.split(separator: ".").last?.uppercased() ?? "")
                             .font(.pretendardCaption2)
                             .foregroundColor(.gray)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Color.gray.opacity(0.1))
-                case .pdf:
+                case "pdf":
                     VStack(spacing: 4) {
-                        Image(systemName: "doc.text.fill")
+                        Image(systemName: "doc.text.slash")
                             .font(.system(size: 20))
                             .foregroundColor(.gray)
                         Text("PDF")
+                            .font(.pretendardCaption2)
+                            .foregroundColor(.gray)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color.gray.opacity(0.1))
+                default:
+                    VStack(spacing: 4) {
+                        Image(systemName: "doc.slash")
+                            .font(.system(size: 20))
+                            .foregroundColor(.gray)
+                        Text(file.name.split(separator: ".").last?.uppercased() ?? "")
                             .font(.pretendardCaption2)
                             .foregroundColor(.gray)
                     }
@@ -713,7 +745,7 @@ struct FileThumbnailView: View {
                 Spacer()
                 HStack {
                     Spacer()
-                    Text(formatFileSize())
+                    Text(FormatManager.formatFileSize(fromPath: file.name))
                         .font(.pretendardCaption2)
                         .foregroundColor(.white)
                         .padding(.horizontal, 4)
@@ -753,14 +785,6 @@ struct FileThumbnailView: View {
             }
             .offset(x: 6, y: -6)
         }
-    }
-    
-    private func formatFileSize() -> String {
-        let data = file.data ?? file.image?.jpegData(compressionQuality: 0.8) ?? Data()
-        let formatter = ByteCountFormatter()
-        formatter.allowedUnits = [.useKB, .useMB]
-        formatter.countStyle = .file
-        return formatter.string(fromByteCount: Int64(data.count))
     }
 }
 
