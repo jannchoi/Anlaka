@@ -41,4 +41,6 @@ extension Font {
     static let soyoHeadline = soyo(size: 14, weight: .bold)
     static let soyoSubheadline = soyo(size: 13, weight: .bold) // 추가된 작은 크기
     static let soyoBody = soyo(size: 12, weight: .regular)
-} 
+    static let soyoCaption = soyo(size: 10, weight: .regular)
+    static let soyoCaption2 = soyo(size: 9, weight: .regular)
+}

@@ -1,0 +1,290 @@
+//
+//  CommunityView.swift
+//  Anlaka
+//
+//  Created by 최정안 on 7/18/25.
+//
+
+import SwiftUI
+
+struct CommunityView: View {
+    @StateObject private var container: CommunityContainer
+    @State private var profileImageData: Data?
+    @Binding var path: NavigationPath
+    
+    init(di: DIContainer, path: Binding<NavigationPath>) {
+        self._container = StateObject(wrappedValue: di.makeCommunityContainer())
+        self._path = path
+    }
+    
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 0) {
+                CustomNavigationBar(title: container.model.currentLocation, leftButton: {
+                    // 뒤로가기 버튼
+                    Button(action: {
+                        path.removeLast()
+                    }) {
+                        Image("chevron")
+                            .font(.headline)
+                            .foregroundColor(.MainTextColor)
+                    }
+                })
+                searchBar
+                
+                HStack(spacing: 12) {
+                    sortView
+                    categoryView
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 16)
+                
+                boardView
+            }
+        }
+        .background(Color.WarmLinen)
+        .navigationBarHidden(true)
+        .onAppear {
+            container.handle(.onAppear)
+        }
+    }
+    
+    // MARK: - Search Bar
+    private var searchBar: some View {
+        HStack {
+            Image("Search")
+                .resizable()
+                .frame(width: 20, height: 20)
+                .foregroundColor(Color.Gray60)
+            
+            TextField("검색어를 입력해주세요.", text: $container.model.searchText)
+                .font(.pretendardBody)
+                .foregroundColor(Color.MainTextColor)
+                .onSubmit {
+                    container.handle(.searchPosts(container.model.searchText))
+                }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(Color.Alabaster)
+        .cornerRadius(8)
+        .padding(.horizontal, 16)
+        .padding(.top, 12)
+    }
+    
+    // MARK: - Sort View
+    private var sortView: some View {
+        Menu {
+            ForEach(TextResource.Community.Sort.allCases, id: \.self) { sort in
+                Button(action: {
+                    container.handle(.sortPosts(sort.text))
+                }) {
+                    HStack {
+                        Text(sort.text)
+                        if container.model.selectedSort == sort {
+                            Spacer()
+                            Image(systemName: "checkmark")
+                        }
+                    }
+                }
+            }
+        } label: {
+            HStack {
+                Text(container.model.selectedSort.text)
+                    .font(.pretendardSubheadline)
+                    .foregroundColor(Color.MainTextColor)
+                
+                Image(systemName: "chevron.down")
+                    .font(.caption)
+                    .foregroundColor(Color.Gray60)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(Color.Alabaster)
+            .cornerRadius(16)
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(Color.Gray60, lineWidth: 1)
+            )
+        }
+    }
+    
+    // MARK: - Category View
+    private var categoryView: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(TextResource.Community.Category.allCases.filter { $0 != .all }, id: \.self) { category in
+                    Button(action: {
+                        if container.model.selectedCategory == category {
+                            // If same category is selected, deselect it (go back to all)
+                            container.handle(.filterByCategory(TextResource.Community.Category.all.text))
+                        } else {
+                            // Select new category
+                            container.handle(.filterByCategory(category.text))
+                        }
+                    }) {
+                        Text(category.text)
+                            .font(.pretendardSubheadline)
+                            .foregroundColor(container.model.selectedCategory == category ? Color.MainTextColor : Color.Gray75)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(container.model.selectedCategory == category ? Color.TagBackground : Color.clear)
+                            .cornerRadius(16)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .stroke(Color.Gray60, lineWidth: 1)
+                            )
+                    }
+                }
+            }
+            .padding(.horizontal, 4)
+        }
+    }
+    
+    // MARK: - Board View
+    private var boardView: some View {
+        VStack(spacing: 0) {
+            switch container.model.posts {
+            case .idle:
+                EmptyView()
+            case .loading:
+                ProgressView()
+                    .padding()
+            case .success(let posts):
+                LazyVStack(spacing: 0) {
+                    ForEach(Array(posts.enumerated()), id: \.element.summary.postId) { index, post in
+                        postCell(for: post)
+                        
+                        if index < posts.count - 1 {
+                            Divider()
+                                .background(Color.Gray60)
+                                .padding(.horizontal, 16)
+                        }
+                        
+                        // Load more when reaching the last item
+                        if index == posts.count - 1 && container.model.nextCursor != nil {
+                            Color.clear
+                                .frame(height: 1)
+                                .onAppear {
+                                    container.handle(.loadMorePosts)
+                                }
+                        }
+                    }
+                    
+                    // Loading indicator for pagination
+                    if container.model.isLoadingMore {
+                        ProgressView()
+                            .padding()
+                    }
+                }
+            case .failure(let error):
+                Text("오류가 발생했습니다: \(error)")
+                    .foregroundColor(Color.TomatoRed)
+                    .padding()
+            case .requiresLogin:
+                Text("로그인이 필요합니다.")
+                    .foregroundColor(Color.TomatoRed)
+                    .padding()
+            }
+        }
+        .background(Color.Alabaster)
+        .cornerRadius(8)
+        .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
+        .padding(.horizontal, 16)
+        .padding(.top, 16)
+    }
+    
+    // MARK: - Post Cell
+    private func postCell(for post: AddressMappingResult<PostSummaryResponseWithAddress>) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 8) {
+                // Category Tag
+                Text(post.summary.category)
+                    .font(.soyoCaption2)
+                    .foregroundColor(Color.Gray60)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.TagBackground)
+                    .cornerRadius(4)
+                
+                // Title
+                Text(post.summary.title)
+                    .font(.pretendardSubheadline)
+                    .foregroundColor(Color.MainTextColor)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                
+                // Content
+                Text(post.summary.content)
+                    .font(.soyoBody)
+                    .foregroundColor(Color.Gray60)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                
+                // Address, CreatedAt, Like Count
+                HStack(spacing: 8) {
+                    Text(post.address)
+                        .font(.soyoCaption)
+                        .foregroundColor(Color.Gray60)
+                    
+                    Text(post.summary.createdAt)
+                        .font(.soyoCaption)
+                        .foregroundColor(Color.Gray60)
+                    
+                    HStack(spacing: 4) {
+                        Image(post.summary.isLike ? "Like_Fill" : "Like_Empty")
+                            .resizable()
+                            .frame(width: 15, height: 15)
+                            .foregroundColor(post.summary.isLike ? Color.TomatoRed : Color.Gray60)
+                        
+                        Text(post.summary.likeCount)
+                            .font(.soyoCaption)
+                            .foregroundColor(Color.Gray60)
+                    }
+                }
+            }
+            
+            Spacer()
+            
+            // Image Section
+            if !post.summary.files.isEmpty {
+                ZStack(alignment: .topTrailing) {
+                    AsyncImage(url: URL(string: post.summary.files[0] ?? "")) { image in
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                    } placeholder: {
+                        Rectangle()
+                            .fill(Color.Gray60.opacity(0.3))
+                    }
+                    .frame(width: 80, height: 80)
+                    .cornerRadius(6)
+                    
+                    // Image Count Badge
+                    if post.summary.files.count > 1 {
+                        Text("\(post.summary.files.count)")
+                            .font(.soyoCaption2)
+                            .foregroundColor(Color.Alabaster)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 2)
+                            .background(Color.black.opacity(0.7))
+                            .cornerRadius(3)
+                            .padding(4)
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .onTapGesture {
+            container.handle(.navigateToPostDetail(post.summary.postId))
+        }
+    }
+}
+
+#Preview {
+    NavigationStack {
+        CommunityView(di: DIContainer(), path: .constant(NavigationPath()))
+    }
+}
+

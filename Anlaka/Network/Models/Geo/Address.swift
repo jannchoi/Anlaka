@@ -102,6 +102,17 @@ extension AddressResponseEntity {
             return roadAddressName
         }
     }
+    func toRoadRegion2() -> String {
+        if !roadRegion2.isEmpty {
+            return roadRegion2
+        } else if !roadRegion3.isEmpty {
+            return roadRegion3
+        } else if !roadRegion1.isEmpty {
+            return roadRegion1
+        } else {
+            return roadAddressName
+        }
+    }
 }
 
 
