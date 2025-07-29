@@ -382,6 +382,9 @@ struct ChattingView: View {
             container.handle(.initialLoad)
             didInitialScroll = false
             CurrentScreenTracker.shared.setCurrentScreen(.chat, chatRoomId: container.model.roomId)
+            
+            // 채팅방 진입 시 알림 카운트 초기화
+            ChatNotificationCountManager.shared.resetCount(for: container.model.roomId)
         }
         .onDisappear {
             container.handle(.disconnectSocket)

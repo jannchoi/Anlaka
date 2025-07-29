@@ -90,6 +90,10 @@ struct AnlakaApp: App {
             })
             .task {
                 await setupCacheCleanup() // 비동기 작업을 onAppear 또는 task 수정자에서 호출
+                
+                // 앱 시작 시 초기 로그인 상태를 NotificationRoutingQueue에 설정
+                routingQueue.handleLoginStateChange(isLoggedIn)
+                print("📱 앱 시작 시 로그인 상태 설정: \(isLoggedIn)")
             }
             .onChange(of: isLoggedIn) { newValue in
                 // 로그인 상태가 변경될 때 대기 중인 채팅방 처리
@@ -99,6 +103,7 @@ struct AnlakaApp: App {
                 
                 // 새로운 라우팅 시스템에 로그인 상태 변경 알림
                 routingQueue.handleLoginStateChange(newValue)
+                print("📱 로그인 상태 변경 감지: \(newValue)")
             }
             .alert("알림 권한", isPresented: $permissionManager.shouldShowPermissionAlert) {
                 Button("설정으로 이동") {

@@ -28,10 +28,21 @@ final class MyPageContainer: ObservableObject {
     @Published var model = MyPageModel()
     private let repository: NetworkRepository
     private let databaseRepository: DatabaseRepository
+    private var notificationObserver: NSObjectProtocol?
 
     init(repository: NetworkRepository, databaseRepository: DatabaseRepository) {
         self.repository = repository
         self.databaseRepository = databaseRepository
+        
+        // 포그라운드 진입 알림 구독
+        setupNotificationObserver()
+    }
+    
+    deinit {
+        // 알림 구독 해제
+        if let observer = notificationObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
     }
     
     func handle(_ intent: MyPageIntent) {
@@ -46,6 +57,8 @@ final class MyPageContainer: ObservableObject {
             model.isInitialized = true
             
         case .refreshData:
+            print("📱 채팅방 목록 새로고침 시작")
+            
             // 기존 데이터를 초기화한 후 다시 로드
             model.profileInfo = nil
             model.chatRoomList = []
@@ -56,6 +69,10 @@ final class MyPageContainer: ObservableObject {
             getChatRoomList()
             
             model.isInitialized = true
+            
+            print("📱 채팅방 목록 새로고침 완료")
+            
+
             
         case .addMyEstate:
             uploadAdminRequest()
@@ -134,6 +151,24 @@ final class MyPageContainer: ObservableObject {
                             shouldUpdate = true
                             updatedRoomIds.insert(serverRoom.roomId) // hasNewChat 표시용
                             print("🆕 새로운 채팅 발견: \(serverRoom.roomId), 서버: \(serverRoom.updatedAt), 로컬: \(localRoom.updatedAt)")
+                            
+                            // 서버에서 최신 마지막 메시지 정보로 DB 업데이트
+                            if let serverLastChat = serverRoom.lastChat {
+                                // 서버의 최신 마지막 메시지로 채팅방 정보 업데이트
+                                let updatedRoom = ChatRoomEntity(
+                                    roomId: serverRoom.roomId,
+                                    createdAt: serverRoom.createdAt,
+                                    updatedAt: serverRoom.updatedAt,
+                                    participants: serverRoom.participants,
+                                    lastChat: serverRoom.lastChat
+                                )
+                                try await databaseRepository.updateChatRoom(updatedRoom)
+                                
+                                // 서버 데이터가 있으면 임시 메시지 제거
+                                TemporaryLastMessageManager.shared.removeTemporaryLastMessage(for: serverRoom.roomId)
+                                
+                                print("📱 채팅방 \(serverRoom.roomId) 마지막 메시지 서버 동기화 완료 및 임시 메시지 제거")
+                            }
                         }
                         
                         // 2) 프로필 정보 변경 확인 (채팅 메시지는 없지만 프로필이 변경된 경우)
@@ -167,8 +202,55 @@ final class MyPageContainer: ObservableObject {
                     try await databaseRepository.deleteChatRoom(roomId: roomId)
                 }
                 
-                // 5. UI 갱신
-                model.chatRoomList = roomsToUpdate
+
+                
+                // 5. 임시 마지막 메시지로 UI 업데이트
+                let notificationCountManager = ChatNotificationCountManager.shared
+                let temporaryMessageManager = TemporaryLastMessageManager.shared
+                var finalRoomsToUpdate: [ChatRoomEntity] = []
+                
+                for room in roomsToUpdate {
+                    var updatedRoom = room
+                    
+                    // 임시 마지막 메시지가 있으면 우선 사용
+                    if let tempMessage = temporaryMessageManager.getTemporaryLastMessage(for: room.roomId) {
+                        // 임시 마지막 메시지로 ChatEntity 생성
+                        let tempChatEntity = ChatEntity(
+                            chatId: "temp_\(UUID().uuidString)",
+                            roomId: room.roomId,
+                            content: tempMessage.content,
+                            createdAt: PresentationMapper.formatDateToISO8601(tempMessage.timestamp),
+                            updatedAt: PresentationMapper.formatDateToISO8601(tempMessage.timestamp),
+                            sender: tempMessage.senderId,
+                            files: tempMessage.hasFiles ? ["temp_file"] : []
+                        )
+                        
+                        updatedRoom = ChatRoomEntity(
+                            roomId: room.roomId,
+                            createdAt: room.createdAt,
+                            updatedAt: room.updatedAt,
+                            participants: room.participants,
+                            lastChat: tempChatEntity
+                        )
+                        print("📱 채팅방 \(room.roomId) 임시 마지막 메시지 사용: \(tempMessage.content)")
+                        
+                        // 임시 메시지가 있는 채팅방은 updatedRoomIds에 추가
+                        updatedRoomIds.insert(room.roomId)
+                    }
+                    
+                    finalRoomsToUpdate.append(updatedRoom)
+                }
+                
+                // 6. 알림 카운트가 있는 채팅방들을 updatedRoomIds에 추가 (서버 데이터와 무관하게 보존)
+                for room in finalRoomsToUpdate {
+                    if notificationCountManager.getCount(for: room.roomId) > 0 {
+                        updatedRoomIds.insert(room.roomId)
+                        print("📱 채팅방 \(room.roomId) 알림 카운트 보존: \(notificationCountManager.getCount(for: room.roomId))")
+                    }
+                }
+                
+                // 7. UI 갱신
+                model.chatRoomList = finalRoomsToUpdate
                 model.updatedRoomIds = updatedRoomIds // hasNewChat 표시할 채팅방 ID들
                 
                 print("📱 UI 업데이트 완료 - 새로운 채팅이 있는 방: \(updatedRoomIds)")
@@ -183,6 +265,78 @@ final class MyPageContainer: ObservableObject {
                 }
             }
         }
+    }
+    
+    /// 채팅 알림 업데이트 구독 설정
+    private func setupNotificationObserver() {
+        // 포그라운드 진입 알림 구독
+        notificationObserver = NotificationCenter.default.addObserver(
+            forName: .appDidEnterForeground,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            print("📱 MyPageContainer에서 포그라운드 진입 알림 수신")
+            self?.updateChatRoomListFromBackground()
+        }
+        
+        // 채팅 알림 업데이트 구독
+        NotificationCenter.default.addObserver(
+            forName: .chatNotificationUpdate,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            print("📱 MyPageContainer에서 채팅 알림 업데이트 수신")
+            self?.updateChatRoomListFromBackground()
+        }
+    }
+    
+    /// 채팅 알림 업데이트 - 기존 채팅방 목록에 임시 메시지와 알림 카운트만 반영
+    private func updateChatRoomListFromBackground() {
+        let notificationCountManager = ChatNotificationCountManager.shared
+        let temporaryMessageManager = TemporaryLastMessageManager.shared
+        var updatedRoomIds = Set<String>()
+        
+        // 기존 채팅방 목록을 순회하면서 임시 메시지와 알림 카운트 반영
+        for (index, room) in model.chatRoomList.enumerated() {
+            var updatedRoom = room
+            
+            // 임시 마지막 메시지가 있으면 반영
+            if let tempMessage = temporaryMessageManager.getTemporaryLastMessage(for: room.roomId) {
+                let tempChatEntity = ChatEntity(
+                    chatId: "temp_\(UUID().uuidString)",
+                    roomId: room.roomId,
+                    content: tempMessage.content,
+                    createdAt: PresentationMapper.formatDateToISO8601(tempMessage.timestamp),
+                    updatedAt: PresentationMapper.formatDateToISO8601(tempMessage.timestamp),
+                    sender: tempMessage.senderId,
+                    files: tempMessage.hasFiles ? ["temp_file"] : []
+                )
+                
+                updatedRoom = ChatRoomEntity(
+                    roomId: room.roomId,
+                    createdAt: room.createdAt,
+                    updatedAt: room.updatedAt,
+                    participants: room.participants,
+                    lastChat: tempChatEntity
+                )
+                
+                updatedRoomIds.insert(room.roomId)
+                print("📱 백그라운드 업데이트 - 채팅방 \(room.roomId) 임시 메시지: \(tempMessage.content)")
+            }
+            
+            model.chatRoomList[index] = updatedRoom
+        }
+        
+        // 알림 카운트가 있는 채팅방들을 updatedRoomIds에 추가 (서버 데이터와 무관하게 보존)
+        for room in model.chatRoomList {
+            if notificationCountManager.getCount(for: room.roomId) > 0 {
+                updatedRoomIds.insert(room.roomId)
+                print("📱 백그라운드 업데이트 - 채팅방 \(room.roomId) 알림 카운트 보존: \(notificationCountManager.getCount(for: room.roomId))")
+            }
+        }
+        
+        model.updatedRoomIds = updatedRoomIds
+        print("📱 백그라운드 업데이트 완료 - 업데이트된 채팅방: \(updatedRoomIds)")
     }
     
     // 프로필 정보 변경 확인 헬퍼 메서드
@@ -216,6 +370,7 @@ final class MyPageContainer: ObservableObject {
         UserDefaultsManager.shared.removeObject(forKey: .profileData)
         model.backToLogin = true
     }
+
 }
     
 
