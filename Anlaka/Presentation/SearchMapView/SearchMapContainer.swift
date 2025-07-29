@@ -384,10 +384,10 @@ final class SearchMapContainer: NSObject, ObservableObject {
     
     private func handleError(_ error: Error) {
         model.pinInfoList = []
-        if let netError = error as? NetworkError, netError == .expiredRefreshToken {
+        if let netError = error as? CustomError, netError == .expiredRefreshToken {
             model.backToLogin = true
         } else {
-            model.errorMessage = (error as? NetworkError)?.errorDescription ?? error.localizedDescription
+            model.errorMessage = (error as? CustomError)?.errorDescription ?? error.localizedDescription
         }
     }
 }

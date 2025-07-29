@@ -84,7 +84,7 @@ extension ChatRouter {
             let maxFileCount = 5
             
             // 파일 개수 제한 확인
-            let filesToUpload = Array(dto.files.prefix(maxFileCount))
+            let filesToUpload = Array(dto.prefix(maxFileCount))
             
             // 각 파일에 대해 multipart/form-data 구성
             for (index, file) in filesToUpload.enumerated() {

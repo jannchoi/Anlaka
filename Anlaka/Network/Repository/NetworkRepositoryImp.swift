@@ -176,52 +176,15 @@ internal final class NetworkRepositoryImp: NetworkRepository {
     
     func uploadFiles(roomId: String, files: [FileData]) async throws -> ChatFileEntity {
         //파일을 업로드함.
-        let target = ChatFilesRequestDTO(files: files)
         do {
-            let response = try await NetworkManager.shared.callRequest(target: ChatRouter.uploadFiles(roomId: roomId, target), model: ChatFileResponseDTO.self)
+            let response = try await NetworkManager.shared.callRequest(target: ChatRouter.uploadFiles(roomId: roomId, files), model: ChatFileResponseDTO.self)
             return response.toEntity()
         } catch {
             throw error
         }
     }
 
-    func getGeoFromKeywordQuery(_ query: String, page: Int) async throws -> KakaoGeoKeywordEntity {
-        do {
-            let response = try await NetworkManager.shared.callRequest(target: GeoRouter.getGeoByKeyword(query: query, page: page), model: KakaoGeoKeywordDTO.self)
-            return response.toEntity()
-        } catch {
-            throw error
-        }
-    }
-    
-    func getGeofromAddressQuery(_ query: String, page: Int) async throws -> KakaoGeolocationEntity {
-        do {
-            let response = try await NetworkManager.shared.callRequest(target: GeoRouter.getGeolocation(query: query, page: page), model: KakaoGeolocationDTO.self)
-            return response.toEntity()
-        } catch {
-            throw error
-        }
-    }
-    
-    func getRoad3FromGeo(_ geo: GeolocationEntity) async throws -> RoadRegion3Entity {
-        let (x,y) = (geo.longitude, geo.latitude)
-        do {
-            let response = try await NetworkManager.shared.callRequest(target: GeoRouter.getAddress(lon: x, lat: y), model: AddressResponseDTO.self)
-            return response.toRoadRegion3Entity()
-        } catch {
-            throw error
-        }
-    }
-    
-    func getAddressFromGeo(_ geo: GeolocationEntity) async throws -> AddressResponseEntity {
-        let (x,y) = (geo.longitude, geo.latitude)
-        do {
-            let response = try await NetworkManager.shared.callRequest(target: GeoRouter.getAddress(lon: x, lat: y), model: AddressResponseDTO.self)
-            return response.toEntity()
-        } catch {
-            throw error
-        }
-    }
+
     
     
     func getDetailEstate(_ estateId: String) async throws -> DetailEstateEntity {
@@ -421,6 +384,34 @@ internal final class NetworkRepositoryImp: NetworkRepository {
             saveTokens(accessToken: entity.accessToken, refreshToken: entity.refreshToken)
         } catch {
             print("🧶 애플 로그인 실패, \(error)")
+            throw error
+        }
+    }
+    
+    // MARK: - File Download Methods
+    func downloadFile(from serverPath: String) async throws -> ServerFileEntity {
+        do {
+            let result = try await NetworkManager.shared.downloadFile(from: serverPath)
+            var file = ServerFileEntity(serverPath: serverPath)
+            file.setDownloaded(localPath: result.localPath, image: result.image)
+            return file
+        } catch {
+            throw error
+        }
+    }
+    
+    func downloadFiles(from serverPaths: [String]) async throws -> [ServerFileEntity] {
+        do {
+            let results = try await NetworkManager.shared.downloadFiles(from: serverPaths)
+            
+            return serverPaths.map { serverPath in
+                var file = ServerFileEntity(serverPath: serverPath)
+                if let result = results[serverPath] {
+                    file.setDownloaded(localPath: result.localPath, image: result.image)
+                }
+                return file
+            }
+        } catch {
             throw error
         }
     }
