@@ -79,7 +79,7 @@ struct EditProfileView: View {
             // 이미지 선택 버튼
             PhotosPicker(selection: $selectedImage, matching: .images) {
                 Text("프로필 이미지 변경")
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.pretendardCallout)
                     .foregroundColor(.blue)
             }
         }
@@ -199,7 +199,7 @@ struct IntroductionInputField: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("자기소개")
-                .font(.system(size: 16, weight: .medium))
+                .font(.soyoHeadline)
                 .foregroundColor(Color.MainTextColor)
             
             TextField("자기소개를 입력하세요", text: $introduction, axis: .vertical)
@@ -216,7 +216,7 @@ struct PhoneNumberInputField: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("전화번호")
-                .font(.system(size: 16, weight: .medium))
+                .font(.soyoHeadline)
                 .foregroundColor(Color.MainTextColor)
             
             TextField("전화번호를 입력하세요", text: $phoneNum)
@@ -242,7 +242,7 @@ struct SaveProfileButton: View {
                 }
                 
                 Text("저장")
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.soyoHeadline)
                     .foregroundColor(.white)
             }
             .frame(maxWidth: .infinity)
@@ -283,7 +283,8 @@ struct SuccessToastMessage: View {
         HStack {
             Image(systemName: "checkmark.circle.fill")
                 .foregroundColor(Color.SteelBlue)
-            Text("프로필이 성공적으로 저장되었습니다")
+                            Text("프로필이 성공적으로 저장되었습니다")
+                    .font(.pretendardBody)
                 .font(.system(size: 16, weight: .medium))
                 .foregroundColor(.white)
         }
