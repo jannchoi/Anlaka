@@ -71,7 +71,7 @@ struct CustomNavigationBar<LeftButton: View, RightButton: View>: View {
                     .frame(width: 60, height: 44)
             }
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 12)
         .frame(height: 44)
         .background(Color.white)
         .overlay(
@@ -80,5 +80,6 @@ struct CustomNavigationBar<LeftButton: View, RightButton: View>: View {
                 .foregroundColor(Color.gray.opacity(0.3)),
             alignment: .bottom
         )
+        .toolbar(.hidden, for: .navigationBar) // 기본 네비게이션 바 숨기기
     }
 }
