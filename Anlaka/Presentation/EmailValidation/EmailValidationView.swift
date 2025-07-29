@@ -26,8 +26,9 @@ struct EmailValidationView: View {
                         Button(action: {
                             // 뒤로가기 로직
                         }) {
-                            Image(systemName: "chevron.left")
-                                .foregroundColor(Color.MainTextColor)
+                            Image("chevron")
+                                .font(.headline)
+                                .foregroundColor(.MainTextColor)
                         }
                     })
                     

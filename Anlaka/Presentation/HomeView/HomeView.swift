@@ -158,63 +158,83 @@ struct TodayEstateView: View {
     @State private var currentPage: Int = 0
     @State private var imageBrightness: [Int: Bool] = [:] // 각 페이지별 밝기 상태 저장
     
-    var body: some View {
-        GeometryReader { geometry in
-            ZStack(alignment: .bottom) {
-                // TabView로 페이지 처리
-                TabView(selection: $currentPage) {
-                    ForEach(Array(entity.enumerated()), id: \.offset) { index, item in
-                        ZStack(alignment: .bottom) {
-                            CustomAsyncImage(imagePath: item.summary.thumbnail) { image in
-                                // 이미지 로드 완료 시 밝기 확인
-                                if let image = image {
-                                    checkImageBrightness(for: index, image: image)
-                                }
+var body: some View {
+    GeometryReader { geometry in
+        ZStack(alignment: .bottom) {
+            // TabView로 페이지 처리
+            TabView(selection: $currentPage) {
+                ForEach(Array(entity.enumerated()), id: \.offset) { index, item in
+                    ZStack(alignment: .bottom) {
+                        CustomAsyncImage(imagePath: item.summary.thumbnail) { image in
+                            // 이미지 로드 완료 시 밝기 확인
+                            if let image = image {
+                                checkImageBrightness(for: index, image: image)
                             }
-                            .frame(width: geometry.size.width, height: geometry.size.height)
-                            .clipped()
-                            
-                            // 텍스트 콘텐츠
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text(item.address)
-                                    .font(.pretendardSubheadline)
-                                    .foregroundColor(getTextColor(for: index))
-                                
-                                Text(item.summary.title)
-                                    .font(.soyoTitle2)
-                                    .foregroundColor(getTextColor(for: index))
-                                    .multilineTextAlignment(.leading)
-                                
-                                Text(item.summary.introduction)
-                                    .font(.pretendardBody)
-                                    .foregroundColor(getTextColor(for: index))
-                                    .multilineTextAlignment(.leading)
-                                    .lineLimit(2)
-                            }
-                            .padding(20)
-                            .padding(.bottom, 40)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(
-                                LinearGradient(
-                                    gradient: Gradient(colors: getGradientColors(for: index)),
-                                    startPoint: .bottom,
-                                    endPoint: .top
-                                )
-                            )
                         }
                         .frame(width: geometry.size.width, height: geometry.size.height)
-                        .contentShape(Rectangle()) // 전체 영역을 탭 가능하게
-                        .onTapGesture {
-                            onTap()
+                        .clipped()
+                        
+                        // 텍스트 콘텐츠
+                        VStack(alignment: .leading, spacing: 8) {
+                            // 주소 캡슐 - HStack에 직접 배경 적용
+                            HStack {
+                                HStack(spacing: 4) {
+                                    Image("Location")
+                                        .resizable()
+                                        .scaledToFit()
+                                        .frame(width: 12, height: 12)
+                                        .foregroundColor(getTextColor(for: index))
+                                    
+                                    Text(item.address)
+                                        .font(.pretendardFootnote)
+                                        .foregroundColor(getTextColor(for: index))
+                                        .lineLimit(1)
+                                }
+                                .padding(.horizontal, 11)
+                                .padding(.vertical, 4)
+                                .background(
+                                    Capsule()
+                                        .fill(getTextColor(for: index) == .white ? Color.black.opacity(0.4) : Color.white.opacity(0.6))
+                                )
+                                
+                                Spacer() // 나머지 공간을 차지
+                            }
+                            
+                            Text(item.summary.title)
+                                .font(.soyoTitle2)
+                                .foregroundColor(getTextColor(for: index))
+                                .multilineTextAlignment(.leading)
+                            
+                            Text(item.summary.introduction)
+                                .font(.pretendardBody)
+                                .foregroundColor(getTextColor(for: index))
+                                .multilineTextAlignment(.leading)
+                                .lineLimit(2)
                         }
-                        .tag(index)
+                        .padding(20)
+                        .padding(.bottom, 40)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(
+                            LinearGradient(
+                                gradient: Gradient(colors: getGradientColors(for: index)),
+                                startPoint: .bottom,
+                                endPoint: .top
+                            )
+                        )
                     }
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+                    .contentShape(Rectangle()) // 전체 영역을 탭 가능하게
+                    .onTapGesture {
+                        onTap()
+                    }
+                    .tag(index)
                 }
-                .tabViewStyle(PageTabViewStyle(indexDisplayMode: .automatic))
             }
+            .tabViewStyle(PageTabViewStyle(indexDisplayMode: .automatic))
         }
-        .ignoresSafeArea() // 전체 영역을 무시
     }
+    .ignoresSafeArea() // 전체 영역을 무시
+}
     
     // 이미지 밝기 확인 함수
     private func checkImageBrightness(for index: Int, image: UIImage) {
