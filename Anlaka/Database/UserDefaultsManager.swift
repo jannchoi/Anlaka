@@ -13,7 +13,7 @@ enum UserDefaultsKey: String {
     case expRefresh     // KeychainManager에서 관리하지만 UserDefaults에 저장
     case deviceTokenChanged
     case pendingChatRoomId
-    case badgeCount
+    // case badgeCount
 }
 
 

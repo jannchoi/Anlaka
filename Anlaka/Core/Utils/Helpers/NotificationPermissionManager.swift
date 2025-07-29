@@ -45,7 +45,7 @@ class NotificationPermissionManager: ObservableObject {
     func requestNotificationPermission() async -> Bool {
         do {
             let granted = try await UNUserNotificationCenter.current().requestAuthorization(
-                options: [.alert, .badge, .sound]
+                options: [.alert, .sound]
             )
             
             await MainActor.run {
