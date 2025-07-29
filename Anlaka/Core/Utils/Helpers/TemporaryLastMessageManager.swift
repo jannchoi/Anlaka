@@ -6,7 +6,14 @@ final class TemporaryLastMessageManager: ObservableObject {
     
     @Published private(set) var temporaryMessages: [String: TemporaryLastMessage] = [:]
     
-    private let userDefaults = UserDefaults.standard
+    private let userDefaults: UserDefaults? = {
+        let suiteName = "group.com.jann.Anlaka"
+        guard !suiteName.isEmpty else {
+            print("❌ UserDefaults suiteName이 빈 문자열입니다")
+            return nil
+        }
+        return UserDefaults(suiteName: suiteName)
+    }()
     private let temporaryMessagesKey = "TemporaryLastMessages"
     
     // 디바운싱을 위한 타이머
@@ -14,6 +21,7 @@ final class TemporaryLastMessageManager: ObservableObject {
     private let debounceInterval: TimeInterval = 2.0 // 2초 디바운싱
     
     private init() {
+        migrateFromStandardUserDefaults()
         loadTemporaryMessages()
     }
     
@@ -81,7 +89,7 @@ final class TemporaryLastMessageManager: ObservableObject {
         temporaryMessages.removeValue(forKey: roomId)
         saveTemporaryMessages()
         objectWillChange.send()
-        print("📱 채팅방 \(roomId) 임시 마지막 메시지 제거")
+        //print("📱 채팅방 \(roomId) 임시 마지막 메시지 제거")
     }
     
     /// 모든 임시 마지막 메시지 제거
@@ -89,7 +97,12 @@ final class TemporaryLastMessageManager: ObservableObject {
         temporaryMessages.removeAll()
         saveTemporaryMessages()
         objectWillChange.send()
-        print("📱 모든 임시 마지막 메시지 제거")
+        //print("📱 모든 임시 마지막 메시지 제거")
+    }
+    
+    /// 모든 임시 마지막 메시지 제거 (clearAllTemporaryMessages와 동일)
+    func clearAllTemporaryMessages() {
+        removeAllTemporaryLastMessages()
     }
     
     /// 임시 마지막 메시지의 상대적 시간 포맷팅
@@ -121,14 +134,32 @@ final class TemporaryLastMessageManager: ObservableObject {
     
     private func saveTemporaryMessages() {
         if let data = try? JSONEncoder().encode(temporaryMessages) {
-            userDefaults.set(data, forKey: temporaryMessagesKey)
+            userDefaults?.set(data, forKey: temporaryMessagesKey)
         }
     }
     
     private func loadTemporaryMessages() {
-        if let data = userDefaults.data(forKey: temporaryMessagesKey),
+        if let data = userDefaults?.data(forKey: temporaryMessagesKey),
            let messages = try? JSONDecoder().decode([String: TemporaryLastMessage].self, from: data) {
             temporaryMessages = messages
+        }
+    }
+    
+    /// 기존 UserDefaults에서 App Groups로 데이터 마이그레이션
+    private func migrateFromStandardUserDefaults() {
+        let standardDefaults = UserDefaults.standard
+        let oldData = standardDefaults.data(forKey: temporaryMessagesKey)
+        
+        if let oldData = oldData,
+           let oldMessages = try? JSONDecoder().decode([String: TemporaryLastMessage].self, from: oldData),
+           !oldMessages.isEmpty {
+            print("📱 기존 UserDefaults에서 임시 메시지 마이그레이션: \(oldMessages.count)개")
+            temporaryMessages = oldMessages
+            saveTemporaryMessages()
+            
+            // 마이그레이션 후 기존 데이터 삭제
+            standardDefaults.removeObject(forKey: temporaryMessagesKey)
+            print("📱 임시 메시지 마이그레이션 완료 - 기존 데이터 삭제")
         }
     }
 }

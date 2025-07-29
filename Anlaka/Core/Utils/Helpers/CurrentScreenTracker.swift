@@ -24,10 +24,13 @@ final class CurrentScreenTracker: ObservableObject {
     
     /// 현재 화면을 설정
     func setCurrentScreen(_ screen: ScreenType, chatRoomId: String? = nil) {
+        let previousScreen = currentScreen
+        let previousChatRoomId = currentChatRoomId
+        
         currentScreen = screen
         currentChatRoomId = chatRoomId
         
-        print("📱 화면 변경: \(screen) - 채팅방: \(chatRoomId ?? "없음")")
+        print("📱 화면 변경: \(previousScreen) → \(screen) - 채팅방: \(previousChatRoomId ?? "없음") → \(chatRoomId ?? "없음")")
     }
     
     /// 현재 채팅방에 있는지 확인

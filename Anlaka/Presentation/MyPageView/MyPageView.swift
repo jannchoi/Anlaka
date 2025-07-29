@@ -10,7 +10,6 @@ import SwiftUI
 // MARK: - MyPageView
 struct MyPageView: View {
     @StateObject private var container: MyPageContainer
-    @StateObject private var notificationCountManager = ChatNotificationCountManager.shared
     @StateObject private var temporaryMessageManager = TemporaryLastMessageManager.shared
     let di: DIContainer
     @AppStorage(TextResource.Global.isLoggedIn.text) private var isLoggedIn: Bool = true
@@ -64,8 +63,7 @@ struct MyPageView: View {
                         updatedRoomIds: container.model.updatedRoomIds,
                         onRoomTap: { roomId in
                             path.append(AppRoute.MyPageRoute.chatRoom(roomId: roomId))
-                        },
-                        notificationCountManager: notificationCountManager
+                        }
                     )
                     .padding(.top, 32)
                 }
@@ -80,18 +78,27 @@ struct MyPageView: View {
             switch route {
             case .chatRoom(let roomId):
                 ChattingView(roomId: roomId, di: di, path: $path)
+                    .id(roomId) // roomId가 변경될 때마다 새로운 뷰 인스턴스 생성
             case .editProfile:
                 EditProfileView(di: di, path: $path)
             }
         }
         .onChange(of: container.model.backToLogin) { backToLogin in
+            print("🔐 MyPageView onChange 감지: backToLogin = \(backToLogin)")
             if backToLogin {
+                print("🔐 MyPageView에서 isLoggedIn을 false로 설정")
                 isLoggedIn = false
             }
         }
         .onAppear {
             container.handle(.initialRequest)
             CurrentScreenTracker.shared.setCurrentScreen(.profile)
+            
+            // MyPageView 진입 시 모든 커스텀 알림 제거
+            CustomNotificationManager.shared.clearAllNotifications()
+            
+            // MyPageView 진입 시 뱃지 상태 업데이트
+            ChatNotificationCountManager.shared.forceUpdateBadge()
         }
 
         .onChange(of: temporaryMessageManager.temporaryMessages) { _ in
@@ -101,6 +108,8 @@ struct MyPageView: View {
         .alert("로그아웃", isPresented: $showLogoutAlert) {
             Button("취소", role: .cancel) { }
             Button("로그아웃", role: .destructive) {
+                print("🔐 로그아웃 버튼 클릭됨")
+                // container에서 로그아웃 처리 (isLoggedIn 설정 포함)
                 container.handle(.logout)
             }
         } message: {
@@ -115,7 +124,6 @@ struct ChattingSectionView: View {
     let chatRoomList: [ChatRoomEntity]
     let updatedRoomIds: Set<String>
     let onRoomTap: (String) -> Void
-    @ObservedObject var notificationCountManager: ChatNotificationCountManager
     
     var body: some View {
         VStack(spacing: 16) {
@@ -125,8 +133,7 @@ struct ChattingSectionView: View {
             ChattingRoomListView(
                 chatRoomList: chatRoomList,
                 updatedRoomIds: updatedRoomIds,
-                onRoomTap: onRoomTap,
-                notificationCountManager: notificationCountManager
+                onRoomTap: onRoomTap
             )
         }
     }
@@ -299,7 +306,6 @@ struct ChattingRoomListView: View {
     let chatRoomList: [ChatRoomEntity]
     let updatedRoomIds: Set<String>
     let onRoomTap: (String) -> Void
-    @ObservedObject var notificationCountManager: ChatNotificationCountManager
     
     var body: some View {
         LazyVStack(spacing: 0) {
@@ -309,8 +315,7 @@ struct ChattingRoomListView: View {
                     onTap: {
                         onRoomTap(room.roomId)
                     },
-                    hasNewChat: updatedRoomIds.contains(room.roomId),
-                    notificationCountManager: notificationCountManager
+                    hasNewChat: updatedRoomIds.contains(room.roomId)
                 )
                 
                 if index < chatRoomList.count - 1 {
@@ -325,18 +330,27 @@ struct ChattingRoomListView: View {
     }
 }
 
+
+
 // MARK: - ChattingRoomCell
 struct ChattingRoomCell: View {
     let room: ChatRoomEntity
     let onTap: () -> Void
     let hasNewChat: Bool
-    @ObservedObject var notificationCountManager: ChatNotificationCountManager
+    @StateObject private var viewModel: ChattingRoomCellViewModel
+    
+    init(room: ChatRoomEntity, onTap: @escaping () -> Void, hasNewChat: Bool) {
+        self.room = room
+        self.onTap = onTap
+        self.hasNewChat = hasNewChat
+        self._viewModel = StateObject(wrappedValue: ChattingRoomCellViewModel(roomId: room.roomId, initialRoom: room))
+    }
     
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 12) {
                 // Profile Image - 상대방의 프로필 이미지 사용
-                if let opponent = getOpponent(room: room) {
+                if let opponent = getOpponentFromRoom(room) {
                     CustomAsyncImage.profile(
                         imagePath: opponent.profileImage
                     )
@@ -354,7 +368,7 @@ struct ChattingRoomCell: View {
                 ChatInfoView(
                     room: room,
                     hasNewChat: hasNewChat,
-                    notificationCountManager: notificationCountManager
+                    viewModel: viewModel
                 )
             }
             .padding(.horizontal, 16)
@@ -362,29 +376,37 @@ struct ChattingRoomCell: View {
         }
         .buttonStyle(PlainButtonStyle())
     }
-    
-    // 상대방 정보를 가져오는 헬퍼 메서드
-    private func getOpponent(room: ChatRoomEntity) -> UserInfoEntity? {
-        guard let currentUser = UserDefaultsManager.shared.getObject(forKey: .profileData, as: MyProfileInfoEntity.self) else {
-            return nil
-        }
-        
-        // participants 중에서 currentUser가 아닌 상대방 찾기
-        return room.participants.first { $0.userId != currentUser.userid }
+}
+
+// MARK: - 공통 헬퍼 함수
+/// 채팅방에서 상대방 정보를 가져오는 공통 함수
+func getOpponentFromRoom(_ room: ChatRoomEntity) -> UserInfoEntity? {
+    guard let currentUser = UserDefaultsManager.shared.getObject(forKey: .profileData, as: MyProfileInfoEntity.self) else {
+        print("❌ 현재 사용자 정보를 찾을 수 없음")
+        return nil
     }
+    
+    //print("📱 채팅방 \(room.roomId) - 현재 사용자 ID: \(currentUser.userid)")
+    //print("📱 채팅방 \(room.roomId) - 참여자들: \(room.participants.map { "\($0.userId): \($0.nick)" })")
+    
+    // participants 중에서 currentUser가 아닌 상대방 찾기
+    let opponent = room.participants.first { $0.userId != currentUser.userid }
+    //print("📱 채팅방 \(room.roomId) - 상대방: \(opponent?.nick ?? "nil") (ID: \(opponent?.userId ?? "nil"))")
+    
+    return opponent
 }
 
 // MARK: - ChatInfoView
 struct ChatInfoView: View {
     let room: ChatRoomEntity
     let hasNewChat: Bool
-    @ObservedObject var notificationCountManager: ChatNotificationCountManager
+    @ObservedObject var viewModel: ChattingRoomCellViewModel
     
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
                 // 상대방의 닉네임 사용
-                if let opponent = getOpponent(room: room) {
+                if let opponent = getOpponentFromRoom(room) {
                     Text(opponent.nick)
                         .font(.soyoHeadline)
                         .foregroundColor(Color.MainTextColor)
@@ -397,8 +419,8 @@ struct ChatInfoView: View {
                 Spacer()
                 
                 // 마지막 메시지 시각 표시
-                if let lastChat = room.lastChat {
-                    Text(PresentationMapper.formatRelativeTime(lastChat.updatedAt))
+                if !viewModel.lastMessageTime.isEmpty {
+                    Text(PresentationMapper.formatRelativeTime(viewModel.lastMessageTime))
                         .font(.pretendardCaption2)
                         .foregroundColor(.gray)
                         .padding(.trailing, 16)
@@ -407,7 +429,7 @@ struct ChatInfoView: View {
             
             HStack {
                 // 마지막 메시지 내용
-                Text(room.lastChat?.content ?? "")
+                Text(viewModel.lastMessage)
                     .font(.pretendardCaption)
                     .foregroundColor(.gray)
                     .lineLimit(1)
@@ -415,8 +437,8 @@ struct ChatInfoView: View {
                 Spacer()
                 
                 // 알림 카운트 배지
-                if let count = notificationCountManager.notificationCounts[room.roomId], count > 0 {
-                    Text("\(count)")
+                if viewModel.notificationCount > 0 {
+                    Text("\(viewModel.notificationCount)")
                         .font(.pretendardCaption2)
                         .foregroundColor(.white)
                         .padding(.horizontal, 6)
@@ -428,15 +450,5 @@ struct ChatInfoView: View {
                 }
             }
         }
-    }
-    
-    // 상대방 정보를 가져오는 헬퍼 메서드
-    private func getOpponent(room: ChatRoomEntity) -> UserInfoEntity? {
-        guard let currentUser = UserDefaultsManager.shared.getObject(forKey: .profileData, as: MyProfileInfoEntity.self) else {
-            return nil
-        }
-        
-        // participants 중에서 currentUser가 아닌 상대방 찾기
-        return room.participants.first { $0.userId != currentUser.userid }
     }
 }
