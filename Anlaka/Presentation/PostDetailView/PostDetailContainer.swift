@@ -279,7 +279,6 @@ final class PostDetailContainer: ObservableObject {
         let deletedComment = model.post?.comments.remove(at: idx)
         do {
             let success = try await useCase.deleteComment(postId: postId, commentId: commentId)
-            print(success, "=========")
             // 댓글 삭제 성공 시 별도 카운트 업데이트 필요 없음
         } catch {
             // 실패 시 복구 및 sendFailed
