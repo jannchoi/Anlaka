@@ -18,13 +18,15 @@ struct MyTabView: View {
     
     // 각 뷰를 State로 관리하여 메모리에 유지
     @State private var homeView: HomeView
-    @State private var favoriteView = FavoriteEstatesView()
-    @State private var myPageView = MyPageView()
+    @State private var favoriteView : FavoriteEstatesView
+    @State private var myPageView : MyPageView
     
     init(di: DIContainer) {
         self.di = di
         // State 프로퍼티는 init에서 직접 초기화할 수 없으므로 _homeView로 초기화
         _homeView = State(initialValue: HomeView(di: di))
+        _favoriteView = State(initialValue: FavoriteEstatesView(di: di))
+        _myPageView = State(initialValue: MyPageView(di: di))
     }
     
     var body: some View {
@@ -87,11 +89,11 @@ struct MyTabView: View {
                 selected = .myPage
             } label: {
                 VStack(alignment: .center) {
-                    Image(selected == .profile ? "User_Fill" : "User_Empty")
+                    Image(selected == .myPage ? "User_Fill" : "User_Empty")
                         .resizable()
                         .scaledToFit()
                         .frame(width: 30)
-                    if selected == .profile {
+                    if selected == .myPage {
                         Text("프로필")
                             .font(.system(size: 11))
                     }

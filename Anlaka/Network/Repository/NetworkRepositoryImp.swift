@@ -29,9 +29,9 @@ final class NetworkRepositoryImp: NetworkRepository {
         }
     }
 
-    func getChatRoom(opponentId: String) async throws -> ChatRoomEntity {
+    func getChatRoom(opponent_id: String) async throws -> ChatRoomEntity {
         //존재하는 ID라면,채팅방 정보를 가져옴. 존재하지 않는 ID라면 새로운 채팅방을 생성함.
-        let target = ChatRoomRequestDTO(opponentId: opponentId)
+        let target = ChatRoomRequestDTO(opponent_id: opponent_id)
         do {
             let response = try await NetworkManager.shared.callRequest(target: ChatRouter.getChatRoom(target), model: ChatRoomResponseDTO.self)
             return response.toEntity()
@@ -61,7 +61,7 @@ final class NetworkRepositoryImp: NetworkRepository {
         }
     }
     
-    func uploadFiles(roomId: String, files: [String]) async throws -> ChatFileEntity {
+    func uploadFiles(roomId: String, files: [ChatFile]) async throws -> ChatFileEntity {
         //파일을 업로드함.
         let target = ChatFilesRequestDTO(files: files)
         do {
@@ -250,6 +250,7 @@ final class NetworkRepositoryImp: NetworkRepository {
         }
     }
     func kakaoLogin(kakaoLoginEntity: KakaoLoginRequestEntity) async throws{
+        
         let target = kakaoLoginEntity.toDTO()
         do {
             let response = try await NetworkManager.shared.callRequest(target: UserRouter.kakaoLogin(target), model: LoginResponseDTO.self)
@@ -265,6 +266,7 @@ final class NetworkRepositoryImp: NetworkRepository {
             throw error
         }
     }
+   
     func appleLogin(appleLoginEntity: AppleLoginRequestEntity) async throws {
         let target = appleLoginEntity.toDTO()
         
