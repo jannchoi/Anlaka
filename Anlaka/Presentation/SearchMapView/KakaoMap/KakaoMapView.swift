@@ -30,7 +30,7 @@ struct KakaoMapView: UIViewRepresentable {
     // MARK: - 기존 updateUIView 메서드 수정
     // KakaoMapView struct 내부의 updateUIView 메서드를 다음과 같이 수정:
     func updateUIView(_ uiView: KMViewContainer, context: Context) {
-        //print(#function)
+
         guard draw else {
             context.coordinator.controller?.pauseEngine()
             context.coordinator.controller?.resetEngine()
@@ -61,7 +61,7 @@ struct KakaoMapView: UIViewRepresentable {
     }
     
     func makeCoordinator() -> Coordinator {
-        print(#function)
+
         return Coordinator(
             centerCoordinate: centerCoordinate,
             onMapReady: onMapReady,

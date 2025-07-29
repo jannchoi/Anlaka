@@ -145,6 +145,7 @@ struct HomeView: View {
         
         .onAppear {
             container.handle(.initialRequest)
+            CurrentScreenTracker.shared.setCurrentScreen(.home)
         }
         .edgesIgnoringSafeArea(.top) // 상단 SafeArea 무시
         .toastView(toast: $toast)

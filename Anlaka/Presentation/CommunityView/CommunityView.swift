@@ -65,6 +65,7 @@ struct CommunityView: View {
             .navigationBarHidden(true)
             .onAppear {
                 container.handle(.onAppear)
+                CurrentScreenTracker.shared.setCurrentScreen(.community)
             }
             
             // SearchAddressView 오버레이
