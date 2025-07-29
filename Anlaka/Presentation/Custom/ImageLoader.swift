@@ -84,6 +84,12 @@ class ImageLoader {
         targetSize: CGSize? = nil
     ) async -> UIImage? {
         
+        // 빈 경로 체크
+        guard !imagePath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            print("⚠️ [ImageLoader] imagePath가 빈 문자열입니다")
+            return nil
+        }
+        
         // 1. 메모리 캐시 확인 (타임아웃 증가)
         let cachedImage = await withTimeout(seconds: 8.0) {
             try await ImageCache.shared.imageAsync(forKey: imagePath)
@@ -263,6 +269,12 @@ class ImageLoader {
         let limitedPaths = Array(imagePaths.prefix(preloadLimit))
         
         for path in limitedPaths {
+            // 빈 경로 체크
+            guard !path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                print("⚠️ [ImageLoader] 프리로딩할 path가 빈 문자열입니다")
+                continue
+            }
+            
             // 메모리 캐시에 없고 디스크 캐시에도 없는 경우에만 프리로딩
             Task {
                 let memoryImage = await ImageCache.shared.imageAsync(forKey: path)

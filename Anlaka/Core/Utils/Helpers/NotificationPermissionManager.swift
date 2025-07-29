@@ -52,11 +52,9 @@ class NotificationPermissionManager: ObservableObject {
                 if granted {
                     self.permissionStatus = .authorized
                     self.shouldShowPermissionAlert = false
-                    print("알림 권한 허용됨")
                 } else {
                     self.permissionStatus = .denied
                     self.showPermissionDeniedAlert()
-                    print("❌ 알림 권한 거부됨")
                 }
             }
             
@@ -65,7 +63,6 @@ class NotificationPermissionManager: ObservableObject {
             await MainActor.run {
                 self.permissionStatus = .unknown
                 self.showPermissionErrorAlert(error.localizedDescription)
-                print("❌ 알림 권한 요청 오류: \(error.localizedDescription)")
             }
             return false
         }

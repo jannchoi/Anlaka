@@ -18,6 +18,13 @@ struct PostDetailView: View {
     // 메뉴 스타일 Picker 상태 및 처리 추가
     @State private var actionSelection: String? = nil
     @State private var isProcessing = false
+    // 키보드 응답자 추가
+    @StateObject private var keyboard = KeyboardResponder()
+    // ChatInputView 포커스 상태 추가
+    @FocusState private var isChatInputFocused: Bool
+    // 댓글/대댓글 수정 모드 추적
+    @State private var editingCommentId: String? = nil
+    @State private var editingReplyId: String? = nil
     let di: DIContainer // di 추가
     
     init(postId: String, di: DIContainer, path: Binding<NavigationPath>) {
@@ -107,38 +114,57 @@ struct PostDetailView: View {
                 Spacer()
             }
             
-            // 하단 고정 ChatInputView
-            VStack {
-                Spacer()
-                
-                // 답글 입력 모드일 때
-                if let selectedReplyCommentId = selectedReplyCommentId {
-                    VStack(spacing: 8) {
-                        HStack {
-                            Text("답글 작성 중...")
+            // 하단 고정 ChatInputView (수정 모드가 아닐 때만 표시)
+            if editingCommentId == nil && editingReplyId == nil {
+                // 디버깅용 로그
+                let _ = print("ChatInputView 표시됨 - editingCommentId: \(editingCommentId ?? "nil"), editingReplyId: \(editingReplyId ?? "nil")")
+                VStack(spacing: 0) {
+                    Spacer()
+                    
+                    // 답글 입력 모드일 때
+                    if let selectedReplyCommentId = selectedReplyCommentId {
+                        VStack(spacing: 8) {
+                            HStack {
+                                Text("답글 작성 중...")
+                                    .font(.pretendardCaption)
+                                    .foregroundColor(Color.Gray60)
+                                Spacer()
+                                Button("취소") {
+                                    self.selectedReplyCommentId = nil
+                                }
                                 .font(.pretendardCaption)
-                                .foregroundColor(Color.Gray60)
-                            Spacer()
-                            Button("취소") {
-                                self.selectedReplyCommentId = nil
+                                .foregroundColor(Color.TomatoRed)
                             }
-                            .font(.pretendardCaption)
-                            .foregroundColor(Color.TomatoRed)
+                            .padding(.horizontal, 16)
+                            .padding(.top, 8)
+                            
+                            ChatInputView(
+                                text: $commentText,
+                                selectedFiles: .constant([]),
+                                invalidFileIndices: Set<Int>(),
+                                onSend: {
+                                    guard !commentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+                                    let replyText = commentText
+                                    self.commentText = ""
+                                    sendReply(parentCommentId: selectedReplyCommentId, content: replyText)
+                                    self.selectedReplyCommentId = nil
+                                },
+                                onImagePicker: {},
+                                onDocumentPicker: {},
+                                isSending: container.model.isSendingComment,
+                                showFileUpload: false
+                            )
+                            .padding(.horizontal, 8)
+                            .padding(.top, 8)
+                            .disabled(container.model.isSendingComment)
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.top, 8)
-                        
+                    } else {
+                        // 일반 댓글 입력
                         ChatInputView(
                             text: $commentText,
-                            selectedFiles: .constant([]),
+                            selectedFiles: .constant([]), // 댓글에서는 파일 업로드 불가
                             invalidFileIndices: Set<Int>(),
-                            onSend: {
-                                guard !commentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-                                let replyText = commentText
-                                self.commentText = ""
-                                sendReply(parentCommentId: selectedReplyCommentId, content: replyText)
-                                self.selectedReplyCommentId = nil
-                            },
+                            onSend: sendComment,
                             onImagePicker: {},
                             onDocumentPicker: {},
                             isSending: container.model.isSendingComment,
@@ -146,26 +172,15 @@ struct PostDetailView: View {
                         )
                         .padding(.horizontal, 8)
                         .padding(.top, 8)
+                        .padding(.bottom)
                         .background(Color.white)
                         .disabled(container.model.isSendingComment)
+                        
                     }
-                } else {
-                    // 일반 댓글 입력
-                    ChatInputView(
-                        text: $commentText,
-                        selectedFiles: .constant([]), // 댓글에서는 파일 업로드 불가
-                        invalidFileIndices: Set<Int>(),
-                        onSend: sendComment,
-                        onImagePicker: {},
-                        onDocumentPicker: {},
-                        isSending: container.model.isSendingComment,
-                        showFileUpload: false
-                    )
-                    .padding(.horizontal, 8)
-                    .padding(.top, 8)
-                    .background(Color.white)
-                    .disabled(container.model.isSendingComment)
                 }
+
+                
+                
             }
             
             // 서버 응답 대기 중 interaction disable 및 ProgressView 오버레이
@@ -402,7 +417,8 @@ struct PostDetailView: View {
                         },
                         onDeleteReplyReal: { parentId, replyId in
                             showDeleteAlert(isReply: true, parentId: parentId, tempId: replyId)
-                        }
+                        },
+                        editingCommentId: $editingCommentId
                     )
                 }
             }
@@ -494,11 +510,13 @@ struct CommentView: View {
     let onDeleteComment: (String) -> Void
     let onEditReply: (String, String, String) -> Void
     let onDeleteReplyReal: (String, String) -> Void
+    @Binding var editingCommentId: String?
     
     @State private var isEditing = false
     @State private var editText = ""
     @State private var editingReplyId: String? = nil
     @State private var replyEditText = ""
+    @FocusState private var isCommentTextFieldFocused: Bool
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -528,19 +546,30 @@ struct CommentView: View {
                             TextField("댓글 수정", text: $editText)
                                 .font(.pretendardFootnote)
                                 .foregroundColor(Color.MainTextColor)
+                                .focused($isCommentTextFieldFocused)
                             Button("저장") {
                                 onEdit(comment.commentId, editText)
                                 isEditing = false
+                                isCommentTextFieldFocused = false
+                                editingCommentId = nil
                             }
                             .font(.pretendardFootnote)
                             .foregroundColor(Color.SteelBlue)
                             Button("취소") {
                                 isEditing = false
+                                isCommentTextFieldFocused = false
+                                editingCommentId = nil
                             }
                             .font(.pretendardFootnote)
                             .foregroundColor(Color.TomatoRed)
                         }
                         .padding(.trailing, 12)
+                        .onAppear {
+                            // 수정 모드가 활성화되면 포커스 설정
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                isCommentTextFieldFocused = true
+                            }
+                        }
                     } else {
                         Text(comment.content)
                             .font(.pretendardFootnote)
@@ -567,6 +596,11 @@ struct CommentView: View {
                                 Button(action: {
                                     editText = comment.content
                                     isEditing = true
+                                    editingCommentId = comment.commentId
+                                    // 약간의 지연 후 포커스 설정
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                        isCommentTextFieldFocused = true
+                                    }
                                 }) {
                                     Text("수정").font(.pretendardFootnote).foregroundColor(Color.Gray60)
                                 }
@@ -593,7 +627,8 @@ struct CommentView: View {
                         },
                         onDeleteReal: { replyId in
                             onDeleteReplyReal(comment.commentId, replyId)
-                        }
+                        },
+                        editingReplyId: $editingReplyId
                     )
                 }
             }
@@ -609,8 +644,10 @@ struct CommentReplyView: View {
     let onDelete: (String, String) -> Void
     let onEdit: (String, String) -> Void
     let onDeleteReal: (String) -> Void
+    @Binding var editingReplyId: String?
     @State private var isEditing = false
     @State private var editText = ""
+    @FocusState private var isReplyTextFieldFocused: Bool
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .top, spacing: 12) {
@@ -636,19 +673,30 @@ struct CommentReplyView: View {
                             TextField("답글 수정", text: $editText)
                                 .font(.pretendardCaption)
                                 .foregroundColor(Color.MainTextColor)
+                                .focused($isReplyTextFieldFocused)
                             Button("저장") {
                                 onEdit(reply.commentId, editText)
                                 isEditing = false
+                                isReplyTextFieldFocused = false
+                                editingReplyId = nil
                             }
                             .font(.pretendardCaption)
                             .foregroundColor(Color.SteelBlue)
                             Button("취소") {
                                 isEditing = false
+                                isReplyTextFieldFocused = false
+                                editingReplyId = nil
                             }
                             .font(.pretendardCaption)
                             .foregroundColor(Color.TomatoRed)
                         }
                         .padding(.trailing, 12)
+                        .onAppear {
+                            // 수정 모드가 활성화되면 포커스 설정
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                isReplyTextFieldFocused = true
+                            }
+                        }
                     } else {
                         Text(reply.content)
                             .font(.pretendardCaption)
@@ -674,6 +722,12 @@ struct CommentReplyView: View {
                     Button(action: {
                         editText = reply.content
                         isEditing = true
+                        editingReplyId = reply.commentId
+                        print("대댓글 수정 시작 - editingReplyId: \(reply.commentId)")
+                        // 약간의 지연 후 포커스 설정
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            isReplyTextFieldFocused = true
+                        }
                     }) {
                         Text("수정").font(.pretendardCaption).foregroundColor(Color.Gray60)
                     }
@@ -685,6 +739,7 @@ struct CommentReplyView: View {
             }
         }
         .padding(.leading, 47) // 메인 댓글과 구분하기 위한 들여쓰기
+        .padding(.bottom, 8)
     }
 }
 

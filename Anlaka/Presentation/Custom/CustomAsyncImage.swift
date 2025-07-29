@@ -59,8 +59,8 @@ struct CustomAsyncImage: View {
     }
     
     private func loadImage() {
-        guard let imagePath = imagePath else {
-            print("⚠️ [CustomAsyncImage] imagePath가 nil입니다")
+        guard let imagePath = imagePath, !imagePath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            print("⚠️ [CustomAsyncImage] imagePath가 nil이거나 빈 문자열입니다")
             self.uiImage = nil
             self.isLoading = false
             return
@@ -248,6 +248,12 @@ extension CustomAsyncImage {
         let limitedPaths = Array(imagePaths.prefix(preloadLimit))
         
         for path in limitedPaths {
+            // 빈 경로 체크
+            guard !path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                print("⚠️ [CustomAsyncImage] 프리로딩할 path가 빈 문자열입니다")
+                continue
+            }
+            
             // 메모리 캐시에 없고 디스크 캐시에도 없는 경우에만 프리로딩
             if ImageCache.shared.image(forKey: path) == nil &&
                DiskCacheManager.shared.loadImage(forKey: path) == nil {
@@ -258,6 +264,11 @@ extension CustomAsyncImage {
     }
     
     private static func preloadImage(_ imagePath: String) {
+        guard !imagePath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            print("⚠️ [CustomAsyncImage] 프리로딩할 imagePath가 빈 문자열입니다")
+            return
+        }
+        
         guard let url = URL(string: FormatManager.formatImageURL(imagePath)) else { return }
         
         var request = URLRequest(url: url)
