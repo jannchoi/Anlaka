@@ -14,4 +14,7 @@ protocol DatabaseRepository {
     func getMessages(roomId: String, from date: Date) async throws -> [ChatEntity]
     func deleteMessages(roomId: String) async throws
     func getLastMessageDate(roomId: String) async throws -> Date?
+    
+    // MARK: - User
+    func updateUserId(oldUserId: String, newUserId: String) async throws
 } 
