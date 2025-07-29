@@ -1,0 +1,139 @@
+//
+//  EstateDetailContainer.swift
+//  Anlaka
+//
+//  Created by 최정안 on 6/8/25.
+//
+
+import Foundation
+
+struct EstateDetailModel {
+    var errorMessage: String? = nil
+    var detailEstate: Loadable<DetailEstateWithAddrerss> = .idle
+    var similarEstates: Loadable<[SimilarEstateWithAddress]> = .idle
+    var selectedEstateId: IdentifiableString? = nil
+    var isReserved = false
+    var isLiked = false
+    var backToLogin: Bool = false
+}
+
+enum EstateDetailIntent {
+    case initialRequest
+    case similarEstateSelected(estateId: String)
+    case reserveButtonTapped
+    case likeButtonTapped
+}
+
+// MARK: - EstateDetailContainer 초기화 메서드 수정
+@MainActor
+final class EstateDetailContainer: ObservableObject {
+    @Published var model = EstateDetailModel()
+    private let repository: NetworkRepository
+    private let initializationType: InitializationType
+    
+    enum InitializationType {
+        case estateId(String)
+        case estate(DetailEstateEntity)
+    }
+    
+    init(repository: NetworkRepository, estateId: String) {
+        self.repository = repository
+        self.initializationType = .estateId(estateId)
+    }
+    
+    init(repository: NetworkRepository, estate: DetailEstateEntity) {
+        self.repository = repository
+        self.initializationType = .estate(estate)
+    }
+    
+    func handle(_ intent: EstateDetailIntent) {
+        switch intent {
+        case .initialRequest:
+            Task {
+                switch initializationType {
+                case .estateId(let estateId):
+                    await getDetailEstate(estateId: estateId)
+                case .estate(let estate):
+                    await mapToEstateDetailWithAddress(estate: estate)
+                }
+                await getSimilarEstate()
+            }
+        case .similarEstateSelected(let estateId):
+            model.selectedEstateId = IdentifiableString(id: estateId)
+        case .reserveButtonTapped:
+            model.isReserved.toggle()
+            print("isReserved: \(model.isReserved)")
+        case .likeButtonTapped:
+            model.isLiked.toggle()
+            print("isLiked: \(model.isLiked)")
+        }
+    }
+    
+    private func mapToEstateDetailWithAddress(estate: DetailEstateEntity) async {
+        model.detailEstate = .loading
+        let result = await AddressMappingHelper.mapDetailEstateWithAddress(estate, repository: repository)
+        switch result {
+        case .success(let value):
+            model.detailEstate = .success(value)
+        case .failure(let error):
+            if let netError = error as? NetworkError, netError == .expiredRefreshToken {
+                model.detailEstate = .requiresLogin
+            } else {
+                let message = (error as? NetworkError)?.errorDescription ?? error.localizedDescription
+                model.detailEstate = .failure(message)
+                model.errorMessage = message
+            }
+        }
+    }
+    
+    private func getDetailEstate(estateId: String) async {
+        model.detailEstate = .loading
+        do {
+            let detailEstate = try await repository.getDetailEstate(estateId)
+            let result = await AddressMappingHelper.mapDetailEstateWithAddress(detailEstate, repository: repository)
+            switch result {
+            case .success(let value):
+                model.isLiked = value.detail.isLiked
+                model.isReserved = value.detail.isReserved
+                model.detailEstate = .success(value)
+            case .failure(let error):
+                if let netError = error as? NetworkError, netError == .expiredRefreshToken {
+                    model.detailEstate = .requiresLogin
+                } else {
+                    let message = (error as? NetworkError)?.errorDescription ?? error.localizedDescription
+                    model.detailEstate = .failure(message)
+                    model.errorMessage = message
+                }
+            }
+        } catch {
+            if let netError = error as? NetworkError, netError == .expiredRefreshToken {
+                model.detailEstate = .requiresLogin
+            } else {
+                let message = (error as? NetworkError)?.errorDescription ?? error.localizedDescription
+                model.detailEstate = .failure(message)
+                model.errorMessage = message
+            }
+        }
+    }
+    
+    private func getSimilarEstate() async {
+        model.similarEstates = .loading
+        do {
+            let summaries = try await repository.getSimilarEstate()
+            let result = await AddressMappingHelper.mapSimilarSummariesWithAddress(summaries.data, repository: repository)
+            
+            model.similarEstates = .success(result.estates)
+            
+            if let firstError = result.errors.first {
+                model.errorMessage = (firstError as? NetworkError)?.errorDescription ?? firstError.localizedDescription
+            }
+        } catch {
+            if let netError = error as? NetworkError, netError == .expiredRefreshToken {
+                model.similarEstates = .requiresLogin
+            } else {
+                let message = (error as? NetworkError)?.errorDescription ?? error.localizedDescription
+                model.similarEstates = .failure(message)
+            }
+        }
+    }
+}
