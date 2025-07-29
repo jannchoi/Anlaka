@@ -30,3 +30,6 @@ enum CategoryType: String, Hashable,CaseIterable {
     case Storefront = "주상복합"
     case Villa = "빌라"
 }
+enum SearchMapRoute: Hashable {
+    case detail(estateId: String)
+}
