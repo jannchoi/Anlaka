@@ -35,6 +35,8 @@ struct ChatMessagesView: View {
     var bottom1: Namespace.ID
     var inputViewHeight: CGFloat
     @ObservedObject var keyboard: KeyboardResponder
+    @Binding var showNewMessageButton: Bool
+    @Binding var isAtBottom: Bool
     
     var body: some View {
         GeometryReader { geometry in
@@ -68,8 +70,60 @@ struct ChatMessagesView: View {
                         scrollProxy = proxy
                         onScrollToBottom()
                     }
+                    .onChange(of: messagesGroupedByDate.count) { _ in
+                        // 메시지 그룹 개수가 변경되면 스크롤 위치 확인
+                        checkScrollPosition(proxy: proxy)
+                        
+                        // 새 메시지가 추가되면 자동으로 하단으로 스크롤 (사용자가 하단에 있을 때만)
+                        if isAtBottom {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                onScrollToBottom()
+                            }
+                        }
+                    }
+                    .onChange(of: messagesGroupedByDate.flatMap { $0.1 }.count) { _ in
+                        // 메시지 개수가 변경되면 스크롤 위치 확인
+                        checkScrollPosition(proxy: proxy)
+                        
+                        // 새 메시지가 추가되면 자동으로 하단으로 스크롤 (사용자가 하단에 있을 때만)
+                        if isAtBottom {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                onScrollToBottom()
+                            }
+                        }
+                    }
+                    .simultaneousGesture(
+                        DragGesture()
+                            .onChanged { _ in
+                                checkScrollPosition(proxy: proxy)
+                            }
+                            .onEnded { _ in
+                                checkScrollPosition(proxy: proxy)
+                            }
+                    )
             }
             
+        }
+    }
+    
+    private func checkScrollPosition(proxy: ScrollViewProxy) {
+        // 스크롤 위치를 확인하여 하단에 있는지 판단
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            // 스크롤 위치 기반으로 판단 (임시 구현)
+            // 실제로는 ScrollView의 contentOffset을 추적해야 하지만,
+            // SwiftUI에서는 직접적인 접근이 어려우므로 메시지 개수와 스크롤 동작으로 판단
+            
+            let totalMessages = messagesGroupedByDate.flatMap { $0.1 }.count
+            let hasMessages = totalMessages > 0
+            
+            // 스크롤이 하단 근처에 있는지 판단하는 로직
+            // 실제 구현에서는 ScrollView의 contentOffset을 추적해야 함
+            let isNearBottom = hasMessages // 임시로 메시지가 있으면 하단에 있다고 가정
+            
+            withAnimation(.easeInOut(duration: 0.3)) {
+                isAtBottom = isNearBottom
+                showNewMessageButton = hasMessages && !isNearBottom
+            }
         }
     }
 }
@@ -116,6 +170,10 @@ struct MainContentView: View {
     let sendMessage: () -> Void
     let scrollToBottom: () -> Void
     
+    // 스크롤 상태 관리
+    @State private var showNewMessageButton: Bool = false
+    @State private var isAtBottom: Bool = true
+    
     var body: some View {
         GeometryReader { mainGeometry in
             ZStack {
@@ -149,7 +207,9 @@ struct MainContentView: View {
                                 },
                                 bottom1: bottom1,
                                 inputViewHeight: inputViewHeight,
-                                keyboard: keyboard
+                                keyboard: keyboard,
+                                showNewMessageButton: $showNewMessageButton,
+                                isAtBottom: $isAtBottom
                             )
                             .background(Color.warmLinen)
                             
@@ -203,8 +263,45 @@ struct MainContentView: View {
                         Spacer()
                     }
                 }
+                
+                // 새 메시지 버튼 (ChatInputView 위 12만큼, trailing에서 12만큼 inset)
+                VStack {
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        if showNewMessageButton {
+                            newMessageButton
+                                .padding(.trailing, 12)
+                                .padding(.bottom, inputViewHeight + 12)
+                        }
+                    }
+                }
             }
         }
+    }
+    
+    // MARK: - 새 메시지 버튼
+    private var newMessageButton: some View {
+        Button(action: {
+            withAnimation(.easeInOut(duration: 0.25)) {
+                scrollToBottom()
+            }
+        }) {
+            ZStack {
+                // 흰색 배경 원형
+                Circle()
+                    .fill(Color.white)
+                    .frame(width: 40, height: 40)
+                    .shadow(color: .black.opacity(0.15), radius: 8, y: 2)
+                
+                // 화살표 아이콘
+                Image(systemName: "arrow.down.message")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(.OliveMist)
+                    .frame(width: 30, height: 30)
+            }
+        }
+        .transition(.scale.combined(with: .opacity))
     }
 }
 
@@ -283,6 +380,7 @@ struct ChattingView: View {
                         }
                     }
                 } rightButton: {
+                    // 프로필 버튼
                     Button(action: {
                         withAnimation(.easeInOut(duration: 0.3)) {
                             isShowingProfileDetail = true
@@ -307,6 +405,9 @@ struct ChattingView: View {
         .onAppear {
             container.handle(.initialLoad)
             didInitialScroll = false
+            
+            // 현재 화면 상태 설정
+            CurrentScreenTracker.shared.setCurrentScreen(.chat, chatRoomId: container.model.roomId)
         }
         .onDisappear {
             container.handle(.disconnectSocket)
