@@ -27,62 +27,34 @@
 			</array>
 		</dict>
 	</array>
-	<key>FirebaseAppDelegateProxyEnabled</key>
-	<string>NO</string>
 	<key>KAKAO_NATIVE_KEY</key>
 	<string>$(KAKAO_NATIVE_KEY)</string>
 	<key>KAKAO_REST_KEY</key>
 	<string>$(KAKAO_REST_KEY)</string>
-	<key>USER_CODE</key>
-	<string>$(USER_CODE)</string>
-	<key>LSApplicationQueriesSchemes</key>
-	<array>
-		<string>kakaolink</string>
-		<string>kakaokompassauth</string>
-		<string>kakaoplus</string>
-		<string>kftc-bankpay</string>
-		<string>ispmobile</string>
-		<string>itms-apps</string>
-		<string>hdcardappcardansimclick</string>
-		<string>smhyundaiansimclick</string>
-		<string>shinhan-sr-ansimclick</string>
-		<string>smshinhanansimclick</string>
-		<string>kb-acp</string>
-		<string>mpocket.online.ansimclick</string>
-		<string>ansimclickscard</string>
-		<string>ansimclickipcollect</string>
-		<string>vguardstart</string>
-		<string>samsungpay</string>
-		<string>scardcertiapp</string>
-		<string>lottesmartpay</string>
-		<string>lotteappcard</string>
-		<string>cloudpay</string>
-		<string>nhappcardansimclick</string>
-		<string>nonghyupcardansimclick</string>
-		<string>citispay</string>
-		<string>citicardappkr</string>
-		<string>citimobileapp</string>
-		<string>kakaotalk</string>
-		<string>payco</string>
-		<string>chaipayment</string>
-		<string>kb-auth</string>
-		<string>hyundaicardappcardid</string>
-		<string>com.wooricard.wcard</string>
-		<string>lmslpay</string>
-		<string>lguthepay-xpay</string>
-		<string>liivbank</string>
-		<string>supertoss</string>
-		<string>newsmartpib</string>
-		<string>kakaobank</string>
-	</array>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>
 		<true/>
 	</dict>
+	<key>UIAppFonts</key>
+	<array>
+		<string>Pretendard-Black.otf</string>
+		<string>Pretendard-Bold.otf</string>
+		<string>Pretendard-ExtraBold.otf</string>
+		<string>Pretendard-ExtraLight.otf</string>
+		<string>Pretendard-Light.otf</string>
+		<string>Pretendard-Medium.otf</string>
+		<string>Pretendard-Regular.otf</string>
+		<string>Pretendard-SemiBold.otf</string>
+		<string>Pretendard-Thin.otf</string>
+		<string>SOYO-Maple-Bold.otf</string>
+		<string>SOYO-Maple-Regular.otf</string>
+	</array>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
 	</array>
+	<key>USER_CODE</key>
+	<string>$(USER_CODE)</string>
 </dict>
 </plist>

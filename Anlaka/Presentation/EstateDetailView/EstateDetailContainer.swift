@@ -82,11 +82,10 @@ final class EstateDetailContainer: ObservableObject {
             }
         case .chatButtonTapped:
             if case .success(let data) = model.detailEstate {
-                // opponent_id를 초기화한 후 다시 설정
-                model.opponent_id = nil
-                DispatchQueue.main.async {
-                    self.model.opponent_id = data.detail.creator.userId
-                }
+                // 이미 처리 중이면 무시
+                guard model.opponent_id == nil else { return }
+                
+                model.opponent_id = data.detail.creator.userId
             }
         case .resetPayment:
             model.iamportPayment = nil
@@ -106,10 +105,10 @@ final class EstateDetailContainer: ObservableObject {
         } catch {
             print("error: \(error)")
         }
-
+        
     }
     private func toggleIsLiked() async {
-
+        
         do {
             let result = try await repository.postLikeEstate(model.curEstateid, LikeEstateEntity(likeStatus: !model.isLiked))
             model.isLiked = result.likeStatus

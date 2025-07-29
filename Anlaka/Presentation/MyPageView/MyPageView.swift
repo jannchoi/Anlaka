@@ -13,6 +13,7 @@ struct MyPageView: View {
     let di: DIContainer
     @AppStorage(TextResource.Global.isLoggedIn.text) private var isLoggedIn: Bool = true
     @Binding var path: NavigationPath
+    @State private var showLogoutAlert = false
     
     init(di: DIContainer, path: Binding<NavigationPath>) {
         self.di = di
@@ -21,37 +22,60 @@ struct MyPageView: View {
     }
     
     var body: some View {
-        ScrollView {
+        ZStack {
+            Color.WarmLinen
+                .ignoresSafeArea()
+            
             VStack(spacing: 0) {
-                // Profile Section
-                ProfileView(
-                    profileInfo: container.model.profileInfo,
-                    onEditProfile: {
-                        path.append(MyPageRoute.editProfile)
-                    },
-                    onAddEstate: {
-                        container.handle(.addMyEstate)
+                // 커스텀 Navigation Bar
+                CustomNavigationBar(
+                    title: "마이 페이지",
+                    rightButton: {
+                        Button(action: {
+                            showLogoutAlert = true
+                        }) {
+                            Text("로그아웃")
+                                .font(.pretendardFootnote)
+                                .foregroundColor(Color.MainTextColor)
+                        }
                     }
                 )
-                .padding(.top, 20)
-                .padding(.horizontal, 16)
-                
-                // Chatting Section
-                ChattingSectionView(
-                    chatRoomList: container.model.chatRoomList,
-                    updatedRoomIds: container.model.updatedRoomIds,
-                    onRoomTap: { roomId in
-                        path.append(MyPageRoute.chatRoom(roomId: roomId, di: di))
-                    }
-                )
-                .padding(.top, 32)
+            
+            ScrollView {
+                VStack(spacing: 0) {
+                    // Profile Section
+                    ProfileView(
+                        profileInfo: container.model.profileInfo,
+                        onEditProfile: {
+                            path.append(MyPageRoute.editProfile)
+                        },
+                        onAddEstate: {
+                            container.handle(.addMyEstate)
+                        }
+                    )
+                    .padding(.top, 20)
+                    .padding(.horizontal, 16)
+                    
+                    // Chatting Section
+                    ChattingSectionView(
+                        chatRoomList: container.model.chatRoomList,
+                        updatedRoomIds: container.model.updatedRoomIds,
+                        onRoomTap: { roomId in
+                            path.append(MyPageRoute.chatRoom(roomId: roomId))
+                        }
+                    )
+                    .padding(.top, 32)
+                }
+            }
+            .refreshable {
+                // 사용자가 스크롤을 당겨서 새로고침할 때
+                container.handle(.refreshData)
             }
         }
-        .navigationTitle("마이 페이지")
-        .navigationBarTitleDisplayMode(.inline)
+        }
         .navigationDestination(for: MyPageRoute.self) { route in
             switch route {
-            case .chatRoom(let roomId, let di):
+            case .chatRoom(let roomId):
                 ChattingView(roomId: roomId, di: di, path: $path)
             case .editProfile:
                 EditProfileView(di: di, path: $path)
@@ -64,6 +88,15 @@ struct MyPageView: View {
         }
         .onAppear {
             container.handle(.initialRequest)
+        }
+        .alert("로그아웃", isPresented: $showLogoutAlert) {
+            Button("취소", role: .cancel) { }
+            Button("로그아웃", role: .destructive) {
+                container.handle(.logout)
+            }
+        } message: {
+                            Text("정말 로그아웃하시겠습니까?")
+                    .font(.pretendardBody)
         }
     }
 }
@@ -141,7 +174,10 @@ struct ProfileHeaderView: View {
     var body: some View {
         HStack {
             // Profile Image
-            CustomAsyncImage(imagePath: profileInfo.profileImage)
+            CustomAsyncImage(
+                imagePath: profileInfo.profileImage,
+                targetSize: CGSize(width: 80, height: 80)
+            )
                 .frame(width: 80, height: 80)
                 .clipShape(Circle())
             
@@ -163,7 +199,7 @@ struct AddEstateButton: View {
     var body: some View {
         Button(action: onAddEstate) {
             Text("매물 추가하기")
-                .font(.system(size: 11))
+                .font(.pretendardCaption2)
                 .foregroundColor(Color.MainTextColor)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
@@ -196,15 +232,14 @@ struct ProfileInfoView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text(profileInfo.nick)
-                    .font(.title2)
-                    .fontWeight(.semibold)
+                    .font(.soyoTitle2)
                 Spacer()
             }
             
             if let phone = profileInfo.phoneNum {
                 HStack {
                     Text(phone)
-                        .font(.subheadline)
+                        .font(.pretendardSubheadline)
                         .foregroundColor(.gray)
                     Spacer()
                 }
@@ -219,7 +254,7 @@ struct ProfileErrorView: View {
         VStack {
             Text("프로필 데이터를 찾을 수 없습니다.")
                 .foregroundColor(.white)
-                .font(.headline)
+                .font(.soyoHeadline)
         }
         .frame(maxWidth: .infinity)
         .frame(height: 200)
@@ -236,11 +271,10 @@ struct IntroductionView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Introduction")
-                .font(.headline)
-                .fontWeight(.medium)
+                .font(.soyoHeadline)
             
             Text(introduction ?? "I am a good person")
-                .font(.body)
+                .font(.pretendardBody)
                 .foregroundColor(Color.MainTextColor)
                 .multilineTextAlignment(.leading)
         }
@@ -287,10 +321,20 @@ struct ChattingRoomCell: View {
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 12) {
-                // Profile Image
-                CustomAsyncImage(imagePath: room.lastChat?.sender.profileImage)
-                    .frame(width: 48, height: 48)
-                    .clipShape(Circle())
+                // Profile Image - 상대방의 프로필 이미지 사용
+                if let opponent = getOpponent(room: room) {
+                    CustomAsyncImage.profile(
+                        imagePath: opponent.profileImage
+                    )
+                        .frame(width: 48, height: 48)
+                        .clipShape(Circle())
+                } else {
+                    // 기본 이미지
+                    Image(systemName: "person.circle.fill")
+                        .resizable()
+                        .frame(width: 48, height: 48)
+                        .foregroundColor(.gray)
+                }
                 
                 // Chat Info
                 ChatInfoView(
@@ -305,6 +349,16 @@ struct ChattingRoomCell: View {
         }
         .buttonStyle(PlainButtonStyle())
     }
+    
+    // 상대방 정보를 가져오는 헬퍼 메서드
+    private func getOpponent(room: ChatRoomEntity) -> UserInfoEntity? {
+        guard let currentUser = UserDefaultsManager.shared.getObject(forKey: .profileData, as: MyProfileInfoEntity.self) else {
+            return nil
+        }
+        
+        // participants 중에서 currentUser가 아닌 상대방 찾기
+        return room.participants.first { $0.userId != currentUser.userid }
+    }
 }
 
 // MARK: - ChatInfoView
@@ -315,10 +369,16 @@ struct ChatInfoView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
-                Text(room.lastChat?.sender.nick ?? "")
-                    .font(.body)
-                    .fontWeight(.medium)
-                    .foregroundColor(Color.MainTextColor)
+                // 상대방의 닉네임 사용
+                if let opponent = getOpponent(room: room) {
+                    Text(opponent.nick)
+                        .font(.soyoHeadline)
+                        .foregroundColor(Color.MainTextColor)
+                } else {
+                    Text("사용자")
+                        .font(.soyoHeadline)
+                        .foregroundColor(Color.MainTextColor)
+                }
                 
                 if hasNewChat {
                     Circle()
@@ -328,9 +388,19 @@ struct ChatInfoView: View {
             }
             
             Text(room.lastChat?.content ?? "")
-                .font(.caption)
+                .font(.pretendardCaption)
                 .foregroundColor(.gray)
                 .lineLimit(1)
         }
+    }
+    
+    // 상대방 정보를 가져오는 헬퍼 메서드
+    private func getOpponent(room: ChatRoomEntity) -> UserInfoEntity? {
+        guard let currentUser = UserDefaultsManager.shared.getObject(forKey: .profileData, as: MyProfileInfoEntity.self) else {
+            return nil
+        }
+        
+        // participants 중에서 currentUser가 아닌 상대방 찾기
+        return room.participants.first { $0.userId != currentUser.userid }
     }
 }
