@@ -222,6 +222,12 @@ struct ChattingView: View {
     @State private var didInitialScroll: Bool = false
     @Namespace var bottom1
     
+    // 닉네임 길이 제한을 위한 computed property
+    private var displayNick: String {
+        guard let nick = container.model.opponentProfile?.nick else { return "채팅" }
+        return nick.count > 17 ? String(nick.prefix(17)) + "..." : nick
+    }
+    
     
     init(opponent_id: String, di: DIContainer, path: Binding<NavigationPath>) {
         self.di = di
@@ -258,7 +264,7 @@ struct ChattingView: View {
             
             // CustomNavigationBar를 앞으로 보내서 항상 보이도록 함
             VStack {
-                CustomNavigationBar(title: container.model.opponentProfile?.nick ?? "채팅") {
+                CustomNavigationBar(title: displayNick) {
                     Button(action: {
                         path.removeLast()
                     }) {
