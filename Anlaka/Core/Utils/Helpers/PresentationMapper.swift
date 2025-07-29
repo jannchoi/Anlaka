@@ -89,6 +89,72 @@ enum PresentationMapper {
         }
         return "\(year)년"
     }
-
     
+    /// Date를 ISO8601 형식의 String으로 변환 (예: 2024-05-06T05:13:54.357Z)
+    static func formatDateToISO8601(_ date: Date) -> String {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter.string(from: date)
+    }
+    
+    /// ISO8601 형식의 String을 Date로 변환
+    static func parseISO8601ToDate(_ dateString: String?) -> Date {
+        guard let dateString = dateString else { return Date() }
+        
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        
+        if let date = formatter.date(from: dateString) {
+            return date
+        }
+        
+        // 대체 형식 시도 (예: 2024-05-06 05:13:54.357 +0000)
+        let alternativeFormatter = DateFormatter()
+        alternativeFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS Z"
+        alternativeFormatter.locale = Locale(identifier: "en_US_POSIX")
+        alternativeFormatter.timeZone = TimeZone(abbreviation: "UTC")
+        if let result = alternativeFormatter.date(from: dateString) {
+            return result
+        } else  {return Date()}
+    }
+    
+    /// ISO8601 형식의 String을 "a h:mm" 형식으로 변환 (예: "오후 3:30")
+    static func formatISO8601ToTimeString(_ dateString: String?) -> String {
+        guard let dateString = dateString else { return "알 수 없음" }
+        
+        let date = parseISO8601ToDate(dateString)
+        let formatter = DateFormatter()
+        formatter.dateFormat = "a h:mm"
+        formatter.locale = Locale(identifier: "ko_KR")
+        formatter.timeZone = TimeZone(identifier: "Asia/Seoul") // 한국 시간대로 변경
+        
+        return formatter.string(from: date)
+    }
+    
+    /// ISO8601 형식의 String을 Date로 변환 (한국 시간)
+    static func formatISO8601ToDate(_ dateString: String?) -> Date {
+        guard let dateString = dateString else { return Date() }
+        
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        formatter.timeZone = TimeZone(abbreviation: "UTC")  // UTC 기준으로 파싱
+        
+        if let date = formatter.date(from: dateString) {
+            // UTC 시간을 한국 시간으로 변환
+            return date.addingTimeInterval(TimeInterval(TimeZone(identifier: "Asia/Seoul")?.secondsFromGMT() ?? 0))
+        }
+        
+        // 대체 형식 시도 (예: 2024-05-06 05:13:54.357 +0000)
+        let alternativeFormatter = DateFormatter()
+        alternativeFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS Z"
+        alternativeFormatter.locale = Locale(identifier: "en_US_POSIX")
+        alternativeFormatter.timeZone = TimeZone(abbreviation: "UTC")
+        
+        if let date = alternativeFormatter.date(from: dateString) {
+            // UTC 시간을 한국 시간으로 변환
+            return date.addingTimeInterval(TimeInterval(TimeZone(identifier: "Asia/Seoul")?.secondsFromGMT() ?? 0))
+        }
+        
+        return Date()
+    }
 }
