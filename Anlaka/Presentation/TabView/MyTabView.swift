@@ -11,7 +11,7 @@ struct MyTabView: View {
     let di: DIContainer
     
     enum Tab {
-        case home, favorite, profile
+        case home, favorite, myPage
     }
     
     @State private var selected: Tab = .home
@@ -19,7 +19,7 @@ struct MyTabView: View {
     // 각 뷰를 State로 관리하여 메모리에 유지
     @State private var homeView: HomeView
     @State private var favoriteView = FavoriteEstatesView()
-    @State private var profileView = ProfileView()
+    @State private var myPageView = MyPageView()
     
     init(di: DIContainer) {
         self.di = di
@@ -37,8 +37,8 @@ struct MyTabView: View {
                     favoriteView
                         .tag(Tab.favorite)
                     
-                    profileView
-                        .tag(Tab.profile)
+                    myPageView
+                        .tag(Tab.myPage)
                 }
                 .toolbar(.hidden, for: .tabBar)
             }
@@ -84,7 +84,7 @@ struct MyTabView: View {
             .foregroundStyle(selected == .favorite ? Color.DeepForest : Color.Deselected)
             Spacer()
             Button {
-                selected = .profile
+                selected = .myPage
             } label: {
                 VStack(alignment: .center) {
                     Image(selected == .profile ? "User_Fill" : "User_Empty")
@@ -97,7 +97,7 @@ struct MyTabView: View {
                     }
                 }
             }
-            .foregroundStyle(selected == .profile ? Color.DeepForest : Color.Deselected)
+            .foregroundStyle(selected == .myPage ? Color.DeepForest : Color.Deselected)
             Spacer()
         }
         .padding(.vertical)
