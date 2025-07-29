@@ -10,8 +10,8 @@ import SwiftUI
 struct MyTabView: View {
     let di: DIContainer
     
-    enum Tab {
-        case home, reserved, myPage
+    enum Tab: Int, CaseIterable {
+        case home = 0, reserved = 1, myPage = 2
     }
     
     @State private var selected: Tab = .home
@@ -19,27 +19,72 @@ struct MyTabView: View {
     @State private var reservedPath = NavigationPath()
     @State private var myPagePath = NavigationPath()
     
+    // 각 탭의 뷰 인스턴스를 한 번만 생성하여 재사용
+    @State private var homeView: HomeView?
+    @State private var reservedView: RerservedEstatesView?
+    @State private var myPageView: MyPageView?
+    
     init(di: DIContainer) {
         self.di = di
     }
     
     var body: some View {
         ZStack(alignment: .bottom) {
-            Group {
-                switch selected {
-                case .home:
-                    NavigationStack(path: $homePath) {
-                        HomeView(di: di, path: $homePath)
-                    }
-                case .reserved:
-                    NavigationStack(path: $reservedPath) {
-                        RerservedEstatesView(di: di, path: $reservedPath)
-                    }
-                case .myPage:
-                    NavigationStack(path: $myPagePath) {
-                        MyPageView(di: di, path: $myPagePath)
+            // 모든 뷰를 미리 생성하고 opacity로 숨김/표시
+            ZStack {
+                // Home Tab
+                NavigationStack(path: $homePath) {
+                    Group {
+                        if let homeView = homeView {
+                            homeView
+                        } else {
+                            HomeView(di: di, path: $homePath)
+                                .onAppear {
+                                    if homeView == nil {
+                                        homeView = HomeView(di: di, path: $homePath)
+                                    }
+                                }
+                        }
                     }
                 }
+                .opacity(selected == .home ? 1 : 0)
+                .allowsHitTesting(selected == .home)
+                
+                // Reserved Tab
+                NavigationStack(path: $reservedPath) {
+                    Group {
+                        if let reservedView = reservedView {
+                            reservedView
+                        } else {
+                            RerservedEstatesView(di: di, path: $reservedPath)
+                                .onAppear {
+                                    if reservedView == nil {
+                                        reservedView = RerservedEstatesView(di: di, path: $reservedPath)
+                                    }
+                                }
+                        }
+                    }
+                }
+                .opacity(selected == .reserved ? 1 : 0)
+                .allowsHitTesting(selected == .reserved)
+                
+                // MyPage Tab
+                NavigationStack(path: $myPagePath) {
+                    Group {
+                        if let myPageView = myPageView {
+                            myPageView
+                        } else {
+                            MyPageView(di: di, path: $myPagePath)
+                                .onAppear {
+                                    if myPageView == nil {
+                                        myPageView = MyPageView(di: di, path: $myPagePath)
+                                    }
+                                }
+                        }
+                    }
+                }
+                .opacity(selected == .myPage ? 1 : 0)
+                .allowsHitTesting(selected == .myPage)
             }
             
             if shouldShowTabBar {
@@ -47,6 +92,9 @@ struct MyTabView: View {
             }
         }
         .ignoresSafeArea(.all, edges: .bottom)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            Color.clear.frame(height: 0)
+        }
     }
     
     private var shouldShowTabBar: Bool {
@@ -130,3 +178,4 @@ struct MyTabView: View {
         }
     }
 }
+
