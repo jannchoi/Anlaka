@@ -109,7 +109,7 @@ extension EstateDetailView {
             
             Spacer()
             
-            if case .success(let data) = container.model.detailEstate {
+            if case .success = container.model.detailEstate {
                 Button {
                     container.handle(.likeButtonTapped)
                 } label: {
