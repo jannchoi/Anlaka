@@ -11,3 +11,10 @@ enum LoginRoute: Hashable {
     case home
     case signUp
 }
+
+enum HomeRoute: Hashable {
+    case detail
+    case category
+    case latestAll
+    case hotAll
+}

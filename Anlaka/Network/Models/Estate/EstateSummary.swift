@@ -81,4 +81,45 @@ extension EstateSummaryDTO {
             updatedAt: updatedAt
         )
     }
+
+}
+extension EstateSummaryDTO {
+    func toHotEntity() -> HotSummaryEntity {
+        return HotSummaryEntity(
+            estateId: estateId,
+            category: category,
+            title: title,
+            thumbnails: thumbnails,
+            deposit: deposit,
+            monthlyRent: monthlyRent,
+            geolocation: geolocation.toEntity(),
+            area: area,
+            likeCount: likeCount
+        )
+    }
+
+    func toSimilarEntity() -> SimilarSummaryEntity {
+        return SimilarSummaryEntity(
+            estateId: estateId,
+            category: category,
+            thumbnails: thumbnails,
+            deposit: deposit,
+            monthlyRent: monthlyRent,
+            area: area,
+            geolocation: geolocation.toEntity(),
+            isRecommended: isRecommended
+        )
+    }
+
+    func toTodayEntity() -> TodaySummaryEntity {
+        return TodaySummaryEntity(
+            estateId: estateId,
+            category: category,
+            title: title,
+            introduction: introduction,
+            thumbnails: thumbnails,
+            geolocation: geolocation.toEntity()
+        )
+    }
+
 }
