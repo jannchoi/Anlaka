@@ -8,7 +8,7 @@ struct EditProfileView: View {
     @Binding var path: NavigationPath
     
     init(di: DIContainer, path: Binding<NavigationPath>) {
-        self._container = StateObject(wrappedValue: EditProfileContainer(repository: di.networkRepository))
+        self._container = StateObject(wrappedValue: di.makeEditProfieContainer())
         self._path = path
     }
     
