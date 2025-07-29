@@ -38,16 +38,16 @@ enum PresentationMapper {
         return formatter.string(from: NSNumber(value: value)) ?? "\(value)"
     }
     
-    /// 만/억 단위로 줄여서 표현 (ex: 12000 -> "1.2만", 100000000 -> "1억")
+    /// 만/억 단위로 줄여서 표현 (ex: 12000 -> "1만", 100000000 -> "1억")
     static func formatToShortUnitString(_ value: Double?) -> String {
         guard let value = value else { return "알 수 없음" }
         
         if value >= 100_000_000 {
             let result = value / 100_000_000
-            return trimmedNumber(result) + "억"
+            return formatShortNumber(result) + "억"
         } else if value >= 10_000 {
             let result = value / 10_000
-            return trimmedNumber(result) + "만"
+            return formatShortNumber(result) + "만"
         } else {
             return formatDecimalWithComma(value)
         }
@@ -59,6 +59,23 @@ enum PresentationMapper {
         formatter.minimumFractionDigits = 0
         formatter.maximumFractionDigits = 1
         return formatter.string(from: NSNumber(value: number)) ?? "\(number)"
+    }
+    
+    /// 짧은 형태로 숫자 포맷 (정수면 정수로, 소수점이 있으면 한 자리까지)
+    private static func formatShortNumber(_ number: Double) -> String {
+        let formatter = NumberFormatter()
+        formatter.minimumFractionDigits = 0
+        formatter.maximumFractionDigits = 1
+        
+        // 소수점이 0.1 이상인 경우에만 소수점 표시
+        let rounded = round(number * 10) / 10
+        if rounded == floor(rounded) {
+            // 정수인 경우
+            return "\(Int(rounded))"
+        } else {
+            // 소수점이 있는 경우
+            return formatter.string(from: NSNumber(value: rounded)) ?? "\(Int(rounded))"
+        }
     }
     /// Double을 "숫자㎡" 형태로 포맷 (예: 84.32 -> "84.32㎡")
     static func formatArea(_ value: Double?) -> String {
