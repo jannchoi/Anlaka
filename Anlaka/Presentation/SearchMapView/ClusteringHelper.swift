@@ -558,7 +558,7 @@ extension ClusteringHelper {
     ///   - pins: 매물 목록 (PinInfo 배열)
     ///   - k: minPts (core distance 계산용, 기본값 3)
     ///   - multiplier: 배율 (기본값 1.0, 1.5나 2.0으로 조정 가능)
-    ///   - zoomLevel: 현재 줌 레벨 (6-14, 기본값 12)
+    ///   - zoomLevel: 현재 줌 레벨 (6-15, 기본값 12)
     /// - Returns: 줌 레벨과 매물 분포를 고려한 maxDistance (미터 단위)
     /// - Note: 데이터 분포에 따라 동적으로 조정된 기준 거리를 사용하여 더 정확한 클러스터링을 제공합니다
     func calculateZoomIndependentMaxDistance(pins: [PinInfo], k: Int = 3, multiplier: Double = 1.0, zoomLevel: Double = 12.0) -> Double {
@@ -594,8 +594,8 @@ extension ClusteringHelper {
         let maxDistance = (zoomBasedDistance * zoomWeight) + (mrdBasedDistance * mrdWeight)
         
         // 9. 최소값과 최대값 범위 내로 제한 (동적 기준 거리 기반)
-        let minDistance = zoomBasedDistance * 0.3
-        let maxAllowedDistance = zoomBasedDistance * 2.0
+        let minDistance = zoomBasedDistance * 0.2
+        let maxAllowedDistance = zoomBasedDistance * 3.0
         
         let finalDistance = max(minDistance, min(maxAllowedDistance, maxDistance))
         
@@ -605,7 +605,7 @@ extension ClusteringHelper {
     /// 줌 레벨에 따른 가중치를 계산합니다.
     /// 줌 레벨이 낮을수록 줌 기반 거리에 더 높은 가중치를 부여합니다.
     /// 
-    /// - Parameter zoomLevel: 현재 줌 레벨 (6-14)
+    /// - Parameter zoomLevel: 현재 줌 레벨 (6-15)
     /// - Returns: 줌 기반 거리에 대한 가중치 (0.0-1.0)
     private func calculateZoomWeight(zoomLevel: Double) -> Double {
         switch zoomLevel {
@@ -618,6 +618,7 @@ extension ClusteringHelper {
         case 12: return 0.2  // 중간 줌 - 균형잡힌 가중치
         case 13: return 0.1
         case 14: return 0.05 // 높은 줌 - MRD 기반 거리에 높은 가중치
+        case 15: return 0.02 // 매우 높은 줌 - MRD 기반 거리에 매우 높은 가중치
         default: return 0.2
         }
     }
@@ -646,8 +647,8 @@ extension ClusteringHelper {
     ) -> Double {
         let clusterCount = clusterIds.count
         
-        // 상한선과 하한선 설정 (클러스터 간 거리의 40%로 제한, 최솟값 25pt)
-        let maxAllowedRadius = (maxDistance ?? 100.0) * 0.4 // 상한선: 클러스터 간 거리의 40%
+        // 상한선과 하한선 설정 (클러스터 간 거리의 60%로 제한, 최솟값 25pt)
+        let maxAllowedRadius = (maxDistance ?? 100.0) * 0.6 // 상한선: 클러스터 간 거리의 60%
         let minRadius = 25.0 // 하한선: 최소 25pt로 가독성 보장
         
         // 클러스터의 실제 지리적 범위 계산
@@ -725,7 +726,7 @@ extension ClusteringHelper {
     /// 
     /// - Parameters:
     ///   - pins: 매물 목록
-    ///   - zoomLevel: 현재 줌 레벨 (6-14)
+    ///   - zoomLevel: 현재 줌 레벨 (6-15)
     /// - Returns: 최적화된 k값
     /// - Note: 데이터 크기에 따라 동적으로 k 상한을 조정하여 더 정확한 밀도 추정을 제공합니다
     func calculateAdaptiveK(pins: [PinInfo], zoomLevel: Double) -> Int {
@@ -795,23 +796,24 @@ extension ClusteringHelper {
     /// 줌 레벨과 데이터 분포를 고려한 동적 기준 거리 계산
     /// 
     /// - Parameters:
-    ///   - zoomLevel: 현재 줌 레벨 (6-14)
+    ///   - zoomLevel: 현재 줌 레벨 (6-15)
     ///   - coreDistances: Core distance 딕셔너리 (데이터 분포 분석용)
     /// - Returns: 데이터 분포에 맞게 조정된 기준 거리 (미터)
     /// - Note: Core distance의 분산을 분석하여 기준 거리를 동적으로 조정합니다
     private func getBaseDistanceForZoom(zoomLevel: Double, coreDistances: [String: Double?]? = nil) -> Double {
         let baseDistance: Double
         switch zoomLevel {
-        case 6: baseDistance = 5000   // 122km의 약 4%
-        case 7: baseDistance = 2500   // 61km의 약 4%
-        case 8: baseDistance = 1200   // 30km의 약 4%
-        case 9: baseDistance = 600    // 15km의 약 4%
-        case 10: baseDistance = 300   // 7km의 약 4%
-        case 11: baseDistance = 150   // 3km의 약 4%
-        case 12: baseDistance = 80    // 1km의 약 8%
-        case 13: baseDistance = 40    // 500m의 약 8%
-        case 14: baseDistance = 20    // 250m의 약 8%
-        default: baseDistance = 100
+        case 6: baseDistance = 8000   // 122km의 약 6.5%
+        case 7: baseDistance = 4000   // 61km의 약 6.5%
+        case 8: baseDistance = 2000   // 30km의 약 6.5%
+        case 9: baseDistance = 1000   // 15km의 약 6.5%
+        case 10: baseDistance = 500   // 7km의 약 7%
+        case 11: baseDistance = 250   // 3km의 약 8%
+        case 12: baseDistance = 120   // 1km의 약 12%
+        case 13: baseDistance = 60    // 500m의 약 12%
+        case 14: baseDistance = 30    // 250m의 약 12%
+        case 15: baseDistance = 15    // 125m의 약 12%
+        default: baseDistance = 150
         }
         
         // Core distance가 제공된 경우 데이터 분포 기반 조정
@@ -1042,7 +1044,7 @@ extension ClusteringHelper {
     /// 
     /// - Parameters:
     ///   - pins: 매물 목록
-    ///   - zoomLevel: 현재 줌 레벨 (6-14)
+    ///   - zoomLevel: 현재 줌 레벨 (6-15)
     /// - Returns: 클러스터링 결과
     func clusterOptimized(pins: [PinInfo], zoomLevel: Double) -> (clusters: [ClusterInfo], noise: [PinInfo]) {
         guard !pins.isEmpty else { return (clusters: [], noise: []) }
@@ -1061,7 +1063,7 @@ extension ClusteringHelper {
         let mstEdges = computeApproximateMST(edges: edges)
         
         // 5. 줌 레벨과 매물 분포를 고려한 임계값 계산 (O(n log n))
-        let maxDistance = calculateZoomIndependentMaxDistance(pins: pins, k: k, multiplier: 1.8, zoomLevel: zoomLevel)
+        let maxDistance = calculateZoomIndependentMaxDistance(pins: pins, k: k, multiplier: 2.5, zoomLevel: zoomLevel)
         
         // 6. 클러스터 트리 구축 (O(n log n))
         let clusters = buildClusterTree(mstEdges: mstEdges, threshold: maxDistance)

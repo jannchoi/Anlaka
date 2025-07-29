@@ -17,8 +17,8 @@ struct ClusterInfo {
 }
 
 enum ClusteringType {
-    case zoomLevel6to14
-    case zoomLevel15Plus
+    case hdbscan(zoomLevel: Int)    // 줌 6-15: HDBSCAN 기반
+    case fixedGrid(zoomLevel: Int)  // 줌 16+: 100m 격자 기반
 }
 
 // MARK: - POI 차분 구조체

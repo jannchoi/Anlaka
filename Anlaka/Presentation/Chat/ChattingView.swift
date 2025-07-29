@@ -787,17 +787,13 @@ struct ChatInputView: View {
             // 파일 선택 안내 (파일 업로드가 활성화된 경우에만 표시)
             if showFileUpload {
                 HStack {
-                    if selectedFiles.isEmpty {
-                        Text("파일을 선택하세요 (최대 \(maxFileCount)개, \(maxTotalSizeMB)MB)")
-                            .font(.pretendardCaption)
-                            .foregroundColor(.gray)
-                    } else {
+                    if !selectedFiles.isEmpty {
                         let currentTotal = totalFiles
                         let currentSize = totalFileSizeMB
                         Text("\(currentTotal)/\(maxFileCount)개, \(String(format: "%.1f", currentSize))/\(maxTotalSizeMB)MB")
                             .font(.pretendardCaption)
                             .foregroundColor((currentTotal >= maxFileCount || currentSize >= maxTotalSizeMB) ? .TomatoRed : .gray)
-                    }
+                    } 
                     Spacer()
                 }
                 .padding(.horizontal, 4)
@@ -854,11 +850,6 @@ struct ChatInputView: View {
         }
     }
     
-    // 추가 파일 선택 가능 여부 확인
-    private var canSelectMoreFiles: Bool {
-        selectedFiles.count < maxFileCount && totalFileSizeMB < maxTotalSizeMB
-    }
-    
     private var isValidInput: Bool {
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
         let hasValidText = trimmedText.count >= 1
@@ -879,8 +870,20 @@ struct FilePreviewView: View {
     var body: some View {
         if files.count == 1 {
             SingleFilePreview(fileURL: files[0])
+        } else if areAllImageFiles {
+            // 모든 파일이 이미지인 경우 새로운 그리드 레이아웃 사용
+            ImageGridPreview(files: files)
         } else {
+            // 이미지가 아닌 파일이 섞여있는 경우 기존 방식 사용
             FileGridPreview(files: files)
+        }
+    }
+    
+    // 모든 파일이 이미지인지 확인
+    private var areAllImageFiles: Bool {
+        files.allSatisfy { fileURL in
+            let ext = URL(string: fileURL)?.pathExtension.lowercased() ?? ""
+            return ["jpg", "jpeg", "png", "gif"].contains(ext)
         }
     }
 }
@@ -1074,6 +1077,81 @@ struct SingleFilePreview: View {
     }
 }
 
+// MARK: - ImageGridPreview (이미지 전용 그리드)
+struct ImageGridPreview: View {
+    let files: [String]
+    @Environment(\.showImageViewer) var showImageViewer
+    
+    var body: some View {
+        GeometryReader { geometry in
+            let containerWidth = geometry.size.width * 2/3
+            let spacing: CGFloat = 2
+            
+            // 파일 개수에 따른 레이아웃 결정
+            let layout = getLayout(for: files.count)
+            
+            VStack(spacing: spacing) {
+                ForEach(0..<layout.rows, id: \.self) { row in
+                    HStack(spacing: spacing) {
+                        ForEach(0..<layout.columns, id: \.self) { column in
+                            let index = row * layout.columns + column
+                            let itemWidth = (containerWidth - spacing * CGFloat(layout.columns - 1)) / CGFloat(layout.columns)
+                            
+                            if index < files.count {
+                                CustomAsyncImage.listCell(imagePath: files[index])
+                                    .frame(width: itemWidth, height: itemWidth)
+                                    .aspectRatio(contentMode: .fill)
+                                    .clipped()
+                                    .cornerRadius(8)
+                                    .onTapGesture {
+                                        showImageViewer(files[index])
+                                    }
+                            } else {
+                                // 빈 공간
+                                Color.clear
+                                    .frame(width: itemWidth, height: itemWidth)
+                            }
+                        }
+                    }
+                }
+            }
+            .frame(width: containerWidth)
+            .frame(maxWidth: .infinity, alignment: .trailing) // trailing 정렬 추가
+        }
+        .frame(height: getGridHeight(for: files.count))
+    }
+    
+    // 파일 개수에 따른 레이아웃 계산
+    private func getLayout(for count: Int) -> (rows: Int, columns: Int) {
+        switch count {
+        case 1:
+            return (1, 1)
+        case 2:
+            return (1, 2) // 가로로 2개
+        case 3:
+            return (1, 3) // 가로로 3개
+        case 4:
+            return (2, 2) // 2x2 그리드
+        case 5:
+            return (2, 3) // 2행 3열
+        default:
+            return (2, 3)
+        }
+    }
+    
+    // 그리드 높이 계산
+    private func getGridHeight(for count: Int) -> CGFloat {
+        let layout = getLayout(for: count)
+        let spacing: CGFloat = 2
+        let containerWidth: CGFloat = UIScreen.main.bounds.width * 2/3
+        let itemWidth = (containerWidth - spacing * CGFloat(layout.columns - 1)) / CGFloat(layout.columns)
+        let itemHeight = itemWidth // 정사각형 유지
+        
+        return CGFloat(layout.rows) * itemHeight + spacing * CGFloat(layout.rows - 1)
+    }
+}
+
+// MARK: - FileGridPreview (기존 방식 - 비이미지 파일 포함)
 struct FileGridPreview: View {
     let files: [String]
     @Environment(\.showPDFViewer) var showPDFViewer
@@ -1082,10 +1160,7 @@ struct FileGridPreview: View {
     @Environment(\.showVideoPlayer) var showVideoPlayer
     
     var body: some View {
-        LazyVGrid(columns: [
-            GridItem(.flexible()),
-            GridItem(.flexible())
-        ], spacing: 8) {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 8) {
             ForEach(files.indices, id: \.self) { index in
                 SingleFilePreview(fileURL: files[index])
             }
@@ -1238,7 +1313,3 @@ struct SelectedFileThumbnailView: View {
         }
     }
 }
-
-
-
-

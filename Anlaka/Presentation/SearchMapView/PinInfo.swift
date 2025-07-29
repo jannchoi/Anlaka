@@ -13,4 +13,6 @@ struct PinInfo: Equatable {
     let longitude: Double
     let latitude: Double
     let title: String
+    let deposit: Double?
+    let monthlyRent: Double?
 }
