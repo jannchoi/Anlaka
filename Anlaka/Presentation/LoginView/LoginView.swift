@@ -129,7 +129,7 @@ struct LoginView: View {
             .navigationDestination(for: LoginRoute.self) { route in
                 switch route {
                 case .home:
-                    HomeView()
+                    HomeView(di: di)
 
                 case .signUp:
                     SignUpView(
@@ -149,7 +149,7 @@ struct LoginView: View {
             container.model.onLoginSuccess = {
                 if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
                    let window = windowScene.windows.first {
-                    window.rootViewController = UIHostingController(rootView: HomeView())
+                    window.rootViewController = UIHostingController(rootView: HomeView(di: di))
                     window.makeKeyAndVisible()
                 }
             }
