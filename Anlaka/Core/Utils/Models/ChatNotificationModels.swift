@@ -104,9 +104,26 @@ class RoutingStateManager: ObservableObject {
     
     /// 채팅방으로 직접 이동
     func navigateToChatRoom(_ roomId: String) {
-        currentTab = .myPage
-        pendingNavigation = .chatRoom(roomId: roomId)
-        isNavigating = true
-        isNavigationInProgress = true
+        // 이미 MyPage 탭에 있는 경우에도 pendingNavigation 변경을 강제로 트리거
+        if currentTab == .myPage {
+            // pendingNavigation을 nil로 먼저 설정한 후 다시 설정하여 onChange 트리거
+            pendingNavigation = nil
+            DispatchQueue.main.async {
+                self.pendingNavigation = .chatRoom(roomId: roomId)
+                self.isNavigating = true
+                self.isNavigationInProgress = true
+            }
+        } else {
+            currentTab = .myPage
+            pendingNavigation = .chatRoom(roomId: roomId)
+            isNavigating = true
+            isNavigationInProgress = true
+        }
+        
+        // 디버깅을 위한 로그 추가
+        print("🔗 navigateToChatRoom 호출됨: \(roomId)")
+        print("   - currentTab: \(currentTab)")
+        print("   - pendingNavigation: \(pendingNavigation?.description ?? "nil")")
+        print("   - isNavigationInProgress: \(isNavigationInProgress)")
     }
 }

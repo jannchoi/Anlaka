@@ -94,9 +94,6 @@ struct MyPageView: View {
             container.handle(.initialRequest)
             CurrentScreenTracker.shared.setCurrentScreen(.profile)
             
-            // MyPageView 진입 시 모든 커스텀 알림 제거
-            CustomNotificationManager.shared.clearAllNotifications()
-            
             // MyPageView 진입 시 뱃지 상태 업데이트
             ChatNotificationCountManager.shared.forceUpdateBadge()
         }

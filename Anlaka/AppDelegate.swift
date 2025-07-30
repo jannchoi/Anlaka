@@ -29,7 +29,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, MessagingDelegate {
             // 이미 권한이 허용된 경우 원격 알림 등록
             application.registerForRemoteNotifications()
         } else if permissionManager.isPermissionDenied {
-            print("⚠️ 알림 권한이 거부되어 앱 내 알림 시스템을 사용합니다.")
+            // 앱 내 알림 시스템 사용
         }
         
         // FCM 설정
@@ -102,13 +102,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, MessagingDelegate {
         
         // room_id 검사
         guard let roomId = stringUserInfo["room_id"] as? String, !roomId.isEmpty else {
-            print("❌ 채팅 알림 데이터 파싱 실패: room_id 필드 누락 또는 빈 문자열")
             return nil
         }
         
         // sender_id 검사
         guard let senderId = stringUserInfo["google.c.sender.id"] as? String, !senderId.isEmpty else {
-            print("❌ 채팅 알림 데이터 파싱 실패: google.c.sender.id 필드 누락 또는 빈 문자열")
             return nil
         }
         
@@ -116,13 +114,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, MessagingDelegate {
         guard let aps = userInfo["aps"] as? [String: Any],
               let alert = aps["alert"] as? [String: Any],
               let message = alert["body"] as? String, !message.isEmpty else {
-            print("❌ 채팅 알림 데이터 파싱 실패: aps.alert.body 필드 누락 또는 빈 문자열")
             return nil
         }
         
         // aps.alert.subtitle 검사
         guard let senderName = alert["subtitle"] as? String, !senderName.isEmpty else {
-            print("❌ 채팅 알림 데이터 파싱 실패: aps.alert.subtitle 필드 누락 또는 빈 문자열")
             return nil
         }
         

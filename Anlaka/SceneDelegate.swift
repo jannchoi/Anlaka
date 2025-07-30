@@ -34,6 +34,9 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate, UNUserNotificationCente
         updateAppIconBadge()
         setupLoginStateObserver()
         
+        // 알림 권한 상태 확인 및 디버깅
+        checkNotificationPermissionStatus()
+        
         // 알림을 통해 앱이 실행된 경우 처리 - UserDefaults에만 저장하고 App에서 처리하도록 위임
         for option in connectionOptions {
             if let notificationResponse = option as? UNNotificationResponse {
@@ -113,6 +116,10 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate, UNUserNotificationCente
     
     // MARK: - Scene Lifecycle
     func sceneWillEnterForeground(_ scene: UIScene) {
+        print("앱이 포그라운드로 진입 - SceneDelegate")
+        print("   - 앱 상태: \(UIApplication.shared.applicationState.rawValue)")
+        print("   - CustomNotificationManager 상태: \(CustomNotificationManager.shared.displayState)")
+        
         ChatNotificationCountManager.shared.debugBadgeStatus()
         NotificationCenter.default.post(name: .appDidEnterForeground, object: nil)
         
@@ -129,12 +136,60 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate, UNUserNotificationCente
     }
     
     func sceneDidEnterBackground(_ scene: UIScene) {
-        // 백그라운드 진입 시 비활성 탭 캐시 정리
+        // 백그라운드 진입 시 간단한 메모리 정리
+        print("앱이 백그라운드로 진입 - SceneDelegate")
+        print("   - 앱 상태: \(UIApplication.shared.applicationState.rawValue)")
+        
+        // 백그라운드 진입 시 간단한 캐시 정리 (선택적)
         Task { @MainActor in
-            let currentTab = RoutingStateManager.shared.currentTab
-            // RoutingStateManager.Tab을 MyTabView.Tab으로 변환
-            let myTabViewTab = MyTabView.Tab(rawValue: currentTab.rawValue) ?? .home
-            TabViewCache.shared.clearInactiveTabCaches(activeTab: myTabViewTab)
+            // 메모리 부족 시에만 캐시 정리
+            if UIApplication.shared.applicationState == .background {
+                print("백그라운드 진입 시 메모리 정리")
+                // TabViewCache는 MyTabView에서 자체적으로 관리하므로 여기서는 제거
+            }
+        }
+    }
+    
+    func sceneDidBecomeActive(_ scene: UIScene) {
+        print("앱이 활성화됨 - SceneDelegate")
+        print("   - 앱 상태: \(UIApplication.shared.applicationState.rawValue)")
+        
+        // UNUserNotificationCenter delegate 재설정 (매번 안전하게)
+        print("UNUserNotificationCenter delegate 재설정")
+        UNUserNotificationCenter.current().delegate = self
+        
+        // delegate 설정 확인
+        let currentDelegate = UNUserNotificationCenter.current().delegate
+        print("현재 UNUserNotificationCenter delegate: \(String(describing: currentDelegate))")
+        print("SceneDelegate 인스턴스: \(self)")
+        // 알림 권한 상태 확인
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            DispatchQueue.main.async {
+                print("알림 권한 상태: \(settings.authorizationStatus.rawValue)")
+                print("알림 표시 권한: \(settings.alertSetting.rawValue)")
+                print("배지 권한: \(settings.badgeSetting.rawValue)")
+                print("사운드 권한: \(settings.soundSetting.rawValue)")
+                print("잠금화면 알림: \(settings.lockScreenSetting.rawValue)")
+                print("알림 센터: \(settings.notificationCenterSetting.rawValue)")
+                
+                if settings.authorizationStatus == .notDetermined {
+                    // 권한 요청
+                    UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, error in
+                        DispatchQueue.main.async {
+                            if granted {
+                                print("알림 권한 허용됨")
+                                NotificationPermissionManager.shared.permissionStatus = .authorized
+                            } else {
+                                print("알림 권한 요청 실패: \(error?.localizedDescription ?? "알 수 없는 오류")")
+                                NotificationPermissionManager.shared.permissionStatus = .denied
+                            }
+                        }
+                    }
+                } else if settings.authorizationStatus == .authorized {
+                    print("알림 권한 허용됨")
+                    NotificationPermissionManager.shared.permissionStatus = .authorized
+                }
+            }
         }
     }
     
@@ -148,8 +203,45 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate, UNUserNotificationCente
         let userInfo = notification.request.content.userInfo
         
         if isChatNotification(userInfo) {
-            // 채팅 알림은 앱이 활성 상태일 때도 표시
-            completionHandler([.banner, .sound, .badge])
+            // 채팅 알림 데이터 파싱
+            let stringUserInfo = userInfo.compactMapKeys { $0 as? String }
+            guard let roomId = stringUserInfo["room_id"] as? String else {
+                completionHandler([.sound])
+                return
+            }
+            
+            // APS 데이터 파싱
+            guard let aps = userInfo["aps"] as? [String: Any],
+                  let alert = aps["alert"] as? [String: Any],
+                  let message = alert["body"] as? String,
+                  let senderName = alert["subtitle"] as? String else {
+                completionHandler([.sound])
+                return
+            }
+            
+            // 임시 메시지 저장 및 알림 카운트 증가
+            TemporaryLastMessageManager.shared.setTemporaryLastMessage(
+                roomId: roomId,
+                content: message,
+                senderId: stringUserInfo["google.c.sender.id"] as? String ?? "",
+                senderNick: senderName
+            )
+            
+            // 알림 카운트 증가
+            ChatNotificationCountManager.shared.incrementCount(for: roomId)
+            
+            // MyPageView 셀 업데이트를 위한 알림 전송
+            NotificationCenter.default.post(name: .chatNotificationUpdate, object: nil)
+            
+            // CustomNotificationManager에 알림 전달
+            CustomNotificationManager.shared.handleNewNotification(
+                roomId: roomId,
+                senderName: senderName,
+                message: message
+            )
+            
+            // 커스텀 알림만 표시하고 시스템 배너는 숨김
+            completionHandler([.sound])
         } else {
             // 일반 알림은 기본 옵션 사용
             completionHandler([.banner, .sound])
@@ -170,7 +262,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate, UNUserNotificationCente
                 return
             }
             
-            // 임시 메시지 저장
+            // 임시 메시지 저장 및 알림 카운트 증가
             if let aps = userInfo["aps"] as? [String: Any],
                let alert = aps["alert"] as? [String: Any],
                let message = alert["body"] as? String,
@@ -181,6 +273,12 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate, UNUserNotificationCente
                     senderId: stringUserInfo["google.c.sender.id"] as? String ?? "",
                     senderNick: senderName
                 )
+                
+                // 알림 카운트 증가
+                ChatNotificationCountManager.shared.incrementCount(for: roomId)
+                
+                // MyPageView 셀 업데이트를 위한 알림 전송
+                NotificationCenter.default.post(name: .chatNotificationUpdate, object: nil)
             }
             
             let isAppActive = UIApplication.shared.applicationState == .active
@@ -195,6 +293,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate, UNUserNotificationCente
         
         completionHandler()
     }
+
     
     // MARK: - Helper Methods
     private var loginStateObserver: NSObjectProtocol?
@@ -257,6 +356,46 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate, UNUserNotificationCente
     private func isChatNotification(_ userInfo: [AnyHashable: Any]) -> Bool {
         let stringUserInfo = userInfo.compactMapKeys { $0 as? String }
         return stringUserInfo["room_id"] != nil
+    }
+    
+    /// 알림 권한 상태 확인 및 디버깅
+    private func checkNotificationPermissionStatus() {
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            DispatchQueue.main.async {
+                let currentDelegate = UNUserNotificationCenter.current().delegate
+                print("UNUserNotificationCenter delegate: \(currentDelegate != nil ? "설정됨" : "설정되지 않음")")
+                
+                if let delegate = currentDelegate {
+                    print("delegate 타입: \(type(of: delegate))")
+                    print("delegate가 SceneDelegate인지: \(delegate === self)")
+                }
+                
+                print("알림 권한 상태: \(settings.authorizationStatus.rawValue)")
+                print("알림 표시 권한: \(settings.alertSetting.rawValue)")
+                print("배지 권한: \(settings.badgeSetting.rawValue)")
+                print("사운드 권한: \(settings.soundSetting.rawValue)")
+                print("잠금화면 알림: \(settings.lockScreenSetting.rawValue)")
+                print("알림 센터: \(settings.notificationCenterSetting.rawValue)")
+                
+                // 권한이 거부되었거나 결정되지 않은 경우 권한 요청
+                if settings.authorizationStatus == .denied || settings.authorizationStatus == .notDetermined {
+                    UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, error in
+                        DispatchQueue.main.async {
+                            if granted {
+                                print("알림 권한 허용됨")
+                                NotificationPermissionManager.shared.permissionStatus = .authorized
+                            } else {
+                                print("알림 권한 요청 실패: \(error?.localizedDescription ?? "알 수 없는 오류")")
+                                NotificationPermissionManager.shared.permissionStatus = .denied
+                            }
+                        }
+                    }
+                } else if settings.authorizationStatus == .authorized {
+                    print("알림 권한 허용됨")
+                    NotificationPermissionManager.shared.permissionStatus = .authorized
+                }
+            }
+        }
     }
     
     deinit {

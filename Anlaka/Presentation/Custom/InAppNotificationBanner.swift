@@ -15,7 +15,7 @@ enum NotificationDisplayState {
 }
 
 // MARK: - 알림 데이터 모델
-struct NotificationData {
+struct NotificationData: CustomStringConvertible {
     let id = UUID()
     let roomId: String
     let senderName: String
@@ -31,6 +31,10 @@ struct NotificationData {
         self.timestamp = Date()
         self.unreadCount = unreadCount
         self.groupedMessages = groupedMessages.isEmpty ? [message] : groupedMessages
+    }
+    
+    var description: String {
+        return "NotificationData(roomId: \(roomId), sender: \(senderName), message: \(message), unreadCount: \(unreadCount))"
     }
 }
 
@@ -64,7 +68,7 @@ struct ShakingBellView: View {
                     .frame(width: 18, height: 18)
                     .background(Color.TomatoRed)
                     .clipShape(Circle())
-    }
+            }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
@@ -122,9 +126,9 @@ struct CustomNotificationBanner: View {
                         .foregroundColor(.white.opacity(0.9))
                 } else {
                     Text(notificationData.message)
-                    .font(.pretendardCaption)
-                    .foregroundColor(.white.opacity(0.9))
-                    .lineLimit(2)
+                        .font(.pretendardCaption)
+                        .foregroundColor(.white.opacity(0.9))
+                        .lineLimit(2)
                 }
             }
             
@@ -178,121 +182,118 @@ class CustomNotificationManager: ObservableObject {
     private let bannerAutoDismissInterval: TimeInterval = 5.0
     private let groupingTimeWindow: TimeInterval = 3.0 // 3초 내 같은 방 알림 그룹화
     
-    private init() {}
+    init() {
+        displayState = .hidden
+        currentNotification = nil
+        currentChatRoomId = nil
+        bellTimer = nil
+        bannerTimer = nil
+    }
+    
+    // MARK: - 디버깅 메서드
+    
+    func debugCurrentState() {
+        // 디버깅 메서드 제거
+    }
     
     /// 새로운 알림 처리
     func handleNewNotification(roomId: String, senderName: String, message: String) {
-        // 현재 채팅방에 있는지 확인
+        // 현재 채팅방에 있으면 알림 무시
         if isInCurrentChatRoom(roomId: roomId) {
             return
         }
         
-        // 기존 알림이 있다면 그룹화 시도
-        if let existing = currentNotification, existing.roomId == roomId {
-            let timeDiff = Date().timeIntervalSince(existing.timestamp)
-            if timeDiff < groupingTimeWindow {
-                // 그룹화
-                let updatedData = NotificationData(
-                    roomId: roomId,
-                    senderName: senderName,
-                    message: message,
-                    unreadCount: existing.unreadCount + 1,
-                    groupedMessages: existing.groupedMessages + [message]
-                )
-                updateNotification(updatedData)
-                return
-            }
-        }
-        
-        // 새로운 알림 생성
         let newNotification = NotificationData(
             roomId: roomId,
             senderName: senderName,
             message: message
         )
-        updateNotification(newNotification)
+        
+        // 기존 알림과 같은 방인지 확인
+        if let current = currentNotification, current.roomId == roomId {
+            // 같은 방의 알림이면 그룹화
+            let groupedMessages = current.groupedMessages + [message]
+            let updatedNotification = NotificationData(
+                roomId: roomId,
+                senderName: senderName,
+                message: "새로운 메시지가 \(groupedMessages.count)개 있습니다.",
+                unreadCount: groupedMessages.count,
+                groupedMessages: groupedMessages
+            )
+            updateNotification(updatedNotification)
+        } else {
+            // 새로운 방의 알림
+            updateNotification(newNotification)
+        }
     }
     
     /// 알림 상태 업데이트
     private func updateNotification(_ notification: NotificationData) {
         currentNotification = notification
         
-        switch displayState {
-        case .hidden:
-            // 벨 상태로 시작
-            displayState = .bell(notification)
-            startBellTimer()
-            
-        case .bell:
-            // 벨 상태에서 새 알림 - 벨 업데이트
-            displayState = .bell(notification)
-            resetBellTimer()
-            
-        case .banner:
-            // 배너 상태에서 새 알림 - 배너 업데이트
-            displayState = .banner(notification)
-            resetBannerTimer()
-        }
+        // 벨 상태로 시작
+        displayState = .bell(notification)
+        startBellTimer()
     }
     
-    /// 벨 탭 처리
+    // MARK: - 사용자 인터랙션 처리
+    
     func handleBellTap() {
-        guard case .bell(let notification) = displayState else { return }
-        
-        // 배너 상태로 전환
-        displayState = .banner(notification)
-        stopBellTimer()
-        startBannerTimer()
-    }
-    
-    /// 배너 탭 처리
-    func handleBannerTap() {
-        guard case .banner(let notification) = displayState else { return }
-        
-        // 딥링크 시스템을 통해 채팅방으로 이동
-        if let deepLinkURL = DeepLinkScheme.createURL(type: .chat, id: notification.roomId, source: .pushNotification) {
-            DeepLinkProcessor.shared.processDeepLink(deepLinkURL)
+        // 벨 탭 시 배너로 전환
+        if case .bell(let notification) = displayState {
+            displayState = .banner(notification)
+            stopBellTimer()
+            startBannerTimer()
         }
-        
-        clearAllNotifications()
     }
     
-    /// 벨 스와이프 처리
+    func handleBannerTap() {
+        // 배너 탭 시 채팅방으로 이동
+        if case .banner(let notification) = displayState {
+            // 딥링크 시스템을 통해 채팅방으로 이동
+            if let deepLinkURL = DeepLinkScheme.createURL(type: .chat, id: notification.roomId, source: .pushNotification) {
+                DeepLinkProcessor.shared.processDeepLink(deepLinkURL)
+            }
+            
+            hideNotificationUI()
+        }
+    }
+    
     func handleBellSwipe() {
-        displayState = .hidden
-        stopBellTimer()
-        currentNotification = nil
+        // 벨 스와이프 시 숨김
+        hideNotificationUI()
     }
     
-    /// 배너 스와이프 처리
     func handleBannerSwipe() {
-        displayState = .hidden
-        stopBannerTimer()
-        currentNotification = nil
+        // 배너 스와이프 시 숨김
+        hideNotificationUI()
     }
     
-    /// 배너 닫기 처리
     func handleBannerClose() {
-        displayState = .hidden
-        stopBannerTimer()
-        currentNotification = nil
+        // 배너 닫기 시 숨김
+        hideNotificationUI()
     }
     
-    /// 모든 알림 제거
+    /// 모든 알림 데이터 정리 (UI 상태는 변경하지 않음)
     func clearAllNotifications() {
-        displayState = .hidden
-        stopBellTimer()
-        stopBannerTimer()
+        // 데이터만 정리 (UI 상태는 변경하지 않음)
         currentNotification = nil
         groupedNotifications.removeAll()
+        stopBellTimer()
+        stopBannerTimer()
+    }
+    
+    /// UI 상태를 hidden으로 변경
+    func hideNotificationUI() {
+        displayState = .hidden
     }
     
     /// 특정 채팅방 알림 제거
     func clearNotificationsForRoom(_ roomId: String) {
         if case .banner(let notification) = displayState, notification.roomId == roomId {
-            clearAllNotifications()
+            hideNotificationUI()
         } else if case .bell(let notification) = displayState, notification.roomId == roomId {
-            clearAllNotifications()
+            hideNotificationUI()
         }
         groupedNotifications.removeValue(forKey: roomId)
     }
@@ -345,6 +346,7 @@ class CustomNotificationManager: ObservableObject {
     
     /// 현재 채팅방 ID 설정
     func setCurrentChatRoom(_ roomId: String?) {
+        let previousRoomId = currentChatRoomId
         currentChatRoomId = roomId
     }
     
@@ -365,17 +367,22 @@ struct CustomNotificationContainer: View {
             VStack {
                 switch notificationManager.displayState {
                 case .bell(let notification):
-                    ShakingBellView(
-                        notificationData: notification,
-                        onTap: {
-                            notificationManager.handleBellTap()
-                        },
-                        onSwipe: {
-                            notificationManager.handleBellSwipe()
+                    HStack {
+                        Spacer()
+                        ShakingBellView(
+                            notificationData: notification,
+                            onTap: {
+                                notificationManager.handleBellTap()
+                            },
+                            onSwipe: {
+                                notificationManager.handleBellSwipe()
+                            }
+                        )
+                        .padding(.top, 60)
+                        .padding(.trailing, 12)
+                        .onAppear {
                         }
-                    )
-                    .padding(.top, 60)
-                    .padding(.trailing, 12)
+                    }
                     
                 case .banner(let notification):
                     CustomNotificationBanner(
@@ -392,13 +399,21 @@ struct CustomNotificationContainer: View {
                     )
                     .padding(.top, 60)
                     .padding(.horizontal, 16)
+                    .onAppear {
+                    }
                     
                 case .hidden:
                     EmptyView()
+                        .onAppear {
+                        }
                 }
                 
                 Spacer()
             }
+        }
+        .onAppear {
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .appDidEnterForeground)) { _ in
         }
     }
 }

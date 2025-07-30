@@ -13,7 +13,7 @@ final class TabViewCache: ObservableObject {
     static let shared = TabViewCache()
     
     // 캐시된 뷰들 (메모리 최적화)
-    private var cachedViews: [String: Any] = [:]
+    private var cachedViews: [MyTabView.Tab: AnyView] = [:]
     
     // 캐시된 데이터들 (5분 만료)
     private var dataCache: [String: (data: Any, timestamp: TimeInterval)] = [:]
@@ -23,23 +23,17 @@ final class TabViewCache: ObservableObject {
     
     // MARK: - 뷰 캐시 관리
     
-    /// 뷰 캐시 저장
-    func setCachedView<T: View>(_ view: T, for tab: MyTabView.Tab) {
-        let key = "view_\(tab)"
-        cachedViews[key] = view
+    func cacheView(_ view: AnyView, for tab: MyTabView.Tab) {
+        cachedViews[tab] = view
     }
     
-    /// 뷰 캐시 조회
-    func getCachedView<T: View>(for tab: MyTabView.Tab, as type: T.Type) -> T? {
-        let key = "view_\(tab)"
-        return cachedViews[key] as? T
+    func getCachedView(for tab: MyTabView.Tab) -> AnyView? {
+        return cachedViews[tab]
     }
     
     /// 뷰 캐시 삭제
     func clearCachedView(for tab: MyTabView.Tab) {
-        let key = "view_\(tab)"
-        cachedViews.removeValue(forKey: key)
-        print("뷰 캐시 삭제: \(tab)")
+        cachedViews.removeValue(forKey: tab)
     }
     
     // MARK: - 데이터 캐시 관리
