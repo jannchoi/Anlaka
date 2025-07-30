@@ -85,8 +85,8 @@ final class TokenRefreshManager {
             let response = try await NetworkManager.shared.executeRequest(refreshRequest, model: RefreshTokenResponseDTO.self)
             
             // 새 토큰 저장
-            UserDefaultsManager.shared.set(response.accessToken, forKey: .accessToken)
-            UserDefaultsManager.shared.set(response.refreshToken, forKey: .refreshToken)
+            KeychainManager.shared.set(response.accessToken, forKey: .accessToken)
+            KeychainManager.shared.set(response.refreshToken, forKey: .refreshToken)
             
             // 갱신 완료 및 트리거 해제
             completeTokenRefresh()
@@ -331,8 +331,10 @@ final class NetworkManager {
         
         await MainActor.run {
             // 토큰 및 프로필 데이터 제거
-            UserDefaultsManager.shared.removeObject(forKey: .accessToken)
-            UserDefaultsManager.shared.removeObject(forKey: .refreshToken)
+            KeychainManager.shared.remove(forKey: .accessToken)
+            KeychainManager.shared.remove(forKey: .refreshToken)
+            KeychainManager.shared.remove(forKey: .appleIdToken)
+            KeychainManager.shared.remove(forKey: .kakaoToken)
             UserDefaultsManager.shared.removeObject(forKey: .profileData)
             
             // 알림 관련 데이터 초기화
@@ -362,7 +364,7 @@ final class NetworkManager {
         request.setValue(AppConfig.apiKey, forHTTPHeaderField: "SeSACKey")
         
         // Authorization 헤더 추가 (토큰 인증)
-        if let accessToken = UserDefaultsManager.shared.getString(forKey: .accessToken) {
+        if let accessToken = KeychainManager.shared.getString(forKey: .accessToken) {
             request.setValue(accessToken, forHTTPHeaderField: "Authorization")
         }
         

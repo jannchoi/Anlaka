@@ -456,9 +456,9 @@ internal final class NetworkRepositoryImp: NetworkRepository {
 extension NetworkRepositoryImp {
         // MARK: - Private Methods
     private func saveTokens(accessToken: String, refreshToken: String) {
-        UserDefaultsManager.shared.set(accessToken, forKey: .accessToken)
-        UserDefaultsManager.shared.set(refreshToken, forKey: .refreshToken)
-        print("===== 토큰 저장 성공, \(accessToken), \(refreshToken)")
+        KeychainManager.shared.set(accessToken, forKey: .accessToken)
+        KeychainManager.shared.set(refreshToken, forKey: .refreshToken)
+        print("===== 토큰 저장 성공 (Keychain), \(accessToken), \(refreshToken)")
     }
     
     private func saveProfileInfo(userId: String, email: String, nick: String, phoneNum: String? = nil, introduction: String? = nil) {
