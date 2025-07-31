@@ -101,6 +101,9 @@ final class EditProfileContainer: ObservableObject {
             model.introduction = profile.introduction ?? ""
             model.phoneNum = profile.phoneNum ?? ""
             
+            // 프로필 수정 성공 시 MyPageView에 알림 전송
+            NotificationCenter.default.post(name: .profileUpdated, object: profile)
+            
             // 성공 토스트 메시지 표시
             model.toast = FancyToast(
                 type: .success,
