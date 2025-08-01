@@ -51,8 +51,6 @@ struct ContentView: View {
             }
         }
         .onChange(of: isLoggedIn) { newValue in
-
-            
             // 로그인 상태가 변경될 때 대기 중인 채팅방 처리
             if newValue {
                 handlePendingChatRoom()
@@ -62,8 +60,9 @@ struct ContentView: View {
                 TemporaryLastMessageManager.shared.clearAllTemporaryMessages()
                 CustomNotificationManager.shared.clearAllNotifications()
             }
-            
-
+        }
+        .onAppear {
+            // 뷰 등장 시 처리
         }
         .alert("알림 권한", isPresented: $permissionManager.shouldShowPermissionAlert) {
             Button("설정으로 이동") {

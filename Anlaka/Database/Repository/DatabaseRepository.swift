@@ -16,6 +16,12 @@ protocol DatabaseRepository {
     func getLastMessageDate(roomId: String) async throws -> Date?
     func isUserInChatRoom(roomId: String, userId: String) async throws -> Bool
     
+    // MARK: - Chat Pagination (New)
+    func getMessagesCount(roomId: String) async throws -> Int
+    func getMessagesBeforeDate(roomId: String, date: Date, limit: Int) async throws -> [ChatEntity]
+    func getMessagesInDateRange(roomId: String, from: Date, to: Date) async throws -> [ChatEntity]
+    func deleteMessagesBeforeDate(roomId: String, date: Date) async throws
+    
     // MARK: - User
     func updateUserId(oldUserId: String, newUserId: String) async throws
     func isUserExists(userId: String) async throws -> Bool
