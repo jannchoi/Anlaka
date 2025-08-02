@@ -335,7 +335,31 @@ extension Coordinator {
         
         switch clusteringType {
         case .zoomLevel6to14:
-            return clusterPinInfosDynamicWeighted_new(pinInfos, kakaoMap: kakaoMap)
+            // HDBSCAN 기반 클러스터링 사용
+            let clusteringHelper = ClusteringHelper()
+            let maxDistance = calculateMaxDistance(mapView: kakaoMap) * 0.1 // 화면 크기의 10%를 클러스터링 거리로 사용
+            let result = clusteringHelper.cluster(pins: pinInfos, maxDistance: maxDistance)
+            
+            // 노이즈를 개별 클러스터로 변환
+            var allClusters = result.clusters
+            for noisePin in result.noise {
+                let noiseCluster = ClusterInfo(
+                    estateIds: [noisePin.estateId],
+                    centerCoordinate: CLLocationCoordinate2D(latitude: noisePin.latitude, longitude: noisePin.longitude),
+                    count: 1,
+                    representativeImage: noisePin.image,
+                    area: 0.0 // 단일 매물은 면적 0
+                )
+                allClusters.append(noiseCluster)
+            }
+            
+            // 겹치지 않는 POI 크기 계산 (루트 보간법 유지)
+            let totalClusters = result.clusters.count + result.noise.count
+            let screenArea = kakaoMap.viewRect.width * kakaoMap.viewRect.height
+            let availableAreaPerPOI = screenArea / CGFloat(totalClusters)
+            let maxPoiSize = sqrt(availableAreaPerPOI) * 0.8 // 80%로 조정하여 여백 확보
+            return (allClusters, maxPoiSize)
+            
         case .zoomLevel15Plus:
             return clusterPinInfosDynamicWeighted_new(pinInfos, kakaoMap: kakaoMap)
         }
@@ -462,7 +486,8 @@ extension Coordinator {
                 estateIds: estateIds,
                 centerCoordinate: centerCoord,
                 count: count,
-                representativeImage: clusterPins.first?.image
+                representativeImage: clusterPins.first?.image,
+                area: nil // 높은 줌레벨에서는 면적 계산 불필요
             )
             
             clusterInfos.append(cluster)
@@ -471,16 +496,32 @@ extension Coordinator {
     }
     
     // MARK: - 원형 이미지 생성 (매물 수 표시용)
-    private func createCircleImage(count: Int, poiSize: CGFloat?) -> UIImage {
+    private func createCircleImage(count: Int, poiSize: CGFloat?, cluster: ClusterInfo? = nil) -> UIImage {
         let size = CGSize(width: poiSize ?? 50, height: poiSize ?? 50)
         let renderer = UIGraphicsImageRenderer(size: size)
 
         let image = renderer.image { context in
             let rect = CGRect(origin: .zero, size: size)
 
+            // 밀도 계산 (클러스터 정보가 있으면 진정한 밀도, 없으면 매물 수 기반)
+            let density: CGFloat
+            if let cluster = cluster {
+                density = self.calculateDensity(for: cluster, poiSize: poiSize ?? 50)
+            } else {
+                // 기존 방식: 매물 수 기반 밀도 (하위 호환성)
+                let baseDensity = min(1.0, CGFloat(count) / 20.0)
+                density = max(0.4, baseDensity)
+            }
+            let alpha = max(0.4, min(1.0, density)) // 최소 0.4, 최대 1.0으로 제한
+            
             // Assets의 원형 배경 이미지
             if let backgroundImage = UIImage(named: "Ellipse") {
-                backgroundImage.draw(in: rect)
+                // 밀도에 따른 색상 조정
+                let tintedImage = backgroundImage.withTintColor(
+                    UIColor.softSage.withAlphaComponent(alpha),
+                    renderingMode: .alwaysOriginal
+                )
+                tintedImage.draw(in: rect)
             } else {
                 print("❌ Ellipse 이미지 로드 실패")
             }
@@ -503,6 +544,51 @@ extension Coordinator {
         
         return image
     }
+    
+    // MARK: - 밀도 계산 함수
+    /// 클러스터의 밀도를 계산합니다.
+    /// 밀도는 면적 대비 매물 수로 계산됩니다.
+    /// 
+    /// - Parameters:
+    ///   - cluster: 클러스터 정보
+    ///   - poiSize: 마커 크기
+    /// - Returns: 0.0 ~ 1.0 사이의 밀도 값
+    private func calculateDensity(for cluster: ClusterInfo, poiSize: CGFloat) -> CGFloat {
+        // 면적 대비 매물 수로 밀도 계산
+        let area = cluster.area ?? 1.0 // 면적이 nil이면 1.0으로 가정
+        let density = Double(cluster.count) / max(area, 1.0) // 0으로 나누기 방지
+        
+        // 밀도 정규화 (0.1 ~ 10.0 매물/제곱미터를 0.0 ~ 1.0으로 정규화)
+        let normalizedDensity = min(1.0, max(0.0, (density - 0.1) / 9.9))
+        
+        // 가독성을 위한 최소값 보장 (0.4 이상)
+        return max(0.4, CGFloat(normalizedDensity))
+    }
+    
+    // MARK: - 동적 마커 크기 계산 함수
+    /// 매물 수에 비례한 마커 크기를 계산합니다.
+    /// 
+    /// - Parameters:
+    ///   - count: 클러스터 내 매물 수
+    ///   - baseSize: 기본 마커 크기
+    ///   - maxPoiSize: 최대 마커 크기 제한
+    /// - Returns: 매물 수에 비례한 마커 크기
+    private func calculateDynamicSize(for count: Int, baseSize: CGFloat, maxPoiSize: CGFloat?) -> CGFloat {
+        // 기본 크기 범위 설정
+        let minSize: CGFloat = 30
+        let maxSize: CGFloat = maxPoiSize ?? 80
+        
+        // 매물 수에 따른 크기 계산 (로그 스케일 사용)
+        let logCount = log10(Double(max(1, count)))
+        let maxLogCount = log10(50.0) // 50개를 최대 기준으로 설정
+        
+        let sizeRatio = min(1.0, logCount / maxLogCount)
+        let dynamicSize = minSize + (maxSize - minSize) * sizeRatio
+        
+        return dynamicSize
+    }
+    
+
 
     
     // MARK: - POI 배지 추가 (zoomLevel 17용)
@@ -672,37 +758,29 @@ extension Coordinator {
     private func createClusterPOIsForLowZoom(_ clusterInfos: [ClusterInfo], maxPoiSize: CGFloat?) {
 
         guard let kakaoMap = controller?.getView("mapview") as? KakaoMap,
-              let layer = kakaoMap.getLabelManager().getLabelLayer(layerID: layerID),
-              let maxPoiSize = maxPoiSize else {
+              let layer = kakaoMap.getLabelManager().getLabelLayer(layerID: layerID) else {
             print("❌ 레이어 또는 맵 객체 생성 실패")
             return
         }
         clearAllPOIs()
-        //clusters.removeAll()
         
-        // 최소, 최대 count 계산
-        // clusterInfos가 빈 배열일 때 counts.min()과 counts.max()가 nil이 됨
-        let counts = clusterInfos.map { $0.count }
         guard !clusterInfos.isEmpty else {
             return
         }
         
-        // clusterInfos가 비어있지 않으면 min/max는 항상 존재
-        let minCount = counts.min()!
-        let maxCount = counts.max()!
+        // 내접원 기반으로 POI 위치와 크기 조정
+        let adjustedClusters = adjustClusterPositionsToPreventOverlap(clusterInfos, kakaoMap: kakaoMap)
         
-        for (index, cluster) in clusterInfos.enumerated() {
-            // poiSize 계산 (루트 보간)
-            let poiSize: CGFloat
-            if minCount == maxCount {
-                poiSize = (30 + maxPoiSize) / 2
-            } else {
-                let normalized = sqrt(Double(cluster.count - minCount)) / sqrt(Double(maxCount - minCount))
-                poiSize = 30 + (maxPoiSize - 30) * CGFloat(normalized)
-            }
+        for (index, adjustedCluster) in adjustedClusters.enumerated() {
+            let cluster = adjustedCluster.cluster
+            let center = adjustedCluster.center
+            let baseSize = adjustedCluster.size
             
-            // 스타일 생성
-            let styleID = createCircleStyle(for: cluster, index: index, poiSize: poiSize)
+            // 매물 수에 비례한 마커 크기 계산
+            let dynamicSize = calculateDynamicSize(for: cluster.count, baseSize: baseSize, maxPoiSize: maxPoiSize)
+            
+            // 스타일 생성 (동적 크기 사용)
+            let styleID = createCircleStyle(for: cluster, index: index, poiSize: dynamicSize)
             
             // POI 옵션 설정
             let poiOption = PoiOptions(styleID: styleID)
@@ -714,7 +792,7 @@ extension Coordinator {
             
             let poi = layer.addPoi(
                 option: poiOption,
-                at: MapPoint(longitude: cluster.centerCoordinate.longitude, latitude: cluster.centerCoordinate.latitude),
+                at: center, // 내접원 중심점 사용
                 callback: { result in }
             )
             
@@ -726,7 +804,6 @@ extension Coordinator {
                 // POI 생성 실패
             }
         }
-
     }
 
 
@@ -783,9 +860,25 @@ extension Coordinator {
                     let clusterID = "cluster_\(index)"
                     self.clusters[clusterID] = cluster
                     
+                    // 클러스터 크기에 따라 위치 결정
+                    let poiPosition: MapPoint
+                    if cluster.count == 1 {
+                        // 개별 매물인 경우 원래 매물 위치 사용
+                        if let firstEstateId = cluster.estateIds.first,
+                           let pinInfo = self.currentPinInfos[firstEstateId] {
+                            poiPosition = MapPoint(longitude: pinInfo.longitude, latitude: pinInfo.latitude)
+                        } else {
+                            // fallback: 클러스터 중심 위치 사용
+                            poiPosition = MapPoint(longitude: cluster.centerCoordinate.longitude, latitude: cluster.centerCoordinate.latitude)
+                        }
+                    } else {
+                        // 여러 매물인 경우 클러스터 중심 위치 사용
+                        poiPosition = MapPoint(longitude: cluster.centerCoordinate.longitude, latitude: cluster.centerCoordinate.latitude)
+                    }
+                    
                     if let poi = layer.addPoi(
                         option: poiOption,
-                        at: MapPoint(longitude: cluster.centerCoordinate.longitude, latitude: cluster.centerCoordinate.latitude)
+                        at: poiPosition
                     ) {
                         poi.userObject = clusterID as NSString
                         self.addBadgeToPOI(poi, count: cluster.count)
@@ -807,7 +900,7 @@ extension Coordinator {
         let manager = kakaoMap.getLabelManager()
         
         let styleID = "circle_style_\(index)_\(Int(Date().timeIntervalSince1970))"
-        let circleImage = createCircleImage(count: cluster.count, poiSize: poiSize)
+        let circleImage = createCircleImage(count: cluster.count, poiSize: poiSize, cluster: cluster)
         let iconStyle = PoiIconStyle(symbol: circleImage, anchorPoint: CGPoint(x: 0.5, y: 0.0))
         
         let perLevelStyle = PerLevelPoiStyle(iconStyle: iconStyle, level: 0)
@@ -1013,6 +1106,343 @@ extension CLLocation {
 extension GeoCoordinate {
     var clLocationCoordinate: CLLocationCoordinate2D {
         return CLLocationCoordinate2D(latitude: self.latitude, longitude: self.longitude)
+    }
+}
+
+// MARK: - AreaRect 내접원 계산 유틸리티
+extension Coordinator {
+    
+    /// AreaRect에 내접하는 원의 중심점과 반지름을 계산합니다.
+    /// 
+    /// - Parameters:
+    ///   - areaRect: 내접원을 구할 AreaRect
+    /// - Returns: (center: MapPoint, radius: Double) - 원의 중심점과 반지름(미터)
+    /// - Note: 반지름은 AreaRect의 작은 변의 절반으로 계산됩니다
+    private func calculateInscribedCircle(for areaRect: AreaRect) -> (center: MapPoint, radius: Double) {
+        // AreaRect의 중심점
+        let center = areaRect.center()
+        
+        // AreaRect의 크기 계산 (미터 단위)
+        let southWest = areaRect.southWest
+        let northEast = areaRect.northEast
+        
+        // 위도/경도 차이를 미터로 변환
+        let latDiff = northEast.wgsCoord.latitude - southWest.wgsCoord.latitude
+        let lonDiff = northEast.wgsCoord.longitude - southWest.wgsCoord.longitude
+        
+        // 위도/경도를 미터로 변환 (근사값)
+        let metersPerDegreeLat = 111000.0
+        let metersPerDegreeLon = 111000.0 * cos((southWest.wgsCoord.latitude + northEast.wgsCoord.latitude) / 2 * .pi / 180)
+        
+        let widthMeters = abs(lonDiff) * metersPerDegreeLon
+        let heightMeters = abs(latDiff) * metersPerDegreeLat
+        
+        // 내접원의 반지름은 작은 변의 절반
+        let radius = min(widthMeters, heightMeters) / 2
+        
+        return (center: center, radius: radius)
+    }
+    
+    /// AreaRect에 내접하는 원의 중심점과 반지름을 계산합니다 (Haversine 거리 사용).
+    /// 
+    /// - Parameters:
+    ///   - areaRect: 내접원을 구할 AreaRect
+    /// - Returns: (center: MapPoint, radius: Double) - 원의 중심점과 반지름(미터)
+    /// - Note: 정확한 Haversine 거리를 사용하여 반지름을 계산합니다
+    private func calculateInscribedCircleAccurate(for areaRect: AreaRect) -> (center: MapPoint, radius: Double) {
+        // AreaRect의 중심점
+        let center = areaRect.center()
+        
+        // AreaRect의 모서리들
+        let southWest = areaRect.southWest
+        let northEast = areaRect.northEast
+        
+        // 중심점에서 각 모서리까지의 거리 계산
+        let centerCoord = CLLocationCoordinate2D(latitude: center.wgsCoord.latitude, longitude: center.wgsCoord.longitude)
+        
+        let distances = [
+            haversineDistance(from: centerCoord, to: CLLocationCoordinate2D(latitude: southWest.wgsCoord.latitude, longitude: southWest.wgsCoord.longitude)),
+            haversineDistance(from: centerCoord, to: CLLocationCoordinate2D(latitude: northEast.wgsCoord.latitude, longitude: northEast.wgsCoord.longitude)),
+            haversineDistance(from: centerCoord, to: CLLocationCoordinate2D(latitude: southWest.wgsCoord.latitude, longitude: northEast.wgsCoord.longitude)),
+            haversineDistance(from: centerCoord, to: CLLocationCoordinate2D(latitude: northEast.wgsCoord.latitude, longitude: southWest.wgsCoord.longitude))
+        ]
+        
+        // 가장 작은 거리가 내접원의 반지름
+        let radius = distances.min() ?? 0
+        
+        return (center: center, radius: radius)
+    }
+    
+    /// 클러스터의 매물들을 포함하는 AreaRect를 생성하고, 그에 내접하는 원을 계산합니다.
+    /// 
+    /// - Parameters:
+    ///   - cluster: 클러스터 정보
+    /// - Returns: (center: MapPoint, radius: Double) - 내접원의 중심점과 반지름(미터)
+    /// - Note: 클러스터의 모든 매물을 포함하는 최소 영역에 내접하는 원을 계산합니다
+    private func calculateClusterInscribedCircle(for cluster: ClusterInfo) -> (center: MapPoint, radius: Double) {
+        // 클러스터 내 모든 매물의 좌표를 MapPoint로 변환
+        let mapPoints: [MapPoint] = cluster.estateIds.compactMap { estateId in
+            guard let pinInfo = currentPinInfos[estateId] else { return nil }
+            return MapPoint(longitude: pinInfo.longitude, latitude: pinInfo.latitude)
+        }
+        
+        guard !mapPoints.isEmpty else {
+            // 매물이 없으면 기본값 반환
+            return (center: MapPoint(longitude: 0, latitude: 0), radius: 0)
+        }
+        
+        // 모든 매물을 포함하는 AreaRect 생성
+        let areaRect = AreaRect(points: mapPoints)
+        
+        // AreaRect에 내접하는 원 계산
+        return calculateInscribedCircleAccurate(for: areaRect)
+    }
+    
+    /// 클러스터의 내접원을 기반으로 POI 크기와 위치를 결정합니다.
+    /// 
+    /// - Parameters:
+    ///   - cluster: 클러스터 정보
+    ///   - kakaoMap: 카카오맵 객체
+    ///   - sizeRange: (minSize: CGFloat, maxSize: CGFloat) - 크기 범위 (선택적)
+    ///   - allClusters: 전체 클러스터 배열 (루트 보간법을 위한 정렬 기준, 선택적)
+    /// - Returns: (center: MapPoint, size: CGFloat) - POI 중심점과 크기
+    /// - Note: 클러스터의 실제 분포 범위를 고려하여 정확한 위치와 크기를 계산합니다
+    private func calculateClusterPOIPositionAndSize(
+        for cluster: ClusterInfo, 
+        kakaoMap: KakaoMap,
+        sizeRange: (minSize: CGFloat, maxSize: CGFloat)? = nil,
+        allClusters: [ClusterInfo]? = nil
+    ) -> (center: MapPoint, size: CGFloat) {
+        // 클러스터의 내접원 계산
+        let inscribedCircle = calculateClusterInscribedCircle(for: cluster)
+        
+        // 크기 계산
+        let finalSize: CGFloat
+        if let sizeRange = sizeRange, let allClusters = allClusters {
+            // 내접원 넓이 기반 크기 범위와 루트 보간법 사용
+            finalSize = calculateClusterPOISizeWithRootInterpolation(
+                for: cluster,
+                sizeRange: sizeRange,
+                allClusters: allClusters
+            )
+        } else {
+            // 기본 크기 계산 (기존 로직)
+            let radiusInPixels = CGFloat(inscribedCircle.radius / calculateMetersPerPixel(kakaoMap: kakaoMap))
+            let baseSize = radiusInPixels * 2.0
+            let minSize: CGFloat = 30
+            let maxSize: CGFloat = 80
+            let clampedSize = max(minSize, min(maxSize, baseSize))
+            let sizeMultiplier = min(1.5, 1.0 + CGFloat(cluster.count - 1) * 0.1)
+            finalSize = clampedSize * sizeMultiplier
+        }
+        
+        return (center: inscribedCircle.center, size: finalSize)
+    }
+    
+    /// 클러스터 간 겹침을 방지하면서 POI 크기와 위치를 조정합니다.
+    /// 
+    /// - Parameters:
+    ///   - clusterInfos: 클러스터 정보 배열
+    ///   - kakaoMap: 카카오맵 객체
+    /// - Returns: 조정된 클러스터 정보 배열 (위치와 크기 포함)
+    private func adjustClusterPositionsToPreventOverlap(_ clusterInfos: [ClusterInfo], kakaoMap: KakaoMap) -> [(cluster: ClusterInfo, center: MapPoint, size: CGFloat)] {
+        var adjustedClusters: [(cluster: ClusterInfo, center: MapPoint, size: CGFloat)] = []
+        
+        // 내접원 넓이 기반으로 크기 범위 계산
+        let sizeRange = calculatePOISizeRangeBasedOnInscribedCircleArea(clusterInfos, kakaoMap: kakaoMap)
+        
+        for cluster in clusterInfos {
+            let (center, size) = calculateClusterPOIPositionAndSize(
+                for: cluster, 
+                kakaoMap: kakaoMap,
+                sizeRange: sizeRange,
+                allClusters: clusterInfos
+            )
+            adjustedClusters.append((cluster: cluster, center: center, size: size))
+        }
+        
+        // 클러스터 간 겹침 검사 및 조정 (개선된 알고리즘)
+        let maxIterations = 3 // 최대 반복 횟수 제한
+        var iteration = 0
+        
+        while iteration < maxIterations {
+            var hasOverlap = false
+            
+            for i in 0..<adjustedClusters.count {
+                for j in (i+1)..<adjustedClusters.count {
+                    let cluster1 = adjustedClusters[i]
+                    let cluster2 = adjustedClusters[j]
+                    
+                    // 두 클러스터 중심점 간의 거리 계산
+                    let distance = haversineDistance(
+                        from: CLLocationCoordinate2D(latitude: cluster1.center.wgsCoord.latitude, longitude: cluster1.center.wgsCoord.longitude),
+                        to: CLLocationCoordinate2D(latitude: cluster2.center.wgsCoord.latitude, longitude: cluster2.center.wgsCoord.longitude)
+                    )
+                    
+                    // 거리를 픽셀 단위로 변환
+                    let metersPerPixel = calculateMetersPerPixel(kakaoMap: kakaoMap)
+                    let pixelDistance = CGFloat(distance / metersPerPixel)
+                    
+                    // 겹침 여부 확인 (두 POI의 반지름 합이 중심점 간 거리보다 크면 겹침)
+                    let combinedRadius = cluster1.size / 2 + cluster2.size / 2
+                    let safetyMargin: CGFloat = 2.0 // 안전 마진 추가
+                    
+                    if pixelDistance < (combinedRadius + safetyMargin) {
+                        hasOverlap = true
+                        
+                        // 겹침 정도에 따른 조정 전략
+                        let overlapRatio = pixelDistance / combinedRadius
+                        
+                        if overlapRatio < 0.3 {
+                            // 심각한 겹침: 크기를 크게 줄임
+                            let reductionFactor = max(0.3, overlapRatio * 0.5)
+                            adjustedClusters[i].size *= reductionFactor
+                            adjustedClusters[j].size *= reductionFactor
+                        } else if overlapRatio < 0.7 {
+                            // 중간 겹침: 크기를 적당히 줄임
+                            let reductionFactor = max(0.5, overlapRatio * 0.8)
+                            adjustedClusters[i].size *= reductionFactor
+                            adjustedClusters[j].size *= reductionFactor
+                        } else {
+                            // 약간의 겹침: 크기를 조금만 줄임
+                            let reductionFactor = max(0.7, overlapRatio * 0.9)
+                            adjustedClusters[i].size *= reductionFactor
+                            adjustedClusters[j].size *= reductionFactor
+                        }
+                        
+                        // 최소 크기 보장
+                        adjustedClusters[i].size = max(30, adjustedClusters[i].size)
+                        adjustedClusters[j].size = max(30, adjustedClusters[j].size)
+                    }
+                }
+            }
+            
+            // 겹침이 없으면 반복 종료
+            if !hasOverlap {
+                break
+            }
+            
+            iteration += 1
+        }
+        
+        // 최종 검증: 여전히 겹침이 있는 경우 추가 조정
+        for i in 0..<adjustedClusters.count {
+            for j in (i+1)..<adjustedClusters.count {
+                let cluster1 = adjustedClusters[i]
+                let cluster2 = adjustedClusters[j]
+                
+                let distance = haversineDistance(
+                    from: CLLocationCoordinate2D(latitude: cluster1.center.wgsCoord.latitude, longitude: cluster1.center.wgsCoord.longitude),
+                    to: CLLocationCoordinate2D(latitude: cluster2.center.wgsCoord.latitude, longitude: cluster2.center.wgsCoord.longitude)
+                )
+                
+                let metersPerPixel = calculateMetersPerPixel(kakaoMap: kakaoMap)
+                let pixelDistance = CGFloat(distance / metersPerPixel)
+                let combinedRadius = cluster1.size / 2 + cluster2.size / 2
+                
+                if pixelDistance < combinedRadius {
+                    // 최후의 수단: 더 작은 클러스터를 숨김
+                    if cluster1.cluster.count < cluster2.cluster.count {
+                        adjustedClusters[i].size = 0 // 숨김 처리
+                    } else {
+                        adjustedClusters[j].size = 0 // 숨김 처리
+                    }
+                }
+            }
+        }
+        
+        // 크기가 0인 클러스터 제거
+        adjustedClusters = adjustedClusters.filter { $0.size > 0 }
+        
+        return adjustedClusters
+    }
+    
+    /// 클러스터들의 내접원 넓이를 기반으로 POI 크기 범위를 계산합니다.
+    /// 
+    /// - Parameters:
+    ///   - clusterInfos: 클러스터 정보 배열
+    ///   - kakaoMap: 카카오맵 객체
+    /// - Returns: (minSize: CGFloat, maxSize: CGFloat) - 최소/최대 POI 크기
+    /// - Note: 내접원 넓이의 최대값을 maxSize로, 최소값 30을 minSize로 사용합니다
+    private func calculatePOISizeRangeBasedOnInscribedCircleArea(_ clusterInfos: [ClusterInfo], kakaoMap: KakaoMap) -> (minSize: CGFloat, maxSize: CGFloat) {
+        guard !clusterInfos.isEmpty else { return (minSize: 30, maxSize: 80) }
+        
+        let minPoiSize: CGFloat = 30
+        let maxPoiSize: CGFloat = 80
+        
+        // 각 클러스터의 내접원 넓이 계산
+        var inscribedCircleAreas: [CGFloat] = []
+        
+        for cluster in clusterInfos {
+            let inscribedCircle = calculateClusterInscribedCircle(for: cluster)
+            
+            // 내접원 넓이 계산 (π * r²)
+            let radiusInPixels = CGFloat(inscribedCircle.radius / calculateMetersPerPixel(kakaoMap: kakaoMap))
+            let area = .pi * radiusInPixels * radiusInPixels
+            inscribedCircleAreas.append(area)
+        }
+        
+        // 넓이의 최대값 찾기
+        guard let maxArea = inscribedCircleAreas.max() else {
+            return (minSize: minPoiSize, maxSize: maxPoiSize)
+        }
+        
+        // 최대 넓이를 기반으로 maxSize 계산 (넓이의 제곱근에 비례)
+        let maxSize = sqrt(maxArea) * 2.0
+        
+        // 크기 범위 제한
+        let adjustedMaxSize = max(minPoiSize, min(maxPoiSize, maxSize))
+        
+        return (minSize: minPoiSize, maxSize: adjustedMaxSize)
+    }
+    
+    /// 클러스터 수에 따라 루트 보간법으로 POI 크기를 계산합니다.
+    /// 
+    /// - Parameters:
+    ///   - cluster: 클러스터 정보
+    ///   - sizeRange: (minSize: CGFloat, maxSize: CGFloat) - 크기 범위
+    ///   - allClusters: 전체 클러스터 배열 (루트 보간법을 위한 정렬 기준)
+    /// - Returns: POI 크기
+    /// - Note: 클러스터 수를 기준으로 루트 보간법을 사용하여 크기를 결정합니다
+    private func calculateClusterPOISizeWithRootInterpolation(
+        for cluster: ClusterInfo,
+        sizeRange: (minSize: CGFloat, maxSize: CGFloat),
+        allClusters: [ClusterInfo]
+    ) -> CGFloat {
+        let minSize = sizeRange.minSize
+        let maxSize = sizeRange.maxSize
+        
+        // 클러스터 수 기준으로 정렬
+        let sortedClusters = allClusters.sorted { $0.count < $1.count }
+        
+        // 현재 클러스터의 순위 찾기 (estateIds 배열을 비교하여 식별)
+        guard let currentIndex = sortedClusters.firstIndex(where: { 
+            $0.estateIds == cluster.estateIds && 
+            $0.centerCoordinate.latitude == cluster.centerCoordinate.latitude &&
+            $0.centerCoordinate.longitude == cluster.centerCoordinate.longitude
+        }) else {
+            return minSize
+        }
+        
+        let minCount = sortedClusters.first?.count ?? 1
+        let maxCount = sortedClusters.last?.count ?? 1
+        
+        // 루트 보간법 적용
+        if minCount == maxCount {
+            return (minSize + maxSize) / 2
+        } else {
+            let normalized = sqrt(Double(cluster.count - minCount)) / sqrt(Double(maxCount - minCount))
+            return minSize + (maxSize - minSize) * CGFloat(normalized)
+        }
+    }
+    
+    /// 픽셀당 미터 비율을 계산합니다.
+    /// 
+    /// - Parameters:
+    ///   - kakaoMap: 카카오맵 객체
+    /// - Returns: 픽셀당 미터 비율
+    private func calculateMetersPerPixel(kakaoMap: KakaoMap) -> Double {
+        return calculateMaxDistance(mapView: kakaoMap) / sqrt(pow(kakaoMap.viewRect.width, 2) + pow(kakaoMap.viewRect.height, 2))
     }
 }
 
