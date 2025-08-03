@@ -44,6 +44,8 @@ struct ChatMessagesView: View {
     @State private var scrollOffset: CGFloat = 0
     @State private var contentHeight: CGFloat = 0
     @ObservedObject var container: ChattingContainer  // 추가
+    @Environment(\.showPDFViewer) var showPDFViewer
+    @Environment(\.showImageViewer) var showImageViewer
     
     var body: some View {
         VStack {
@@ -420,6 +422,14 @@ struct ChattingView: View {
     @State private var inputViewHeight: CGFloat = 0
     @State private var didInitialScroll: Bool = false
     @State private var navigationBarHeight: CGFloat = 0 // 추가
+    @State private var showPDFViewer = false
+    @State private var selectedPDFPath = ""
+    @State private var showImageViewer = false
+    @State private var selectedImagePath = ""
+    @State private var showGIFViewer = false
+    @State private var selectedGIFURL = ""
+    @State private var showVideoPlayer = false
+    @State private var selectedVideoURL = ""
     @Namespace var bottom1
     private var displayNick: String {
         guard let nick = container.model.opponentProfile?.nick else { return "채팅" }
@@ -536,6 +546,18 @@ struct ChattingView: View {
                 container.handle(.validateFiles(files))
             }
         }
+        .sheet(isPresented: $showPDFViewer) {
+            PDFViewer()
+        }
+        .fullScreenCover(isPresented: $showImageViewer) {
+            ImageFullViewer()
+        }
+        .fullScreenCover(isPresented: $showGIFViewer) {
+            GIFViewer()
+        }
+        .sheet(isPresented: $showVideoPlayer) {
+            VideoViewer()
+        }
         .alert("오류", isPresented: .constant(container.model.error != nil)) {
             Button("확인") {
                 container.handle(.setError(nil))
@@ -576,6 +598,26 @@ struct ChattingView: View {
             }
         )
         .toastView(toast: $container.model.toast)
+        .environment(\.showPDFViewer) { pdfPath in
+            selectedPDFPath = pdfPath
+            PDFViewerViewModel.shared.setPDFPath(pdfPath)
+            showPDFViewer = true
+        }
+        .environment(\.showImageViewer) { imagePath in
+            selectedImagePath = imagePath
+            ImageFullViewerViewModel.shared.setImagePath(imagePath)
+            showImageViewer = true
+        }
+        .environment(\.showGIFViewer) { gifURL in
+            selectedGIFURL = gifURL
+            GIFViewerViewModel.shared.setGifURL(gifURL)
+            showGIFViewer = true
+        }
+        .environment(\.showVideoPlayer) { videoURL in
+            selectedVideoURL = videoURL
+            VideoViewerViewModel.shared.setVideoURL(videoURL)
+            showVideoPlayer = true
+        }
     }
     private func sendMessage() {
         guard !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !selectedFiles.isEmpty else { return }
@@ -608,6 +650,8 @@ private func scrollToBottom() {
 struct ChatMessageCell: View {
     let message: ChatEntity
     let isSending: Bool
+    @Environment(\.showPDFViewer) var showPDFViewer
+    @Environment(\.showImageViewer) var showImageViewer
     
     var body: some View {
         HStack {
@@ -615,7 +659,10 @@ struct ChatMessageCell: View {
                 Spacer()
             }
             
-            MessageContentView(message: message, isSending: isSending)
+            MessageContentView(
+                message: message, 
+                isSending: isSending
+            )
             
             if !message.isMine {
                 Spacer()
@@ -631,6 +678,8 @@ struct ChatMessageCell: View {
 private struct MessageContentView: View {
     let message: ChatEntity
     let isSending: Bool
+    @Environment(\.showPDFViewer) var showPDFViewer
+    @Environment(\.showImageViewer) var showImageViewer
     
     var body: some View {
         VStack(alignment: message.isMine ? .trailing : .leading, spacing: 8) {
@@ -790,6 +839,8 @@ struct ChatInputView: View {
 // MARK: - FilePreviewView
 struct FilePreviewView: View {
     let files: [String]
+    @Environment(\.showPDFViewer) var showPDFViewer
+    @Environment(\.showImageViewer) var showImageViewer
     
     var body: some View {
         if files.count == 1 {
@@ -802,30 +853,177 @@ struct FilePreviewView: View {
 
 struct SingleFilePreview: View {
     let fileURL: String
+    @Environment(\.showPDFViewer) var showPDFViewer
+    @Environment(\.showImageViewer) var showImageViewer
+    @Environment(\.showGIFViewer) var showGIFViewer
+    @Environment(\.showVideoPlayer) var showVideoPlayer
     
     var body: some View {
         if isImageFile {
-            CustomAsyncImage.listCell(imagePath: fileURL)
-                .frame(width: 200, height: 200)
+            if isGIFFile {
+                // GIF 파일 표시 - 썸네일과 함께 표시
+                HStack(spacing: 12) {
+                    // GIF 썸네일 표시
+                    ThumbnailView(
+                        fileURL: fileURL,
+                        size: CGSize(width: 60, height: 60),
+                        cornerRadius: 8
+                    )
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(fileName)
+                            .font(.pretendardCaption)
+                            .foregroundColor(.gray)
+                            .lineLimit(1)
+                        
+                        Text("GIF")
+                            .font(.pretendardCaption2)
+                            .foregroundColor(.gray)
+                    }
+                    
+                    Spacer()
+                }
+                .frame(height: 60)
+                .padding(.horizontal, 12)
+                .background(Color.gray.opacity(0.1))
                 .cornerRadius(8)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                )
+                .onTapGesture {
+                    showGIFViewer(fileURL)
+                }
+            } else {
+                // 일반 이미지 파일
+                CustomAsyncImage.listCell(imagePath: fileURL)
+                    .frame(width: 200, height: 200)
+                    .cornerRadius(8)
+                    .onTapGesture {
+                        showImageViewer(fileURL)
+                    }
+            }
+        } else if isVideoFile {
+            // 비디오 파일 표시 - 썸네일과 함께 표시
+            HStack(spacing: 12) {
+                // 비디오 썸네일 표시
+                ThumbnailView(
+                    fileURL: fileURL,
+                    size: CGSize(width: 60, height: 60),
+                    cornerRadius: 8
+                )
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(fileName)
+                        .font(.pretendardCaption)
+                        .foregroundColor(.gray)
+                        .lineLimit(1)
+                    
+                    Text("비디오")
+                        .font(.pretendardCaption2)
+                        .foregroundColor(.gray)
+                }
+                
+                Spacer()
+            }
+            .frame(height: 60)
+            .padding(.horizontal, 12)
+            .background(Color.gray.opacity(0.1))
+            .cornerRadius(8)
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+            )
+            .onTapGesture {
+                showVideoPlayer(fileURL)
+            }
+        } else if isPDFFile {
+            // PDF 파일 표시 - HStack 레이아웃으로 변경
+            HStack(spacing: 12) {
+                Image(systemName: "doc.text.fill")
+                    .font(.system(size: 24))
+                    .foregroundColor(.blue)
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(fileName)
+                        .font(.pretendardCaption)
+                        .foregroundColor(.gray)
+                        .lineLimit(1)
+                    
+                    Text("PDF 문서")
+                        .font(.pretendardCaption2)
+                        .foregroundColor(.gray)
+                }
+                
+                Spacer()
+            }
+            .frame(width: 200, height: 60)
+            .padding(.horizontal, 12)
+            .background(Color.gray.opacity(0.1))
+            .cornerRadius(8)
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+            )
+            .onTapGesture {
+                // PDF 뷰어 표시
+                showPDFViewer(fileURL)
+            }
+
         } else {
-            // 파일 확장자에 따른 아이콘 표시
-            Image(systemName: fileIcon)
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .foregroundColor(.gray)
-                .padding()
-                .frame(width: 200, height: 200)
-                .cornerRadius(8)
+            // 기타 파일 확장자에 따른 아이콘 표시 - HStack 레이아웃으로 변경
+            HStack(spacing: 12) {
+                Image(systemName: fileIcon)
+                    .font(.system(size: 24))
+                    .foregroundColor(.gray)
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(fileName)
+                        .font(.pretendardCaption)
+                        .foregroundColor(.gray)
+                        .lineLimit(1)
+                    
+                    Text(fileExtension.uppercased())
+                        .font(.pretendardCaption2)
+                        .foregroundColor(.gray)
+                }
+                
+                Spacer()
+            }
+            .frame(width: 200, height: 60)
+            .padding(.horizontal, 12)
+            .background(Color.gray.opacity(0.1))
+            .cornerRadius(8)
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+            )
         }
     }
     
     private var fileExtension: String {
-        URL(string: fileURL)?.pathExtension.lowercased() ?? ""
+        let ext = URL(string: fileURL)?.pathExtension.lowercased() ?? ""
+        return ext
+    }
+    
+    private var fileName: String {
+        URL(string: fileURL)?.lastPathComponent ?? "파일"
     }
     
     private var isImageFile: Bool {
         ["jpg", "jpeg", "png", "gif"].contains(fileExtension)
+    }
+    
+    private var isGIFFile: Bool {
+        fileExtension == "gif"
+    }
+    
+    private var isVideoFile: Bool {
+        ["mp4", "mov"].contains(fileExtension)
+    }
+    
+    private var isPDFFile: Bool {
+        fileExtension == "pdf"
     }
     
     private var fileIcon: String {
@@ -833,7 +1031,9 @@ struct SingleFilePreview: View {
         case "jpg", "jpeg", "png", "gif":
             return "photo"
         case "pdf":
-            return "doc.text"
+            return "doc.text.fill"
+        case "mp4", "mov":
+            return "play.circle.fill"
         default:
             return "doc"
         }
@@ -842,6 +1042,10 @@ struct SingleFilePreview: View {
 
 struct FileGridPreview: View {
     let files: [String]
+    @Environment(\.showPDFViewer) var showPDFViewer
+    @Environment(\.showImageViewer) var showImageViewer
+    @Environment(\.showGIFViewer) var showGIFViewer
+    @Environment(\.showVideoPlayer) var showVideoPlayer
     
     var body: some View {
         LazyVGrid(columns: [

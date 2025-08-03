@@ -360,9 +360,25 @@ struct CommunityView: View {
             // Image Section
             if !post.files.isEmpty {
                 ZStack(alignment: .topTrailing) {
-                    CustomAsyncImage.listCell(imagePath: post.files[0])
-                        .frame(width: 80, height: 80)
-                        .cornerRadius(6)
+                    // 파일 타입에 따른 표시
+                    if isVideoFile(post.files[0]) {
+                        // 비디오 파일 - 썸네일 + 재생버튼 + 파일정보
+                        VStack(spacing: 8) {
+                            // 썸네일과 재생버튼
+                            ThumbnailView(fileURL: post.files[0], size: CGSize(width: 80, height: 80), cornerRadius: 6)
+                        }
+                    } else if isGIFFile(post.files[0]) {
+                        // GIF 파일 - 썸네일 + GIF 아이콘 + 파일정보
+                        VStack(spacing: 8) {
+                            // 썸네일과 GIF 아이콘
+                            ThumbnailView(fileURL: post.files[0], size: CGSize(width: 80, height: 80), cornerRadius: 6)
+                        }
+                    } else {
+                        // 이미지 파일 표시
+                        CustomAsyncImage.listCell(imagePath: post.files[0])
+                            .frame(width: 80, height: 80)
+                            .cornerRadius(6)
+                    }
                     
                     // Image Count Badge
                     if post.files.count > 1 {
@@ -383,6 +399,27 @@ struct CommunityView: View {
         .onTapGesture {
             path.append(post.postId)
         }
+    }
+}
+
+// MARK: - File Helper Functions
+extension CommunityView {
+    private func isVideoFile(_ fileURL: String) -> Bool {
+        let videoExtensions = ["mp4", "mov", "avi", "mkv", "wmv"]
+        return videoExtensions.contains(getFileExtension(fileURL))
+    }
+    
+    private func isGIFFile(_ fileURL: String) -> Bool {
+        let gifExtensions = ["gif"]
+        return gifExtensions.contains(getFileExtension(fileURL))
+    }
+    
+    private func getFileExtension(_ fileURL: String) -> String {
+        return URL(string: fileURL)?.pathExtension.lowercased() ?? ""
+    }
+    
+    private func getFileName(_ fileURL: String) -> String {
+        return URL(string: fileURL)?.lastPathComponent ?? "파일"
     }
 }
 
