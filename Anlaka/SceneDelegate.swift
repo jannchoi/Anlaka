@@ -30,8 +30,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate, UNUserNotificationCente
         switchRootView(loggedIn: isLoggedIn, diContainer: diContainer)
         
         UNUserNotificationCenter.current().delegate = self
-        restoreBadgeCount()
-        updateAppIconBadge()
+        // restoreBadgeCount()
+        // updateAppIconBadge()
         setupLoginStateObserver()
         
         // 알림 권한 상태 확인 및 디버깅
@@ -120,17 +120,17 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate, UNUserNotificationCente
         print("   - 앱 상태: \(UIApplication.shared.applicationState.rawValue)")
         print("   - CustomNotificationManager 상태: \(CustomNotificationManager.shared.displayState)")
         
-        ChatNotificationCountManager.shared.debugBadgeStatus()
+        // ChatNotificationCountManager.shared.debugBadgeStatus()
         NotificationCenter.default.post(name: .appDidEnterForeground, object: nil)
         
         // 채팅 소켓 재연결 알림 전송
         NotificationCenter.default.post(name: .chatSocketShouldReconnect, object: nil)
         
         // 뱃지 카운트 복원
-        restoreBadgeCount()
+        // restoreBadgeCount()
         
         // 앱 아이콘 배지 업데이트
-        updateAppIconBadge()
+        // updateAppIconBadge()
         
         // 포그라운드 진입 시 토큰 상태 확인
         Task { @MainActor in
@@ -180,7 +180,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate, UNUserNotificationCente
                 
                 if settings.authorizationStatus == .notDetermined {
                     // 권한 요청
-                    UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, error in
+                    UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { granted, error in
                         DispatchQueue.main.async {
                             if granted {
                                 print("알림 권한 허용됨")
@@ -319,10 +319,10 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate, UNUserNotificationCente
         }
     }
     
-    private func restoreBadgeCount() {
-        let badgeCount = UserDefaultsManager.shared.getInt(forKey: .badgeCount)
-        UIApplication.shared.applicationIconBadgeNumber = badgeCount
-    }
+    // private func restoreBadgeCount() {
+    //     let badgeCount = UserDefaultsManager.shared.getInt(forKey: .badgeCount)
+    //     UIApplication.shared.applicationIconBadgeNumber = badgeCount
+    // }
     
     private func updateAppIconBadge() {
         // 앱 아이콘 뱃지 업데이트 기능 주석처리
@@ -378,14 +378,14 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate, UNUserNotificationCente
                 
                 print("알림 권한 상태: \(settings.authorizationStatus.rawValue)")
                 print("알림 표시 권한: \(settings.alertSetting.rawValue)")
-                print("배지 권한: \(settings.badgeSetting.rawValue)")
+                // print("배지 권한: \(settings.badgeSetting.rawValue)")
                 print("사운드 권한: \(settings.soundSetting.rawValue)")
                 print("잠금화면 알림: \(settings.lockScreenSetting.rawValue)")
                 print("알림 센터: \(settings.notificationCenterSetting.rawValue)")
                 
                 // 권한이 거부되었거나 결정되지 않은 경우 권한 요청
                 if settings.authorizationStatus == .denied || settings.authorizationStatus == .notDetermined {
-                    UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, error in
+                    UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { granted, error in
                         DispatchQueue.main.async {
                             if granted {
                                 print("알림 권한 허용됨")

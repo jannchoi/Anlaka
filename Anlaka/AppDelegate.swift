@@ -213,7 +213,7 @@ extension Dictionary {
 //                 // 3. 앱 아이콘 배지 업데이트
 //                 let totalCount = ChatNotificationCountManager.shared.totalCount
 //                 DispatchQueue.main.async {
-//                     UIApplication.shared.applicationIconBadgeNumber = totalCount
+//                     // UIApplication.shared.applicationIconBadgeNumber = totalCount
 //                 }
 
 //                 // 4. 알림 데이터 저장

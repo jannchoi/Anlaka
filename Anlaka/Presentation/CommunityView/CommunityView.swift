@@ -53,6 +53,7 @@ struct CommunityView: View {
                         
                         boardView
                     }
+                    .padding(.bottom, 100) // TabBar 높이 
                 }
                 .onAppear {
                     container.handle(.onAppear)

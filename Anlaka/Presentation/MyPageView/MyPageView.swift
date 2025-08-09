@@ -96,7 +96,7 @@ struct MyPageView: View {
             CurrentScreenTracker.shared.setCurrentScreen(.profile)
             
             // MyPageView 진입 시 뱃지 상태 업데이트
-            ChatNotificationCountManager.shared.forceUpdateBadge()
+            // ChatNotificationCountManager.shared.forceUpdateBadge()
         }
 
         .onChange(of: temporaryMessageManager.temporaryMessages) { _ in
