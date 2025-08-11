@@ -211,9 +211,9 @@ struct CustomAsyncImage: View {
             height: targetSize.height * UIScreen.main.scale
         )
         
-        // 다운샘플링이 필요한지 확인 (원본이 목표보다 1.5배 이상 클 때)
-        let shouldDownsample = originalPixelSize.width > targetPixelSize.width * 1.5 ||
-                              originalPixelSize.height > targetPixelSize.height * 1.5
+        // 다운샘플링이 필요한지 확인 (원본이 목표보다 1.2배 이상 클 때)
+        let shouldDownsample = originalPixelSize.width > targetPixelSize.width * 1.2 ||
+                              originalPixelSize.height > targetPixelSize.height * 1.2
         
         guard shouldDownsample else { return image }
         

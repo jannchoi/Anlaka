@@ -175,7 +175,7 @@ class Coordinator: NSObject, MapControllerDelegate, KakaoMapEventDelegate {
         debounceTimer?.invalidate()
         
         // 새로운 타이머 생성 (1초 후에 실행)
-        debounceTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: false) { [weak self] _ in
+        debounceTimer = Timer.scheduledTimer(withTimeInterval: 0.7, repeats: false) { [weak self] _ in
             guard let self = self else { return }
             
             let centerPoint = CGPoint(x: kakaoMap.viewRect.width / 2, y: kakaoMap.viewRect.height / 2)

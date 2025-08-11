@@ -743,6 +743,25 @@ struct ChatInputView: View {
     let isSending: Bool
     let showFileUpload: Bool // 파일 업로드 기능 표시 여부
     
+    // 파일 선택 제한 상수 추가
+    private let maxFileCount = 5
+    private let maxTotalSizeMB: Double = 5.0
+    
+    // 파일 총 용량 계산 추가
+    private var totalFileSizeMB: Double {
+        selectedFiles.reduce(0) { $0 + $1.sizeMB }
+    }
+    
+    // 총 파일 개수 계산 추가
+    private var totalFiles: Int {
+        selectedFiles.count
+    }
+    
+    // 추가 파일 선택 가능 여부 확인
+    private var canSelectMoreFiles: Bool {
+        selectedFiles.count < maxFileCount && totalFileSizeMB < maxTotalSizeMB
+    }
+    
     init(
         text: Binding<String>,
         selectedFiles: Binding<[SelectedFile]>,
@@ -768,13 +787,20 @@ struct ChatInputView: View {
             // 파일 선택 안내 (파일 업로드가 활성화된 경우에만 표시)
             if showFileUpload {
                 HStack {
-                    Text(selectedFiles.isEmpty ? "파일을 선택하세요" : "\(selectedFiles.count)개 선택됨")
-                        .font(.pretendardCaption)
-                        .foregroundColor(.gray)
+                    if selectedFiles.isEmpty {
+                        Text("파일을 선택하세요 (최대 \(maxFileCount)개, \(maxTotalSizeMB)MB)")
+                            .font(.pretendardCaption)
+                            .foregroundColor(.gray)
+                    } else {
+                        let currentTotal = totalFiles
+                        let currentSize = totalFileSizeMB
+                        Text("\(currentTotal)/\(maxFileCount)개, \(String(format: "%.1f", currentSize))/\(maxTotalSizeMB)MB")
+                            .font(.pretendardCaption)
+                            .foregroundColor((currentTotal >= maxFileCount || currentSize >= maxTotalSizeMB) ? .TomatoRed : .gray)
+                    }
                     Spacer()
                 }
                 .padding(.horizontal, 4)
-                //.padding(.top, 8) // X 버튼이 보이도록 상단 패딩 추가
                 
                 // 선택된 파일 미리보기
                 if !selectedFiles.isEmpty {
@@ -800,17 +826,17 @@ struct ChatInputView: View {
                     Button(action: onImagePicker) {
                         Image(systemName: "photo")
                             .font(.system(size: 20))
-                            .foregroundColor(Color.DeepForest)
+                            .foregroundColor(canSelectMoreFiles ? Color.DeepForest : Color.gray)
                     }
-                    .disabled(isSending)
+                    .disabled(isSending || !canSelectMoreFiles)
                     
                     // 문서 선택 버튼 (파일 업로드가 활성화된 경우에만 표시)
                     Button(action: onDocumentPicker) {
                         Image(systemName: "doc")
                             .font(.system(size: 20))
-                            .foregroundColor(Color.DeepForest)
+                            .foregroundColor(canSelectMoreFiles ? Color.DeepForest : Color.gray)
                     }
-                    .disabled(isSending)
+                    .disabled(isSending || !canSelectMoreFiles)
                 }
                 
                 TextField(showFileUpload ? "메시지를 입력하세요" : "댓글을 입력하세요", text: $text, axis: .vertical)
@@ -828,11 +854,19 @@ struct ChatInputView: View {
         }
     }
     
+    // 추가 파일 선택 가능 여부 확인
+    private var canSelectMoreFiles: Bool {
+        selectedFiles.count < maxFileCount && totalFileSizeMB < maxTotalSizeMB
+    }
+    
     private var isValidInput: Bool {
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
         let hasValidText = trimmedText.count >= 1
-        let hasValidFiles = selectedFiles.isEmpty || invalidFileIndices.isEmpty
-        return hasValidText || hasValidFiles
+        let isFileCountValid = totalFiles <= maxFileCount
+        let isFileSizeValid = totalFileSizeMB <= maxTotalSizeMB
+        
+        // 텍스트가 있어야 하고, 파일 제한도 만족해야 함
+        return hasValidText && isFileCountValid && isFileSizeValid
     }
 }
 
