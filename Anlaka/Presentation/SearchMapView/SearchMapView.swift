@@ -72,6 +72,7 @@ struct SearchMapView: View {
                 isLoggedIn = false
             }
         }
+        .customNotificationBanner()
         .fullScreenCover(isPresented: $showSearchAddress) {
             SearchAddressView(
                 di: di,

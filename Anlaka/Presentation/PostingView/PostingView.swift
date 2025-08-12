@@ -138,6 +138,27 @@ struct PostingView: View {
                                 .foregroundColor(.tomatoRed)
                         }
                     }
+                    
+                    // MARK: - 파일 선택 안내 및 개수 표시
+                    HStack {
+                        if selectedFiles.isEmpty && !container.model.isEditMode {
+                            Text("파일을 선택하세요 (최대 \(maxFileCount)개)")
+                                .font(.pretendardCaption)
+                                .foregroundColor(.gray)
+                        } else if selectedFiles.isEmpty && container.model.isEditMode {
+                            Text("기존 파일: \(container.model.existingFiles.count - container.model.deletedFiles.count)개 (최대 \(maxFileCount)개)")
+                                .font(.pretendardCaption)
+                                .foregroundColor(.gray)
+                        } else {
+                            let currentTotal = totalFiles
+                            Text("\(currentTotal)/\(maxFileCount)개 선택됨")
+                                .font(.pretendardCaption)
+                                .foregroundColor(currentTotal >= maxFileCount ? .tomatoRed : .gray)
+                        }
+                        Spacer()
+                    }
+                    .padding(.horizontal, 4)
+                    
                     // MARK: - 선택된 파일 목록
                     ForEach(selectedFiles.indices, id: \ .self) { idx in
                         SelectedFileView(file: selectedFiles[idx].toPostingViewModel(), onDelete: { deleteFile(at: idx) }, isInvalid: invalidFileIndices.contains(idx), invalidReason: invalidFileReasons[idx])

@@ -25,6 +25,20 @@ struct PostDetailView: View {
     // 댓글/대댓글 수정 모드 추적
     @State private var editingCommentId: String? = nil
     @State private var editingReplyId: String? = nil
+    // 뷰어 상태 변수들
+    @State private var showPDFViewer = false
+    @State private var selectedPDFPath = ""
+    @State private var showImageViewer = false
+    @State private var selectedImagePath = ""
+    @State private var showGIFViewer = false
+    @State private var selectedGIFURL = ""
+    @State private var showVideoPlayer = false
+    @State private var selectedVideoURL = ""
+    // 환경 변수들
+    @Environment(\.showPDFViewer) var showPDFViewerEnv
+    @Environment(\.showImageViewer) var showImageViewerEnv
+    @Environment(\.showGIFViewer) var showGIFViewerEnv
+    @Environment(\.showVideoPlayer) var showVideoPlayerEnv
     let di: DIContainer // di 추가
     
     init(postId: String, di: DIContainer, path: Binding<NavigationPath>) {
@@ -117,7 +131,7 @@ struct PostDetailView: View {
             // 하단 고정 ChatInputView (수정 모드가 아닐 때만 표시)
             if editingCommentId == nil && editingReplyId == nil {
                 // 디버깅용 로그
-                let _ = print("ChatInputView 표시됨 - editingCommentId: \(editingCommentId ?? "nil"), editingReplyId: \(editingReplyId ?? "nil")")
+                
                 VStack(spacing: 0) {
                     Spacer()
                     
@@ -178,7 +192,7 @@ struct PostDetailView: View {
                         
                     }
                 }
-
+                
                 
                 
             }
@@ -196,6 +210,7 @@ struct PostDetailView: View {
             container.handle(.initialRequest)
             CurrentScreenTracker.shared.setCurrentScreen(.posting)
         }
+        .customNotificationBanner()
         // Toast 적용
         .toastView(toast: $toast)
         // CustomAlertView 적용
@@ -230,6 +245,38 @@ struct PostDetailView: View {
             case .posting(let post):
                 PostingView(post: post, di: di, path: $path)
             }
+        }
+        .sheet(isPresented: $showVideoPlayer) {
+            VideoViewer()
+        }
+        .fullScreenCover(isPresented: $showGIFViewer) {
+            GIFViewer()
+        }
+        .sheet(isPresented: $showPDFViewer) {
+            PDFViewer()
+        }
+        .fullScreenCover(isPresented: $showImageViewer) {
+            ImageFullViewer()
+        }
+        .environment(\.showPDFViewer) { pdfPath in
+            selectedPDFPath = pdfPath
+            PDFViewerViewModel.shared.setPDFPath(pdfPath)
+            showPDFViewer = true
+        }
+        .environment(\.showImageViewer) { imagePath in
+            selectedImagePath = imagePath
+            ImageFullViewerViewModel.shared.setImagePath(imagePath)
+            showImageViewer = true
+        }
+        .environment(\.showGIFViewer) { gifURL in
+            selectedGIFURL = gifURL
+            GIFViewerViewModel.shared.setGifURL(gifURL)
+            showGIFViewer = true
+        }
+        .environment(\.showVideoPlayer) { videoURL in
+            selectedVideoURL = videoURL
+            VideoViewerViewModel.shared.setVideoURL(videoURL)
+            showVideoPlayer = true
         }
         // 기존 .alertViews() 제거
     }
@@ -335,15 +382,155 @@ struct PostDetailView: View {
     private func filesView(post: PostResponseEntity) -> some View {
         Group {
             if !post.files.isEmpty {
-                VStack(spacing: 8) {
-                    ForEach(post.files, id: \.serverPath) { file in
-                        CustomAsyncImage.detail(imagePath: file.serverPath)
-                            .aspectRatio(contentMode: .fit)
-                            .frame(maxWidth: .infinity)
-                            .cornerRadius(8)
-                    }   
+                VStack(spacing: 12) {
+                    ForEach(Array(post.files.enumerated()), id: \.element.serverPath) { index, file in
+                        VStack(spacing: 8) {
+                            // 파일 내용
+                            if isVideoFile(file.serverPath) {
+                                // 비디오 파일 표시 - 썸네일 + 재생버튼 + 파일정보
+                                VStack(spacing: 8) {
+                                    // 썸네일과 재생버튼
+                                    ThumbnailView(
+                                        fileURL: file.serverPath,
+                                        size: CGSize(width: 200, height: 120),
+                                        cornerRadius: 8
+                                    )
+                                    .aspectRatio(16/9, contentMode: .fit)
+                                    .frame(maxWidth: .infinity)
+                                    
+                                    // 파일 정보
+                                    VStack(spacing: 2) {
+                                        Text(file.serverPath.components(separatedBy: "/").last ?? "비디오 파일")
+                                            .font(.pretendardCaption)
+                                            .foregroundColor(.gray)
+                                            .lineLimit(1)
+                                        
+                                        Text("비디오")
+                                            .font(.pretendardCaption2)
+                                            .foregroundColor(.gray)
+                                    }
+                                }
+                                .onTapGesture {
+                                    print("🎬 [PostDetailView] 비디오 탭됨: \(file.serverPath)")
+                                    selectedVideoURL = file.serverPath
+                                    VideoViewerViewModel.shared.setVideoURL(file.serverPath)
+                                    showVideoPlayer = true
+                                }
+                            } else {
+                                // 이미지 파일 표시
+                                if isGIFFile(file.serverPath) {
+                                    // GIF 파일 표시 - 썸네일 + GIF 아이콘 + 파일정보
+                                    VStack(spacing: 8) {
+                                        // 썸네일과 GIF 아이콘
+                                        ThumbnailView(
+                                            fileURL: file.serverPath,
+                                            size: CGSize(width: 200, height: 120),
+                                            cornerRadius: 8
+                                        )
+                                        .aspectRatio(16/9, contentMode: .fit)
+                                        .frame(maxWidth: .infinity)
+                                        
+                                        // 파일 정보
+                                        VStack(spacing: 2) {
+                                            Text(file.serverPath.components(separatedBy: "/").last ?? "GIF 파일")
+                                                .font(.pretendardCaption)
+                                                .foregroundColor(.gray)
+                                                .lineLimit(1)
+                                            
+                                            Text("GIF")
+                                                .font(.pretendardCaption2)
+                                                .foregroundColor(.gray)
+                                        }
+                                    }
+                                    .onTapGesture {
+                                        showGIFViewerEnv(file.serverPath)
+                                    }
+                                } else if isPDFFile(file.serverPath) {
+                                    // PDF 파일 표시
+                                    VStack(spacing: 8) {
+                                        ZStack {
+                                            // 배경
+                                            RoundedRectangle(cornerRadius: 8)
+                                                .fill(Color.blue.opacity(0.1))
+                                                .aspectRatio(16/9, contentMode: .fit)
+                                                .frame(maxWidth: .infinity)
+                                            
+                                            // PDF 아이콘 오버레이
+                                            VStack(spacing: 8) {
+                                                Image(systemName: "doc.text.fill")
+                                                    .font(.system(size: 50))
+                                                    .foregroundColor(.blue)
+                                                    .shadow(radius: 3)
+                                                
+                                                Text("PDF")
+                                                    .font(.pretendardCaption)
+                                                    .foregroundColor(.white)
+                                                    .padding(.horizontal, 8)
+                                                    .padding(.vertical, 4)
+                                                    .background(Color.blue.opacity(0.8))
+                                                    .cornerRadius(4)
+                                            }
+                                        }
+                                        .aspectRatio(16/9, contentMode: .fit)
+                                        .frame(maxWidth: .infinity)
+                                        .cornerRadius(8)
+                                        
+                                        Text(file.serverPath.components(separatedBy: "/").last ?? "PDF 파일")
+                                            .font(.pretendardCaption)
+                                            .foregroundColor(.gray)
+                                            .lineLimit(1)
+                                    }
+                                    .onTapGesture {
+                                        showPDFViewerEnv(file.serverPath)
+                                    }
+                                } else {
+                                    // 일반 이미지 파일
+                                    CustomAsyncImage.detail(imagePath: file.serverPath)
+                                        .aspectRatio(contentMode: .fit)
+                                        .frame(maxWidth: .infinity)
+                                        .cornerRadius(8)
+                                        .onTapGesture {
+                                            selectedImagePath = file.serverPath
+                                            ImageFullViewerViewModel.shared.setImagePath(file.serverPath)
+                                            showImageViewer = true
+                                        }
+                                }
+                            }
+                            
+                            // 마지막 파일이 아닌 경우에만 Divider 추가
+                            if index < post.files.count - 1 {
+                                Divider()
+                                    .background(Color.Gray60)
+                                    .padding(.vertical, 8)
+                            }
+                        }
+                    }
                 }
             }
+        }
+        .environment(\.showPDFViewer) { pdfPath in
+            selectedPDFPath = pdfPath
+            PDFViewerViewModel.shared.setPDFPath(pdfPath)
+            showPDFViewer = true
+        }
+        .environment(\.showImageViewer) { imagePath in
+            
+            selectedImagePath = imagePath
+            ImageFullViewerViewModel.shared.setImagePath(imagePath)
+            showImageViewer = true
+            
+        }
+        .environment(\.showGIFViewer) { gifURL in
+            selectedGIFURL = gifURL
+            GIFViewerViewModel.shared.setGifURL(gifURL)
+            showGIFViewer = true
+        }
+        .environment(\.showVideoPlayer) { videoURL in
+            
+            selectedVideoURL = videoURL
+            VideoViewerViewModel.shared.setVideoURL(videoURL)
+            showVideoPlayer = true
+            
         }
     }
     
@@ -442,58 +629,25 @@ struct PostDetailView: View {
     private func sendReply(parentCommentId: String, content: String) {
         container.handle(.sendReply(parentCommentId, content))
     }
-
+    
     // MARK: - Alert State
-    @State private var showResendAlertState: (show: Bool, isReply: Bool, parentId: String?, tempId: String?) = (false, false, nil, nil)
-    @State private var showDeleteAlertState: (show: Bool, isReply: Bool, parentId: String?, tempId: String?) = (false, false, nil, nil)
-
-    private func showResendAlert(isReply: Bool, parentId: String?, tempId: String) {
-        // CustomAlert로 대체
-        customAlert = CustomAlert(
-            type: .info,
-            title: "재전송 하시겠습니까?",
-            message: "댓글을 재전송하시겠습니까?",
-            primaryButtonTitle: "재전송",
-            secondaryButtonTitle: "취소",
-            onPrimary: {
-                if isReply {
-                    if let parentId = parentId {
-                        container.handle(.resendReply(parentId, tempId))
-                    }
-                } else {
-                    container.handle(.resendComment(tempId))
-                }
-                toast = FancyToast(type: .info, title: "재전송", message: "재전송을 시도합니다.", duration: 2)
-            },
-            onSecondary: {
-                // 취소시 아무 동작 없음
-            }
-        )
+    @State private var showResendAlertState = AlertState()
+    @State private var showDeleteAlertState = AlertState()
+    
+    // MARK: - Alert State Structure
+    struct AlertState {
+        var show: Bool = false
+        var isReply: Bool = false
+        var parentId: String? = nil
+        var tempId: String? = nil
     }
+    
+    private func showResendAlert(isReply: Bool, parentId: String?, tempId: String) {
+        showResendAlertState = AlertState(show: true, isReply: isReply, parentId: parentId, tempId: tempId)
+    }
+    
     private func showDeleteAlert(isReply: Bool, parentId: String?, tempId: String) {
-        // CustomAlert로 대체
-        customAlert = CustomAlert(
-            type: .error,
-            title: "삭제 하시겠습니까?",
-            message: "댓글을 삭제하시겠습니까?",
-            primaryButtonTitle: "삭제",
-            secondaryButtonTitle: "취소",
-            onPrimary: {
-                if isReply {
-                    if let parentId = parentId {
-                        // tempId가 실제 replyId로 사용됨
-                        container.handle(.deleteReply(parentId, tempId))
-                    }
-                } else {
-                    // tempId가 실제 commentId로 사용됨
-                    container.handle(.deleteComment(tempId))
-                }
-                toast = FancyToast(type: .info, title: "삭제", message: "삭제되었습니다.", duration: 2)
-            },
-            onSecondary: {
-                // 취소시 아무 동작 없음
-            }
-        )
+        showDeleteAlertState = AlertState(show: true, isReply: isReply, parentId: parentId, tempId: tempId)
     }
 }
 
@@ -723,7 +877,7 @@ struct CommentReplyView: View {
                         editText = reply.content
                         isEditing = true
                         editingReplyId = reply.commentId
-                        print("대댓글 수정 시작 - editingReplyId: \(reply.commentId)")
+                        
                         // 약간의 지연 후 포커스 설정
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                             isReplyTextFieldFocused = true
@@ -784,5 +938,27 @@ extension PostDetailView {
                     secondaryButton: .cancel(Text("취소"))
                 )
             }
+    }
+}
+
+// MARK: - File Helper Functions
+extension PostDetailView {
+    private func isVideoFile(_ fileURL: String) -> Bool {
+        let videoExtensions = ["mp4", "mov", "avi", "mkv", "wmv"]
+        return videoExtensions.contains(getFileExtension(fileURL))
+    }
+    
+    private func isGIFFile(_ fileURL: String) -> Bool {
+        let gifExtensions = ["gif"]
+        return gifExtensions.contains(getFileExtension(fileURL))
+    }
+    
+    private func isPDFFile(_ fileURL: String) -> Bool {
+        let pdfExtensions = ["pdf"]
+        return pdfExtensions.contains(getFileExtension(fileURL))
+    }
+    
+    private func getFileExtension(_ fileURL: String) -> String {
+        return URL(string: fileURL)?.pathExtension.lowercased() ?? ""
     }
 }
