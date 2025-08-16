@@ -1,6 +1,7 @@
 import UIKit
 import Combine
 import SwiftUI
+import CryptoKit
 
 struct ChattingModel {
     var opponent_id: String?
@@ -642,11 +643,29 @@ final class ChattingContainer: ObservableObject {
         var newInvalidReasons: [Int: String] = [:]
         var hasDuplicate = false
         
-        // 중복 파일 검사
+        // 1단계: 파일명 기반 중복 검사
         let fileNames = files.map { $0.fileName }
         let uniqueFileNames = Set(fileNames)
         if fileNames.count != uniqueFileNames.count {
             hasDuplicate = true
+            print("⚠️ 파일명 중복 감지")
+        }
+        
+        // 2단계: 파일 내용 샘플링 기반 해시 중복 검사 (파일명이 다른 경우)
+        if !hasDuplicate {
+            var fileHashes: [String] = []
+            
+            for file in files {
+                let sampleData = sampleFileData(file, sampleSize: 1024) // 1KB 샘플링
+                let hash = calculateFileHash(data: sampleData)
+                fileHashes.append(hash)
+            }
+            
+            let uniqueHashes = Set(fileHashes)
+            if fileHashes.count != uniqueHashes.count {
+                hasDuplicate = true
+                print("⚠️ 파일 내용 중복 감지 (샘플링 해시 기반)")
+            }
         }
         
         for (index, file) in files.enumerated() {
@@ -715,6 +734,46 @@ final class ChattingContainer: ObservableObject {
             )
             print("⚠️ 유효하지 않은 파일이 감지되었습니다: \(newInvalidIndices.count)개")
         }
+    }
+    
+    // 파일 데이터 샘플링 (성능 최적화)
+    private func sampleFileData(_ file: SelectedFile, sampleSize: Int = 1024) -> Data {
+        let fullData = file.data ?? file.image?.jpegData(compressionQuality: 0.8) ?? Data()
+        
+        // 파일 크기가 작으면 전체 사용
+        if fullData.count <= sampleSize {
+            return fullData
+        }
+        
+        // 대용량 파일의 경우 스마트 샘플링
+        var sampleData = Data()
+        
+        // 1. 파일 시작 부분 (헤더 정보) - 40%
+        let headerSize = sampleSize * 4 / 10
+        sampleData.append(fullData.prefix(headerSize))
+        
+        // 2. 파일 중간 부분 (데이터 영역) - 30%
+        let middleSize = sampleSize * 3 / 10
+        let middleStart = fullData.count / 2 - middleSize / 2
+        let middleEnd = fullData.count / 2 + middleSize / 2
+        if middleStart >= 0 && middleEnd <= fullData.count {
+            sampleData.append(fullData[middleStart..<middleEnd])
+        }
+        
+        // 3. 파일 끝 부분 (푸터 정보) - 30%
+        let footerSize = sampleSize - sampleData.count
+        if footerSize > 0 {
+            sampleData.append(fullData.suffix(footerSize))
+        }
+        
+        print("📊 파일 샘플링: \(file.fileName) - 전체: \(fullData.count) bytes → 샘플: \(sampleData.count) bytes")
+        return sampleData
+    }
+    
+    // 파일 내용 해시 계산
+    private func calculateFileHash(data: Data) -> String {
+        let hash = SHA256.hash(data: data)
+        return hash.compactMap { String(format: "%02x", $0) }.joined()
     }
     
     deinit {

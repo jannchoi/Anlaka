@@ -72,26 +72,78 @@ final class TokenRefreshManager {
         isRefreshingToken = true
         lastRefreshTime = now
 
+        print("🔄 토큰 갱신 시작 - 현재 시간: \(now)")
         
         do {
             // refreshToken 유효성 확인
             let refreshExp = UserDefaultsManager.shared.getInt(forKey: .expRefresh)
+            print("🔄 RefreshToken 만료 시간: \(refreshExp), 현재 시간: \(Int(now))")
+            
             if Int(now) >= refreshExp {
+                print("❌ RefreshToken이 만료되었습니다")
                 throw CustomError.expiredRefreshToken
             }
             
-            // 토큰 갱신 요청
-            let refreshRequest = AuthRouter.getRefreshToken
-            let response = try await NetworkManager.shared.executeRequest(refreshRequest, model: RefreshTokenResponseDTO.self)
+            print("🔄 토큰 갱신 요청 전송 중...")
+            
+            // 현재 저장된 토큰 확인
+            let currentAccessToken = KeychainManager.shared.getString(forKey: .accessToken)
+            let currentRefreshToken = KeychainManager.shared.getString(forKey: .refreshToken)
+            print("🔍 토큰 갱신 요청 전 토큰 확인 - AccessToken: \(currentAccessToken?.prefix(20) ?? "nil"), RefreshToken: \(currentRefreshToken?.prefix(20) ?? "nil")")
+            
+            // 토큰 갱신 요청을 백그라운드에서 실행
+            let response = try await Task.detached {
+                let refreshRequest = AuthRouter.getRefreshToken
+                
+                // 요청 내용 로그 출력
+                do {
+                    let urlRequest = try refreshRequest.asURLRequest()
+                    print("🔍 토큰 갱신 요청 상세:")
+                    print("   URL: \(urlRequest.url?.absoluteString ?? "nil")")
+                    print("   Method: \(urlRequest.httpMethod ?? "nil")")
+                    print("   Headers: \(urlRequest.allHTTPHeaderFields ?? [:])")
+                    if let body = urlRequest.httpBody {
+                        print("   Body: \(String(data: body, encoding: .utf8) ?? "nil")")
+                    }
+                } catch {
+                    print("❌ 요청 생성 실패: \(error)")
+                }
+                
+                return try await NetworkManager.shared.executeRequest(refreshRequest, model: RefreshTokenResponseDTO.self)
+            }.value
+            
+            print("✅ 토큰 갱신 응답 수신 성공")
+            
+            // 새 토큰 저장 전 로그
+            print("🔄 새 토큰 저장 시작 - AccessToken 길이: \(response.accessToken.count), RefreshToken 길이: \(response.refreshToken.count)")
             
             // 새 토큰 저장
             KeychainManager.shared.set(response.accessToken, forKey: .accessToken)
             KeychainManager.shared.set(response.refreshToken, forKey: .refreshToken)
             
+            print("✅ 새 토큰 저장 완료")
+            
+            // 저장된 토큰 확인
+            let savedAccessToken = KeychainManager.shared.getString(forKey: .accessToken)
+            let savedRefreshToken = KeychainManager.shared.getString(forKey: .refreshToken)
+            print("🔍 저장된 토큰 확인 - AccessToken: \(savedAccessToken?.prefix(20) ?? "nil"), RefreshToken: \(savedRefreshToken?.prefix(20) ?? "nil")")
+            
+            // 새 토큰의 만료 시간 업데이트
+            if let accessExp = JWTDecoder.decodeExpiration(from: response.accessToken) {
+                UserDefaultsManager.shared.set(accessExp, forKey: .expAccess)
+                print("✅ 새 AccessToken 만료 시간 업데이트: \(accessExp)")
+            }
+            
+            if let refreshExp = JWTDecoder.decodeExpiration(from: response.refreshToken) {
+                UserDefaultsManager.shared.set(refreshExp, forKey: .expRefresh)
+                print("✅ 새 RefreshToken 만료 시간 업데이트: \(refreshExp)")
+            }
+            
             // 갱신 완료 및 트리거 해제
             completeTokenRefresh()
             print(" 토큰 갱신 성공")
         } catch {
+            print("❌ 토큰 갱신 중 에러 발생: \(error)")
             failTokenRefresh(error: error)
             if error as? CustomError == .expiredRefreshToken {
                 await NetworkManager.shared.handleRefreshTokenExpiration()
@@ -167,6 +219,10 @@ final class TokenRefreshManager {
         
         print(" 대기 중인 \(requests.count)개 요청 실행")
         
+        // 새 토큰으로 요청 실행 전 토큰 확인
+        let newAccessToken = KeychainManager.shared.getString(forKey: .accessToken)
+        print("🔍 대기 요청 실행 전 새 토큰 확인 - AccessToken: \(newAccessToken?.prefix(20) ?? "nil")")
+        
         for pendingRequest in requests {
             Task {
                 do {
@@ -201,18 +257,15 @@ final class NetworkManager {
     func callRequest<T: Decodable>(target: NetworkRequestConvertible, model: T.Type) async throws -> T {
         try await NetworkMonitor.shared.checkConnection()
         
-        // 토큰 만료 여부 확인 및 상태 설정
-        let isExpired = await MainActor.run {
+        // MainActor에서 상태 체크만 수행
+        let (isExpired, shouldWait) = await MainActor.run {
             let expired = try? checkTokenValiditySync(for: target)
             if expired == true {
                 tokenRefreshManager.setTokenExpired(true)
             }
-            return expired == true
-        }
-        
-        // 토큰이 만료되었거나 갱신 중이면 대기 큐에 추가
-        let shouldWait = await MainActor.run {
-            tokenRefreshManager.isCurrentlyTokenExpired || tokenRefreshManager.isCurrentlyRefreshing
+            
+            let shouldWait = tokenRefreshManager.isCurrentlyTokenExpired || tokenRefreshManager.isCurrentlyRefreshing
+            return (expired == true, shouldWait)
         }
         
         if shouldWait {
@@ -221,7 +274,7 @@ final class NetworkManager {
             return try await withCheckedThrowingContinuation { continuation in
                 var hasResumed = false
                 
-                // MainActor에서 addPendingRequest 호출
+                // MainActor에서 대기 요청 추가만 수행
                 Task { @MainActor in
                     tokenRefreshManager.addPendingRequest(target, model: model) { result in
                         guard !hasResumed else { return }
@@ -236,7 +289,7 @@ final class NetworkManager {
                     }
                 }
                 
-                // 첫 번째 만료 요청이고 갱신이 시작되지 않았으면 갱신 시작
+                // 첫 번째 만료 요청이고 갱신이 시작되지 않았으면 갱신 시작 (백그라운드에서)
                 if isExpired {
                     Task {
                         let isRefreshing = await MainActor.run {
@@ -257,13 +310,13 @@ final class NetworkManager {
                     }
                 }
             }
+        } else {
+            // 토큰이 유효하면 백그라운드에서 요청 실행
+            await MainActor.run {
+                tokenRefreshManager.setTokenExpired(false)
+            }
+            return try await executeRequest(target, model: model)
         }
-        
-        // 토큰이 유효하면 즉시 요청 실행 및 트리거 해제
-        await MainActor.run {
-            tokenRefreshManager.setTokenExpired(false)
-        }
-        return try await executeRequest(target, model: model)
     }
     
     // MARK: - 토큰 유효성 검사 (동기적으로 호출 가능하도록 수정)
@@ -274,6 +327,8 @@ final class NetworkManager {
 
         let now = Int(Date().timeIntervalSince1970)
         let accessExp = UserDefaultsManager.shared.getInt(forKey: .expAccess)
+        
+        print("🔍 토큰 유효성 검사 - 현재 시간: \(now), AccessToken 만료 시간: \(accessExp), 만료 여부: \(now >= accessExp)")
         
         return now >= accessExp // AccessToken 만료 여부 반환
     }
@@ -374,28 +429,25 @@ final class NetworkManager {
     
     // MARK: - URLRequest로부터 파일 다운로드
     private func downloadFileFromRequest(_ target: NetworkRequestConvertible) async throws -> (localPath: String, image: UIImage?) {
-        // 토큰 만료 여부 확인 및 상태 설정
-        let isExpired = await MainActor.run {
+        // 토큰 만료 여부 확인 및 상태 설정을 단일 MainActor.run 블록으로 통합
+        let (isExpired, shouldWait) = await MainActor.run {
             let expired = try? checkTokenValiditySync(for: target)
             if expired == true {
                 tokenRefreshManager.setTokenExpired(true)
             }
-            return expired == true
-        }
-        
-        // 토큰이 만료되었거나 갱신 중이면 대기 큐에 추가
-        let shouldWait = await MainActor.run {
-            tokenRefreshManager.isCurrentlyTokenExpired || tokenRefreshManager.isCurrentlyRefreshing
+            
+            let shouldWait = tokenRefreshManager.isCurrentlyTokenExpired || tokenRefreshManager.isCurrentlyRefreshing
+            return (expired == true, shouldWait)
         }
         
         if shouldWait {
             print("이미지 다운로드 대기 중 - 토큰 갱신 진행 중")
             
             return try await withCheckedThrowingContinuation { continuation in
-                var hasResumed = false
-                
-                // MainActor에서 addPendingRequest 호출
+                // MainActor 내부에서 상태 관리
                 Task { @MainActor in
+                    var hasResumed = false
+                    
                     tokenRefreshManager.addPendingRequest(target, model: Data.self) { result in
                         guard !hasResumed else { return }
                         hasResumed = true
@@ -414,14 +466,10 @@ final class NetworkManager {
                             continuation.resume(throwing: error)
                         }
                     }
-                }
-                
-                // 첫 번째 만료 요청이고 갱신이 시작되지 않았으면 갱신 시작
-                if isExpired {
-                    Task {
-                        let isRefreshing = await MainActor.run {
-                            tokenRefreshManager.isCurrentlyRefreshing
-                        }
+                    
+                    // 첫 번째 만료 요청이고 갱신이 시작되지 않았으면 갱신 시작
+                    if isExpired {
+                        let isRefreshing = tokenRefreshManager.isCurrentlyRefreshing
                         
                         if !isRefreshing {
                             do {

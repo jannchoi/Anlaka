@@ -7,8 +7,7 @@
 
 import Foundation
 enum AuthRouter: AuthorizedTarget {
-    
-    
+
     case getRefreshToken
     case log
     
@@ -49,10 +48,11 @@ enum AuthRouter: AuthorizedTarget {
             return ["SeSACKey": AppConfig.apiKey]
         }
     }
-    var parameters: [String : Any?] {
+    var parameters: [String : Any?]
+    {
         return [:]
     }
-    func asURLRequest() throws -> URLRequest {
+        func asURLRequest() throws -> URLRequest {
         let url = baseURL.appendingPathComponent(path)
         var request = URLRequest(url: url)
         request.httpMethod = method

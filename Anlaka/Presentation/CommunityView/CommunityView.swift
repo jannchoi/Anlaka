@@ -29,13 +29,41 @@ struct CommunityView: View {
                 CustomNavigationBar(
                     title: container.model.currentLocation,
                     rightButton: {
-                        // 위치 찾기 버튼
-                        Button(action: {
-                            container.handle(.showLocationSearch)
-                        }) {
-                            Text("위치 찾기")
-                                .font(.pretendardSubheadline)
-                                .foregroundColor(.MainTextColor)
+                        HStack(spacing: 4) {
+                            // 거리 설정 버튼 (컴팩트하게)
+                            Menu {
+                                ForEach([1, 3, 5, 10], id: \.self) { distance in
+                                    Button(action: {
+                                        container.handle(.updateMaxDistance(Double(distance * 1000)))
+                                    }) {
+                                        HStack {
+                                            Text("\(distance)km")
+                                            if container.model.maxDistance == Double(distance * 1000) {
+                                                Spacer()
+                                                Image(systemName: "checkmark")
+                                            }
+                                        }
+                                    }
+                                }
+                            } label: {
+                                Text("\(Int(container.model.maxDistance / 1000))km")
+                                    .font(.pretendardSubheadline)
+                                    .foregroundColor(.OliveMist)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 4)
+                                    .frame(width: 40)
+                            }
+                            
+                            // 위치 찾기 버튼 (아이콘으로 변경)
+                            Button(action: {
+                                container.handle(.showLocationSearch)
+                            }) {
+                                Image(systemName: "location")
+                                    .font(.system(size: 16))
+                                    .foregroundColor(.OliveMist)
+                                    .padding(6)
+                                    
+                            }
                         }
                     }
                 )

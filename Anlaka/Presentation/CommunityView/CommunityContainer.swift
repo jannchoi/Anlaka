@@ -24,6 +24,7 @@ struct CommunityModel {
     var showSearchAddressView: Bool = false // SearchAddressView 표시 여부
     var searchResults: [PostSummaryResponseEntity] = [] // 검색 결과 원본 저장
     var searchEntityResults: [PostSummaryResponseEntity] = [] // 검색 결과 Entity 원본 저장 (필터링/정렬용)
+    var maxDistance: Double = 5000 // 기본 5km
     
     // 파일 다운로드 관련
     var downloadedFiles: [ServerFileEntity] = []
@@ -43,6 +44,7 @@ enum CommunityIntent {
     case showLocationSearch // 위치 찾기 버튼 클릭
     case locationSelected(CLLocationCoordinate2D, String) // SearchAddressView에서 위치 선택
     case dismissLocationSearch // SearchAddressView 닫기
+    case updateMaxDistance(Double) // 검색 거리 업데이트
     case downloadPostFiles([ServerFileEntity]) // 파일 다운로드 시작
     case removePost(String) // 삭제된 post 제거
     case updatePost(PostResponseEntity) // 수정된 post 업데이트
@@ -145,6 +147,9 @@ final class CommunityContainer: NSObject, ObservableObject, LocationServiceDeleg
             loadPosts() // 새로운 위치로 게시물 로드
         case .dismissLocationSearch:
             model.showSearchAddressView = false
+        case .updateMaxDistance(let distance):
+            model.maxDistance = distance
+            loadPosts() // 새로운 거리로 게시물 다시 로드
         case .downloadPostFiles(let files):
             startFileDownload(for: files)
         case .removePost(let postId):
@@ -194,7 +199,7 @@ final class CommunityContainer: NSObject, ObservableObject, LocationServiceDeleg
                     category: model.selectedCategory.serverValue,
                     latitude: coordinate.latitude,
                     longitude: coordinate.longitude,
-                    maxDistance: 30000,
+                    maxDistance: model.maxDistance,
                     next: nil,
                     order: model.selectedSort.rawValue
                 )
@@ -224,7 +229,7 @@ final class CommunityContainer: NSObject, ObservableObject, LocationServiceDeleg
                     category: model.selectedCategory.serverValue,
                     latitude: coordinate.latitude,
                     longitude: coordinate.longitude,
-                    maxDistance: 30000,
+                    maxDistance: model.maxDistance,
                     next: nextCursor,
                     order: model.selectedSort.rawValue
                 )
