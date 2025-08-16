@@ -131,6 +131,7 @@ struct SelectedFile: Equatable {
     let fileType: FileType
     let image: UIImage?     // 이미지용
     let data: Data?         // PDF, 비디오용
+    let fileURL: URL?       // 파일 URL (DocumentPicker에서 선택된 파일 추적용)
     
     var fileExtension: String {
         return (fileName as NSString).pathExtension.lowercased()
@@ -298,7 +299,8 @@ extension ProfileSelectedFileViewModel {
             fileName: self.name,
             fileType: .image,
             image: image,
-            data: image.jpegData(compressionQuality: 0.8)
+            data: image.jpegData(compressionQuality: 0.8),
+            fileURL: nil  // ProfileSelectedFileViewModel에서는 URL 정보가 없으므로 nil
         )
     }
 }

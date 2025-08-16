@@ -10,7 +10,8 @@ enum FilePickerType {
     var selectionLimit: Int {
         switch self {
         case .profile: return 1
-        case .chat, .community: return 5
+        case .chat: return 5
+        case .community: return 10
         }
     }
     
@@ -133,7 +134,8 @@ struct FilePicker: UIViewControllerRepresentable {
                                     fileName: finalFileName,
                                     fileType: .image,
                                     image: image,
-                                    data: nil
+                                    data: nil,
+                                    fileURL: url
                                 )
                                 DispatchQueue.main.async {
                                     self?.parent.selectedFiles.append(selectedFile)
@@ -178,7 +180,8 @@ struct FilePicker: UIViewControllerRepresentable {
                                     fileName: finalFileName,
                                     fileType: .video,
                                     image: nil,
-                                    data: videoData
+                                    data: videoData,
+                                    fileURL: url
                                 )
                                 DispatchQueue.main.async {
                                     self?.parent.selectedFiles.append(selectedFile)
@@ -205,7 +208,8 @@ struct FilePicker: UIViewControllerRepresentable {
                                         fileName: url.lastPathComponent,
                                         fileType: .pdf,
                                         image: nil,
-                                        data: pdfData
+                                        data: pdfData,
+                                        fileURL: url
                                     )
                                     DispatchQueue.main.async {
                                         self?.parent.selectedFiles.append(selectedFile)
